@@ -1,0 +1,8 @@
+Here are some short term objectives:
+
+  - Fallback strategies for all factorization functions (find more relations,
+    change multiplier, etc.) to make them more robust. This is currently done
+    for CFRAC and SQUFOF only and needs to be extended to SIQS.
+  
+  - Improve the ECM implementation. It is currently way below par
+    performance wise. It should be considered as a simple toy-ECM for now.

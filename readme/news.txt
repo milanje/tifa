@@ -1,0 +1,10 @@
+TIFA library (Tools for Integer FActorization)
+----------------------------------------------
+
+- Fri 10 June 2011
+ 
+  TIFA has been registered in June 2011 at the french agency for software
+  protection (APP - http://app.legalis.net) with
+  the Inter Deposit Digital Number:
+
+      IDDN.FR.001.220019.000.S.A.2011.000.31235.

@@ -1,0 +1,4 @@
+Author(s) of the TIFA library:
+------------------------------
+
+- MILAN Jerome : <milanje at gmail dot com>
