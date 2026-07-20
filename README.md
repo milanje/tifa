@@ -14,12 +14,55 @@ mostly abandoned during the past few years and is probably not competitive
 anymore.
 
 The source code was uploaded "as is" to [GitHub](https://github.com) in
-April 2020 to adapt the build process, which uses [SCons](https://scons.org),
-to Python 3. To be honest, that crufty code shows its age and does need a good
-clean up.
+April 2020. It was originally built with [SCons](https://scons.org); the build
+system has since been migrated to [CMake](https://cmake.org) (the old SCons
+files have been removed).
 
-In the meantime, a proper [readme.txt](./readme/readme.txt) file can be found in the `readme` directory. This go over the requirements and the installation
-steps.
+The [readme.txt](./readme/readme.txt) file in the `readme` directory still
+describes the algorithms, the source layout and the Perl tooling. Note that its
+build/installation instructions refer to the retired SCons build &mdash; use
+the CMake instructions below instead.
+
+## Building
+
+Requirements:
+
+- a C99 compiler,
+- [GMP](https://gmplib.org) (>= 4.2), the sole external dependency,
+- [CMake](https://cmake.org) >= 3.20.
+
+Optional: [Doxygen](https://www.doxygen.nl) (+ LaTeX for the PDF) for the API
+documentation, and Perl (with `pod2man`) plus [gnuplot](http://www.gnuplot.info)
+for the benchmarking scripts.
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cmake --install build            # honors -DCMAKE_INSTALL_PREFIX=...
+```
+
+If GMP lives in a non-standard location, pass `-DGMP_INCDIR=<dir>` and
+`-DGMP_LIBDIR=<dir>`. Build options mirror the old `BuildOptions.py` and are set
+with `-D<OPTION>=<value>` (run `cmake -LH build` to list them); for example
+`-DTIFA_BITSTRING_T=...`, `-DTIFA_ALLOW_VERBOSE=ON`, `-DTIFA_ALLOW_TIMING=ON`.
+
+The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
+`libtifa.dylib`) library, plus the command-line factorization programs
+(`cfrac`, `ecm`, `fermat`, `siqs`, `squfof`, `rho`, `tdiv`). Installation also
+provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
+can consume TIFA with either:
+
+```cmake
+find_package(Tifa REQUIRED)
+target_link_libraries(your_app PRIVATE Tifa::tifa)          # or Tifa::tifa_static
+```
+
+```sh
+cc app.c $(pkg-config --cflags --libs tifa) -o app
+```
+
+Other targets: `cmake --build build --target doc` (Doxygen documentation, if
+available) and `cpack --config build/CPackSourceConfig.cmake` (source tarball).
 
 A [very crude documentation](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/doc/tifa_user.pdf) is available as a PDF on the
 [project's LIX webpage](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/tifa.xhtml).

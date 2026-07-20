@@ -1,0 +1,22 @@
+# CMake out-of-source build directory
+/build/
+
+# CPack working directory and source packages
+/_CPack_Packages/
+/tifa-*.tar.gz
+/tifa-*.tgz
+
+# Generated config header (produced into the build dir, but guard against
+# an in-source generation too)
+/tifa_config.h
+
+# Legacy SCons artifacts
+/.sconf_temp/
+.sconsign.dblite
+
+# Editor / OS cruft
+*.o
+*.a
+*.so
+*.dylib
+.DS_Store
