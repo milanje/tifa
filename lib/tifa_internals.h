@@ -64,7 +64,6 @@
 #include "cfrac.h"
 #include "ecm.h"
 #include "fermat.h"
-#include "qs.h"
 #include "siqs.h"
 #include "squfof.h"
 #include "tdiv.h"
