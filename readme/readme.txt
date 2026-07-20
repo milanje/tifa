@@ -117,102 +117,101 @@
 
       http://www.doxygen.org
 
-  The TIFA code matches the C99 standard so you'll obviously need a somewhat
-  C99-compliant compiler (knowing that there's not a lot of fully C99-compliant
-  compilers). TIFA has been developed and tested with the GCC C compiler
-  version 3.3, 4.0, 4.1 and 4.2, but other versions should probably work too.
+  The TIFA code matches the C99 standard so you'll obviously need a
+  C99-compliant compiler. TIFA was originally developed with GCC 3.3-4.2 and
+  builds cleanly with modern GCC and Clang.
 
-  Lastly, you will need the SCons tool version 2.0.0 or higher available at:
+  Lastly, you will need the CMake build tool version 3.20 or higher, available
+  at:
 
-      http://www.scons.org
+      https://cmake.org
 
-  to compile the TIFA library. Note that you'll also need a distribution of
-  Python version 3 (3.6 or higher is recommended).
-  Python is available at:
-
-      http://www.python.org/download/
+  to configure and build the TIFA library. (Earlier releases used SCons; the
+  build system has since been migrated to CMake.)
 
 ------------------------------------------------------------------------------
 5. How to install?
 ------------------------------------------------------------------------------
 
-  TIFA uses the Python-based SCons build tool in place of the more
-  traditional autotools suite. Provided that you have the SCons tool
-  installed and a not too old distribution of Python (2.4 or higher),
-  building the TIFA library should be as easy as with the autotools:
+  TIFA uses the CMake build system. Building follows the standard
+  out-of-source CMake workflow:
 
-  1) Edit the file BuildOptions.py in TIFA's top directory. This file describes
-     the parameters used during compilation and installation, so you should
-     adapt it to your set-up or default values will be used.
+  1) Configure the build (into a "build" directory):
 
-     Do not panic: the provided BuildOptions.py is _extensively_ commented!
+         prompt> cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
-     For a short overview of all of the relevant parameters, type "scons -h".
+     Build parameters are set on this command line with -D<OPTION>=<value>;
+     they are the successors of the old BuildOptions.py entries. Run
 
-  2) Compile the library and its programs by invoking SCons:
+         prompt> cmake -LH build
 
-         prompt> scons
+     to list them with their descriptions. Commonly used options include:
 
-  3) Optionally, you can generate the documentation:
+         -DCMAKE_INSTALL_PREFIX=<dir>  installation prefix (default /usr/local)
+         -DGMP_INCDIR=<dir>            GMP headers, if in a non-standard place
+         -DGMP_LIBDIR=<dir>            GMP library, if in a non-standard place
+         -DTIFA_BITSTRING_T=<type>     native C type for a string of bits
+         -DTIFA_ALLOW_VERBOSE=ON       turn on per-algorithm verbose output
+         -DTIFA_ALLOW_TIMING=ON        turn on per-algorithm timing messages
 
-         prompt> scons doc
+  2) Compile the library and its programs:
 
-  4) Finally, install the library:
+         prompt> cmake --build build
 
-         prompt> scons install
+  3) Optionally, generate the documentation (requires Doxygen):
 
-  Here is a brief list of the main SCons commands available:
+         prompt> cmake --build build --target doc
 
-     scons             : build the TIFA library and its programs
-     scons doc         : generate the documentation
-     scons install     : install the library and its programs, the Perl modules
-                         and scripts, the man pages but not the Doxygen
-                         documentation
-     scons install-doc : install the Doxygen documentation
-     scons -c          : clean everything
-     scons -c doc      : clean the documentation
-     scons dist        : create a tgz archive for distribution. (WARNING: due
-                         to current limitations of SCons, the generated tgz
-                         archive will expand in the current directory instead
-                         of creating a tifa-X.X.X directory and expanding the
-                         archive there...)
+  4) Finally, install the library, programs, Perl modules/scripts and man
+     pages:
 
-  Other commands, albeit not really interesting, are also available:
+         prompt> cmake --install build
 
-     scons install-lib     : install the library only
-     scons install-bin     : install the programs only
-     scons install-script  : install the perl scripts only
-     scons install-conf    : install the perl scripts' configuration files only
-     scons install-perlmod : install the Tifa perl modules only
-     scons install-man     : install the Tifa perl modules' man pages only
+  A few other useful commands:
 
-  Also, note that for the time being, only a static version of the library is
-  generated. Later versions of TIFA will probably provide an option to build
-  both static and shared versions.
+     cmake --build build --target man              : (re)generate the man pages
+     cmake --build build --target clean            : remove build artifacts
+     cpack --config build/CPackSourceConfig.cmake  : create a tifa-X.X.X.tar.gz
+                                                     source archive
+
+  Both a static (libtifa.a) and a shared (libtifa.so / libtifa.dylib) version
+  of the library are built and installed. Installation also provides a
+  pkg-config file (tifa.pc) and a CMake package config, so that downstream
+  projects can use TIFA through either:
+
+     find_package(Tifa REQUIRED)
+     target_link_libraries(your_app PRIVATE Tifa::tifa)   # or Tifa::tifa_static
+
+  or, with pkg-config:
+
+     cc app.c $(pkg-config --cflags --libs tifa) -o app
 
 ------------------------------------------------------------------------------
 6. Where do things get installed?
 ------------------------------------------------------------------------------
 
-  The installation process depends on the variables defined in BuildOptions.py:
+  The installation layout follows the standard GNU directory conventions
+  (CMake's GNUInstallDirs), rooted at CMAKE_INSTALL_PREFIX (default
+  /usr/local):
 
-    - The TIFA library libtifa.a is installed in LIBDIR.
+    - The TIFA libraries (static libtifa.a and shared libtifa.so/.dylib) are
+      installed in <prefix>/lib.
 
-    - TIFA header files are installed in INCLUDEDIR. Quite a few headers are
-      installed, so it is advised to put them all in a dedicated folder such as
-      /usr/include/tifa or ~/include/tifa.
+    - TIFA header files are installed in <prefix>/include/tifa. The sources
+      include their headers by bare name, so consumers add that directory to
+      their include path (handled automatically by the pkg-config file and the
+      CMake package).
 
-    - Programs are installed in BINDIR.
+    - Programs and the Perl scripts are installed in <prefix>/bin.
 
-    - Scripts are installed in SCRIPTDIR.
+    - Configuration files for the scripts go in <prefix>/share/tifa/conf.
 
-    - Configuration files for the scripts are installed in CONFDIR.
+    - Perl modules are installed in <prefix>/share/tifa/perl (override with
+      -DTIFA_INSTALL_PERLMODDIR=<dir>).
 
-    - Perl modules are installed in PERLMODDIR
+    - Man pages are installed in <prefix>/share/man/man3.
 
-    - Documentation is installed in DOCDIR.
-
-  For more information, type "scons -h".
+  Run "cmake -LH build" to see all installation-related variables.
 
 ------------------------------------------------------------------------------
 7. What's in there?
@@ -378,9 +377,10 @@
 ------------------------------------------------------------------------------
 
   Library files are documented by embedded Doxygen comments which can be
-  extracted and compiled as either HTML, PDF, RTF or XML files. Doxygen
-  documentation can be toggled on and off when invoking SCons (see the
-  BuildOptions.py file). Type "scons -h" for more information.
+  extracted and compiled as either HTML, PDF, RTF or XML files by running
+  "cmake --build build --target doc" (requires Doxygen). The output formats are
+  selected with the -DTIFA_GENERATE_DOXYGEN_* options; run "cmake -LH build"
+  for the full list.
 
   The C programs in the directory tifa/tools don't currently have their
   documentation generated by Doxygen as it would not be particularly helpful.
@@ -400,12 +400,12 @@
 ------------------------------------------------------------------------------
 
   First, you'll have to compile and install the TIFA library and its
-  associated programs as previously explained. Edit the file "BuildOptions.py"
-  to suit your needs and then, issue these commands in a shell:
+  associated programs as previously explained. In short, issue these commands
+  in a shell:
 
-      prompt> scons
-      prompt> scons doc
-      prompt> scons install
+      prompt> cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      prompt> cmake --build build
+      prompt> cmake --install build
 
   There are five programs that you will be likely to use: cfrac, ecm,
   fermat, siqs and squfof which as their names imply, factor integers using
@@ -535,8 +535,8 @@
   --------------------------
 
     Check TIFA's requirements at the beginning of this file. In particular,
-    you should have Python v2.4 or newer installed on your system together
-    with SCons v2.0.0 or newer and (of course) the GMP library.
+    you should have CMake v3.20 or newer and a C99 compiler installed on your
+    system, together with (of course) the GMP library.
 
   The compilation fails: the linker complains about duplicate symbols!
   --------------------------------------------------------------------
