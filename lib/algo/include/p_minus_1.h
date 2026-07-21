@@ -60,6 +60,13 @@ struct struct_p_minus_1_params_t {
          */
     uint32_t b1;
         /**
+         * Stage 2 bound. Stage 2 recovers a factor \c p when <tt>p - 1</tt> is
+         * a \c b1-smooth number times a single prime in <tt>(b1, b2]</tt>. If
+         * <tt>b2 <= b1</tt>, stage 2 is skipped. Must be no greater than the
+         * largest tabulated prime (see \c LARGEST_PRIME in first_primes.h).
+         */
+    uint32_t b2;
+        /**
          * The base \c a of the exponentiation <tt>a^E mod n</tt>. Usually 2.
          */
     uint32_t base;

@@ -53,6 +53,17 @@
 //
 #define DEFAULT_BASE     2
 #define DEFAULT_B1       50000
+//
+// Default stage-2 bound, as a multiple of B1 (clamped to LARGEST_PRIME).
+//
+#define DEFAULT_B2_RATIO 20UL
+//
+// Half of the largest prime gap the stage-2 gap-power table covers. The
+// maximal gap between consecutive primes below LARGEST_PRIME (821641) is 148,
+// so gaps up to 200 are handled directly; any larger gap falls back to a
+// modular exponentiation.
+//
+#define MAX_GAP_HALF     100
 
 //
 // An ad-hoc structure holding the data variables used by the Pollard's p-1
@@ -76,6 +87,7 @@ struct struct_p_minus_1_context_t {
     //
     mpz_t a;
     mpz_t g;
+    mpz_t aq;
 };
 typedef struct struct_p_minus_1_context_t p_minus_1_context_t;
 
@@ -145,6 +157,11 @@ void set_p_minus_1_params_to_default(const mpz_t n MAYBE_UNUSED,
     if (params->b1 > LARGEST_PRIME) {
         params->b1 = LARGEST_PRIME;
     }
+    unsigned long b2 = DEFAULT_B2_RATIO * (unsigned long) params->b1;
+    if (b2 > LARGEST_PRIME) {
+        b2 = LARGEST_PRIME;
+    }
+    params->b2 = (uint32_t) b2;
 }
 //------------------------------------------------------------------------------
 
@@ -170,6 +187,7 @@ static ecode_t init_p_minus_1_context(factoring_machine_t* const machine) {
     mpz_init_set(context->n, machine->n);
     mpz_init_set_ui(context->a, 1);
     mpz_init_set_ui(context->g, 1);
+    mpz_init_set_ui(context->aq, 1);
 
     context->params   = (p_minus_1_params_t*) machine->params;
     context->nupdates = 0;
@@ -191,6 +209,7 @@ static ecode_t clear_p_minus_1_context(factoring_machine_t* const machine) {
         mpz_clear(context->n);
         mpz_clear(context->a);
         mpz_clear(context->g);
+        mpz_clear(context->aq);
         free(context);
     }
 
@@ -223,6 +242,12 @@ static ecode_t update_p_minus_1_context(factoring_machine_t* const machine) {
             nb1 = LARGEST_PRIME;
         }
         params->b1 = (uint32_t) nb1;
+
+        unsigned long nb2 = (unsigned long) params->b2 * B1_GROWTH_FACTOR;
+        if (nb2 > LARGEST_PRIME) {
+            nb2 = LARGEST_PRIME;
+        }
+        params->b2 = (uint32_t) nb2;
     }
 
     STOP_TIMER;
@@ -282,16 +307,96 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
     }
 
     //
-    // g = gcd(a - 1, n). A nontrivial gcd is a factor of n.
+    // Stage 1 result: g = gcd(base^E - 1, n). Compute it via g so that
+    // a = base^E is preserved for stage 2. A nontrivial gcd is a factor.
     //
-    mpz_sub_ui(a, a, 1);
-    mpz_gcd(g, a, n);
+    mpz_sub_ui(g, a, 1);
+    mpz_gcd(g, g, n);
 
     if ((mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0)) {
         append_mpz_to_array(machine->factors, g);
         mpz_divexact(g, n, g);
         append_mpz_to_array(machine->factors, g);
-        ecode = SOME_FACTORS_FOUND;
+
+        STOP_TIMER;
+        PRINT_TIMING;
+        return SOME_FACTORS_FOUND;
+    }
+
+    //
+    // Stage 2: if stage 1 did not overshoot (g != n) and a second bound is
+    // set, look for a factor p such that p - 1 is a b1-smooth number times a
+    // single prime q in (b1, b2]. Starting from a = base^E we have
+    // ord_p(a) | q for such a p, hence gcd(a^q - 1, n) reveals p. We walk the
+    // primes q in (b1, b2] updating a^q by a single multiplication per prime,
+    // using a precomputed table of a raised to the (even) prime gaps.
+    //
+    // ip already indexes the first prime > b1 (left by the stage-1 loop).
+    //
+    if ((mpz_cmp(g, n) != 0) && (params->b2 > params->b1)
+        && (ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b2)) {
+
+        mpz_ptr aq = context->aq;
+
+        //
+        // gap_pow[k] = a^(2k) mod n, for k = 1 .. MAX_GAP_HALF.
+        //
+        mpz_t gap_pow[MAX_GAP_HALF + 1];
+        mpz_init(gap_pow[1]);
+        mpz_mul(gap_pow[1], a, a);
+        mpz_mod(gap_pow[1], gap_pow[1], n);
+        for (int k = 2; k <= MAX_GAP_HALF; k++) {
+            mpz_init(gap_pow[k]);
+            mpz_mul(gap_pow[k], gap_pow[k - 1], gap_pow[1]);
+            mpz_mod(gap_pow[k], gap_pow[k], n);
+        }
+
+        mpz_t t;
+        mpz_init(t);
+
+        //
+        // Bootstrap: aq = a^{q0} mod n for the first prime q0 > b1.
+        //
+        unsigned long prev = first_primes[ip];
+        mpz_powm_ui(aq, a, prev, n);
+
+        while (true) {
+            //
+            // g = gcd(aq - 1, n).
+            //
+            mpz_sub_ui(t, aq, 1);
+            mpz_gcd(g, t, n);
+            if ((mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0)) {
+                append_mpz_to_array(machine->factors, g);
+                mpz_divexact(g, n, g);
+                append_mpz_to_array(machine->factors, g);
+                ecode = SOME_FACTORS_FOUND;
+                break;
+            }
+            ip++;
+            if ((ip >= NFIRST_PRIMES) || (first_primes[ip] > params->b2)) {
+                break;
+            }
+            //
+            // aq <- aq * a^{gap} mod n, gap = current prime - previous prime.
+            //
+            unsigned long cur  = first_primes[ip];
+            unsigned long gap  = cur - prev;
+            unsigned long half = gap >> 1;
+            prev = cur;
+            if (half <= (unsigned long) MAX_GAP_HALF) {
+                mpz_mul(aq, aq, gap_pow[half]);
+            } else {
+                mpz_powm_ui(t, a, gap, n);
+                mpz_mul(aq, aq, t);
+            }
+            mpz_mod(aq, aq, n);
+        }
+
+        mpz_clear(t);
+        for (int k = 1; k <= MAX_GAP_HALF; k++) {
+            mpz_clear(gap_pow[k]);
+        }
     }
 
     STOP_TIMER;

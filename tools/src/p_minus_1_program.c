@@ -40,7 +40,7 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s\t<nprimes_tdiv> <number_to_factor>\n",
             program->argv[0]);
     fprintf(stderr, "or:\n");
-    fprintf(stderr, "%15s <nprimes_tdiv> <b1> <base> <number_to_factor>\n\n",
+    fprintf(stderr, "%15s <nprimes_tdiv> <b1> <b2> <base> <number_to_factor>\n\n",
             program->argv[0]);
     PRINT_USAGE_WARNING_MSG();
 }
@@ -116,10 +116,11 @@ static void process_args(factoring_program_t* const program) {
         *nfactors = 2;
         break;
     }
-    case 5: {
+    case 6: {
         //
-        // Four arguments provided: the <nprimes_tdiv> parameter, the stage-1
-        // bound <b1>, the <base>, and finally the number to factor.
+        // Five arguments provided: the <nprimes_tdiv> parameter, the stage-1
+        // bound <b1>, the stage-2 bound <b2>, the <base>, and finally the
+        // number to factor.
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
@@ -137,13 +138,19 @@ static void process_args(factoring_program_t* const program) {
             PRINT_NAN_ERROR(argv[3]);
             exit(-1);
         }
-        params->base = strtoul(argv[3], NULL, 10);
+        params->b2 = strtoul(argv[3], NULL, 10);
 
         if (!is_a_number(argv[4], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[4]);
             exit(-1);
         }
-        mpz_init_set_str(program->n, argv[4], 10);
+        params->base = strtoul(argv[4], NULL, 10);
+
+        if (!is_a_number(argv[5], MAX_NDIGITS)) {
+            PRINT_NAN_ERROR(argv[5]);
+            exit(-1);
+        }
+        mpz_init_set_str(program->n, argv[5], 10);
 
         *nfactors = 2;
         break;
@@ -164,6 +171,7 @@ static void set_params_to_default(factoring_program_t* const program) {
 static void print_params(factoring_program_t* const program) {
     p_minus_1_params_t* params = (p_minus_1_params_t*) program->params;
     printf("\t  b1 : %"PRIu32"\n", params->b1);
+    printf("\t  b2 : %"PRIu32"\n", params->b2);
     printf("\tbase : %"PRIu32"\n", params->base);
 }
 //------------------------------------------------------------------------------

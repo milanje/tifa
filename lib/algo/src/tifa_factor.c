@@ -131,6 +131,7 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
         p_minus_1_params_t pm1_params;
         set_p_minus_1_params_to_default(n, &pm1_params);
         pm1_params.b1 = TFACTOR_PM1_B1;
+        pm1_params.b2 = 0;   // stage 1 only: keep the pre-stage fail-fast
         ecode_t pm1_ecode = p_minus_1(factors, multis, n, &pm1_params, mode);
         if ((pm1_ecode != NO_FACTOR_FOUND) && (pm1_ecode != GIVING_UP)) {
             return pm1_ecode;

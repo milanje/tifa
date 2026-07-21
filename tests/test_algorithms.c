@@ -113,6 +113,22 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- Pollard p-1 stage 2 ---- (10007 = 2*5003 + 1: b1 < 5003 < b2,
+    // so stage 1 misses and stage 2 recovers the factor)
+    {
+        mul2(n, 10007UL, 1000003UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_minus_1_params_t params;
+        set_p_minus_1_params_to_default(n, &params);
+        params.b1 = 1000;    // below 5003: stage 1 misses
+        params.b2 = 10000;   // above 5003: stage 2 catches it
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_minus_1 stage2", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
     // ---- Trial division ---- 210 = 2*3*5*7, no mode parameter
     {
         mpz_set_ui(n, 210UL);
