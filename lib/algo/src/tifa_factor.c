@@ -30,6 +30,7 @@
 #include "tdiv.h"
 #include "siqs.h"
 #include "squfof.h"
+#include "p_minus_1.h"
 #include "tifa_factor.h"
 
 //-----------------------------------------------------------------------------
@@ -55,6 +56,12 @@
     //
     #define TFACTOR_SQUFOF_THRESH 64
 #endif
+//
+// Stage-1 bound for the opportunistic Pollard p-1 pass tried before SIQS on
+// large numbers. Kept small so that a miss costs only a handful of modular
+// exponentiations before dropping through to the sieve.
+//
+#define TFACTOR_PM1_B1 2000
 //-----------------------------------------------------------------------------
 ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
                     const mpz_t n, const factoring_mode_t mode) {
@@ -113,6 +120,21 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
         squfof_params_t params;
         set_squfof_params_to_default(&params);
         return squfof(factors, multis, n, &params, mode);
+    }
+    //
+    // Before the (expensive) quadratic sieve, try a quick bounded Pollard p-1
+    // pass: it cheaply peels off a prime factor p whenever p-1 is smooth. On a
+    // miss it costs only a handful of modular exponentiations and we drop
+    // through to SIQS.
+    //
+    {
+        p_minus_1_params_t pm1_params;
+        set_p_minus_1_params_to_default(n, &pm1_params);
+        pm1_params.b1 = TFACTOR_PM1_B1;
+        ecode_t pm1_ecode = p_minus_1(factors, multis, n, &pm1_params, mode);
+        if ((pm1_ecode != NO_FACTOR_FOUND) && (pm1_ecode != GIVING_UP)) {
+            return pm1_ecode;
+        }
     }
     siqs_params_t params;
     set_siqs_params_to_default(n, &params);

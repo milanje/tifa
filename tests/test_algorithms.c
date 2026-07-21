@@ -9,6 +9,7 @@
 #include "ecm.h"
 #include "fermat.h"
 #include "rho.h"
+#include "p_minus_1.h"
 #include "siqs.h"
 #include "squfof.h"
 #include "tdiv.h"
@@ -95,6 +96,19 @@ int main(void) {
         set_rho_params_to_default(n, &params);
         ecode_t rc = rho(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
         check("rho", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
+    // ---- Pollard p-1 ---- (10007 - 1 = 2*5003 is smooth)
+    {
+        mul2(n, 10007UL, 1000003UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_minus_1_params_t params;
+        set_p_minus_1_params_to_default(n, &params);
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_minus_1", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
     }

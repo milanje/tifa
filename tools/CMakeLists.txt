@@ -25,7 +25,7 @@ target_link_libraries(tools_common PRIVATE GMP::GMP)   # for gmp.h at compile ti
 #------------------------------------------------------------------------------
 # One executable per algorithm.
 #------------------------------------------------------------------------------
-set(TIFA_PROGRAMS cfrac ecm fermat siqs squfof rho tdiv)
+set(TIFA_PROGRAMS cfrac ecm fermat siqs squfof rho tdiv p_minus_1)
 foreach(_prog IN LISTS TIFA_PROGRAMS)
     add_executable(${_prog}
         src/${_prog}_program.c
