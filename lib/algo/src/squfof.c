@@ -1097,9 +1097,6 @@ static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
     unsigned long int P  = winner->P;
     unsigned long int Q  = winner->Q;
     unsigned long int QQ = winner->QQ;
-    unsigned long int PP = 0;
-    unsigned long int q  = 0;
-    unsigned long int t  = 0;
 
     //start_stopwatch(&timer_rev);
 

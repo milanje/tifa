@@ -78,6 +78,7 @@ set_property(CACHE TIFA_DOXYGEN_PAPER_TYPE PROPERTY
     STRINGS a4 a4wide letter legal executive)
 
 option(TIFA_BUILD_TESTS "Build the test suite (CTest)" ON)
+option(TIFA_WERROR "Treat compiler warnings as errors (used in CI)" OFF)
 
 #------------------------------------------------------------------------------
 # Dependencies
@@ -178,6 +179,18 @@ configure_file(
     "${PROJECT_BINARY_DIR}/tifa_config.h"
     @ONLY
 )
+
+#------------------------------------------------------------------------------
+# Warning flags for TIFA's own compilation. Applied here (after all configure-
+# time feature checks) so they affect only the targets built below, never the
+# check_type_size()/find_package() probes, and are not exported to consumers.
+#------------------------------------------------------------------------------
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra)
+    if(TIFA_WERROR)
+        add_compile_options(-Werror)
+    endif()
+endif()
 
 #------------------------------------------------------------------------------
 # Build the library and the tools

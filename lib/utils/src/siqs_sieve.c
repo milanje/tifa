@@ -602,7 +602,7 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
     uint32_t iend = sieve_length - 1;
 
 #if !ROUND_HALF_WIDTH
-    if (ABS(sieve->next_chunkno_to_fill) == sieve->nchunks) {
+    if ((uint32_t)ABS(sieve->next_chunkno_to_fill) == sieve->nchunks) {
         iend = sieve->endlast;
     }
 #endif
@@ -835,7 +835,7 @@ ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
     uint32_t iend = sieve_length - 1;
 
 #if !ROUND_HALF_WIDTH
-    if (ABS(chunkno) == siqs_sieve->nchunks) {
+    if ((uint32_t)ABS(chunkno) == siqs_sieve->nchunks) {
         iend = siqs_sieve->endlast;
     }
 #endif
@@ -965,7 +965,7 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
     uint32_t iend = sieve_length - 1;
 
 #if !ROUND_HALF_WIDTH
-    if (ABS(chunkno) == siqs_sieve->nchunks) {
+    if ((uint32_t)ABS(chunkno) == siqs_sieve->nchunks) {
        iend = siqs_sieve->endlast;
     }
 #endif
@@ -1252,17 +1252,17 @@ static inline ecode_t empty_bucket_nega(siqs_sieve_t* const sieve) {
     return ecode;
 }
 //------------------------------------------------------------------------------
-void print_init_poly_timing(siqs_sieve_t* const sieve)
+void print_init_poly_timing(siqs_sieve_t* const sieve MAYBE_UNUSED)
 {
     PRINT_INIT_POLY_TIMING_MSG;
 }
 //-----------------------------------------------------------------------------
-void print_fill_timing(siqs_sieve_t* const sieve)
+void print_fill_timing(siqs_sieve_t* const sieve MAYBE_UNUSED)
 {
     PRINT_FILL_TIMING_MSG;
 }
 //-----------------------------------------------------------------------------
-void print_scan_timing(siqs_sieve_t* const sieve)
+void print_scan_timing(siqs_sieve_t* const sieve MAYBE_UNUSED)
 {
     PRINT_SCAN_TIMING_MSG;
 }
