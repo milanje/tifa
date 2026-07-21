@@ -76,6 +76,8 @@
       - Fermat  (McKee's "fast" variant of Fermat's algorithm)
       - SIQS    (Self-Initializing Quadratic Sieve)
       - SQUFOF  (SQUare FOrm Factorization)
+      - Rho     (Pollard's rho method)
+      - TDIV    (trial division)
 
   Needless to say, this library is not intended to break any factorization
   records. :-)

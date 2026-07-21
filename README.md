@@ -18,10 +18,9 @@ April 2020. It was originally built with [SCons](https://scons.org); the build
 system has since been migrated to [CMake](https://cmake.org) (the old SCons
 files have been removed).
 
-The [readme.txt](./readme/readme.txt) file in the `readme` directory still
-describes the algorithms, the source layout and the Perl tooling. Note that its
-build/installation instructions refer to the retired SCons build &mdash; use
-the CMake instructions below instead.
+The [readme.txt](./readme/readme.txt) file in the `readme` directory has more
+detail on the algorithms, the source layout and the Perl tooling; its build and
+installation steps use CMake as well, matching the instructions below.
 
 ## Building
 
