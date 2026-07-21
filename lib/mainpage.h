@@ -58,8 +58,10 @@
  *       <li>CFRAC (Continued FRACtion factorization)</li>
  *       <li>ECM (Elliptic Curve Method)</li>
  *       <li>Fermat (McKee's "fast" variant of Fermat's algorithm)</li>
- *       <li>SIQS (Self-Initializing Quadratic Sieve)</li> 
+ *       <li>SIQS (Self-Initializing Quadratic Sieve)</li>
  *       <li>SQUFOF (SQUare FOrm Factorization)</li>
+ *       <li>Pollard's rho method</li>
+ *       <li>trial division</li>
  *     </ul>
  *   </li>
  *   <li>a set of stand-alone factorization programs for each algorithm
@@ -68,9 +70,11 @@
  *       <li><tt>cfrac_program</tt></li>
  *       <li><tt>ecm_program</tt></li>
  *       <li><tt>fermat_program</tt></li>
- *       <li><tt>siqs_program</tt></li> 
+ *       <li><tt>siqs_program</tt></li>
  *       <li><tt>squfof_program</tt></li>
- *     </ul> 
+ *       <li><tt>rho_program</tt></li>
+ *       <li><tt>tdiv_program</tt></li>
+ *     </ul>
  *   </li>
  *   <li>a set of <strong>Perl 5</strong> scripts wrappers and launchers;</li>
  *   <li>a basic benchmarking framework written in <strong>Perl 5</strong> used 
