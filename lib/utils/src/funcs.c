@@ -673,10 +673,10 @@ unsigned long int modinv_ui(unsigned long int num, unsigned long int p) {
     //   - keep the 2 most significant bits;
     //   - keep the nth-2 least significant bits.
     //
-    const unsigned long int high_bit_mask = 3 << (n-1);
-    const unsigned long int low_bit_mask  = (1 << (n-1)) - 1;
-    const unsigned long int nth_bit_mask  = 1 << n;
-    const unsigned long int nth_minus_one_bit_mask = 1 << (n-1);
+    const unsigned long int high_bit_mask = 3UL << (n-1);
+    const unsigned long int low_bit_mask  = (1UL << (n-1)) - 1;
+    const unsigned long int nth_bit_mask  = 1UL << n;
+    const unsigned long int nth_minus_one_bit_mask = 1UL << (n-1);
 
     while ((u != exp_cu) && (u != -exp_cu) && (v != exp_cv) && (v != -exp_cv)) {
 

@@ -1319,7 +1319,8 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     for (unsigned int im = 0; im <= deltam; im++) {
         unsigned int m = m_min + im;
         for (unsigned int j = 1; j <= DO2; j++) {
-            if (is_prime(m * D + j) || is_prime(abs(m * D - j))) {
+            if (is_prime(m * D + j)
+                || is_prime((m * D >= j) ? (m * D - j) : (j - m * D))) {
                 context->prime_table[im][j] = 1;
                 continue;
             }
