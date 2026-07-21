@@ -104,6 +104,15 @@ ecode_t single_run(factoring_machine_t* machine) {
     ecode_t exit_code;
 
     exit_code = machine->init_context_func(machine);
+    if (exit_code != SUCCESS) {
+        //
+        // Context initialization failed: do not run the algorithm on a
+        // half-built context. Clean up and report the failure.
+        //
+        machine->clear_context_func(machine);
+        machine->success = false;
+        return exit_code;
+    }
     exit_code = machine->perform_algo_func(machine);
     
     switch (exit_code) {
@@ -126,6 +135,15 @@ ecode_t find_some_factors(factoring_machine_t* machine) {
     ecode_t exit_code = NO_FACTOR_FOUND;
 
     exit_code = machine->init_context_func(machine);
+    if (exit_code != SUCCESS) {
+        //
+        // Context initialization failed: do not run the algorithm on a
+        // half-built context. Clean up and report the failure.
+        //
+        machine->clear_context_func(machine);
+        machine->success = false;
+        return exit_code;
+    }
     exit_code = machine->perform_algo_func(machine);
 
     while (true) {
@@ -177,6 +195,15 @@ ecode_t find_some_coprime_factors(factoring_machine_t* machine) {
     ecode_t exit_code = NO_FACTOR_FOUND;
 
     exit_code = machine->init_context_func(machine);
+    if (exit_code != SUCCESS) {
+        //
+        // Context initialization failed: do not run the algorithm on a
+        // half-built context. Clean up and report the failure.
+        //
+        machine->clear_context_func(machine);
+        machine->success = false;
+        return exit_code;
+    }
     exit_code = machine->perform_algo_func(machine);
 
     while (true) {
@@ -250,6 +277,15 @@ ecode_t find_some_prime_factors(factoring_machine_t* machine) {
     ecode_t exit_code = NO_FACTOR_FOUND;
 
     exit_code = machine->init_context_func(machine);
+    if (exit_code != SUCCESS) {
+        //
+        // Context initialization failed: do not run the algorithm on a
+        // half-built context. Clean up and report the failure.
+        //
+        machine->clear_context_func(machine);
+        machine->success = false;
+        return exit_code;
+    }
     exit_code = machine->perform_algo_func(machine);
 
     while (true) {
@@ -324,6 +360,15 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
     machine->success  = false;
     
     exit_code = machine->init_context_func(machine);
+    if (exit_code != SUCCESS) {
+        //
+        // Context initialization failed: do not run the algorithm on a
+        // half-built context. Clean up and report the failure.
+        //
+        machine->clear_context_func(machine);
+        machine->success = false;
+        return exit_code;
+    }
     exit_code = machine->perform_algo_func(machine);
     
     while (true) {
