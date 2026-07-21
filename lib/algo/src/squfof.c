@@ -373,6 +373,12 @@ single_step(unsigned long int* const P,  unsigned long int* const Q,
             unsigned long int* const QQ, const unsigned long int S
 );
 //-----------------------------------------------------------------------------
+inline static bool
+reverse_step(unsigned long int* const P,  unsigned long int* const Q,
+             unsigned long int* const QQ, const unsigned long int S,
+             unsigned long int* const factor
+);
+//-----------------------------------------------------------------------------
 static unsigned long int
 large_step(unsigned long int* const P,  unsigned long int* const Q,
            unsigned long int* const QQ, unsigned long int PA,
@@ -918,32 +924,7 @@ static ecode_t perform_squfof_no_race(factoring_machine_t* const machine) {
         //
         // Step 4: Cycle in the reverse direction to find a factor of N
         //
-        while (true) {
-            q = divide(S + P, Q);
-
-            PP  = q;
-            PP *= Q;
-            PP -= P;
-            if (IS_UNLIKELY(P == PP)) {
-                factor = Q;
-                break;
-            }
-            t  = P;
-            t -= PP;
-            t *= q;
-            t += QQ;
-            QQ = Q;
-            Q  = t;
-            P  = PP;
-
-            SQUFOF_PRINT("after iteration of step 4):\n");
-            SQUFOF_PRINT("-----------------------------------\n");
-            SQUFOF_PRINT("4)      Q  = %lu\n", Q);
-            SQUFOF_PRINT("4)      P  = %lu\n", P);
-            SQUFOF_PRINT("4)      QQ = %lu\n", QQ);
-            SQUFOF_PRINT("4)      PP = %lu\n", PP);
-            SQUFOF_PRINT("4)      t  = %lu\n", t);
-        }
+        while (!reverse_step(&P, &Q, &QQ, S, &factor)) { }
     } else {
         PRINT_FR_REV_CYCL_MSG;
         //
@@ -959,66 +940,10 @@ static ecode_t perform_squfof_no_race(factoring_machine_t* const machine) {
             unsigned long int PR  = P;
             unsigned long int QR  = QQ;
             unsigned long int QQR = Q;
-            unsigned long int PPR = 0;
-            unsigned long int qr  = 0;
 
             while (true) {
-                //
-                // Cycle in the "forward" direction
-                //
-                q = divide(S + P, Q);
-                PP  = q;
-                PP *= Q;
-                PP -= P;
-                if (IS_UNLIKELY(P == PP)) {
-                    factor = Q;
-                    break;
-                }
-                //
-                // Cycle in the "reverse" direction
-                //
-                qr = divide(S + PR, QR);
-                PPR  = qr;
-                PPR *= QR;
-                PPR -= PR;
-                if (IS_UNLIKELY(PR == PPR)) {
-                    factor = QR;
-                    break;
-                }
-                //
-                // Complete the "forward" direction cycle
-                //
-                t  = P;
-                t -= PP;
-                t *= q;
-                t += QQ;
-                QQ = Q;
-                Q  = t;
-                P  = PP;
-                //
-                // Complete the "reverse" direction cycle
-                //
-                t  = PR;
-                t -= PPR;
-                t *= qr;
-                t += QQR;
-                QQR = QR;
-                QR  = t;
-                PR  = PPR;
-
-                SQUFOF_PRINT("after forward iteration of step 4):\n");
-                SQUFOF_PRINT("-----------------------------------\n");
-                SQUFOF_PRINT("4)      Q  = %lu\n", Q);
-                SQUFOF_PRINT("4)      P  = %lu\n", P);
-                SQUFOF_PRINT("4)      QQ = %lu\n", QQ);
-                SQUFOF_PRINT("4)      PP = %lu\n", PP);
-
-                SQUFOF_PRINT("\tafter reverse iteration of step 4):\n");
-                SQUFOF_PRINT("\t-----------------------------------\n");
-                SQUFOF_PRINT("\t4)      QR  = %lu\n", QR);
-                SQUFOF_PRINT("\t4)      PR  = %lu\n", PR);
-                SQUFOF_PRINT("\t4)      QQR = %lu\n", QQR);
-                SQUFOF_PRINT("\t4)      PPR = %lu\n", PPR);
+                if (reverse_step(&P,  &Q,  &QQ,  S, &factor)) break;
+                if (reverse_step(&PR, &QR, &QQR, S, &factor)) break;
             }
         }
     }
@@ -1183,23 +1108,7 @@ static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
         //
         // Step 4: Cycle in the reverse direction to find a factor of N
         //
-        while (true) {
-            q = divide(S + P, Q);
-            PP  = q;
-            PP *= Q;
-            PP -= P;
-            if (IS_UNLIKELY(P == PP)) {
-                factor = Q;
-                break;
-            }
-            t   = P;
-            t  -= PP;
-            t  *= q;
-            t  += QQ;
-            QQ  = Q;
-            Q   = t;
-            P   = PP;
-        }
+        while (!reverse_step(&P, &Q, &QQ, S, &factor)) { }
     } else {
         PRINT_FR_REV_CYCL_MSG;
 
@@ -1219,52 +1128,10 @@ static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
             unsigned long int PR  = P;
             unsigned long int QR  = QQ;
             unsigned long int QQR = Q;
-            unsigned long int PPR = 0;
-            unsigned long int qr  = 0;
 
             while (true) {
-                //
-                // Cycle in the "forward" direction
-                //
-                q = divide(S + P, Q);
-                PP  = q;
-                PP *= Q;
-                PP -= P;
-                if (IS_UNLIKELY(P == PP)) {
-                    factor = Q;
-                    break;
-                }
-                //
-                // Cycle in the "reverse" direction
-                //
-                qr = divide(S + PR, QR);
-                PPR  = qr;
-                PPR *= QR;
-                PPR -= PR;
-                if (IS_UNLIKELY(PR == PPR)) {
-                    factor = QR;
-                    break;
-                }
-                //
-                // Complete the "forward" direction cycle
-                //
-                t   = P;
-                t  -= PP;
-                t  *= q;
-                t  += QQ;
-                QQ  = Q;
-                Q   = t;
-                P   = PP;
-                //
-                // Complete the "reverse" direction cycle
-                //
-                t  = PR;
-                t -= PPR;
-                t *= qr;
-                t += QQR;
-                QQR = QR;
-                QR  = t;
-                PR  = PPR;
+                if (reverse_step(&P,  &Q,  &QQ,  S, &factor)) break;
+                if (reverse_step(&PR, &QR, &QQR, S, &factor)) break;
             }
         }
     }
@@ -1738,6 +1605,34 @@ inline static void single_step(unsigned long int* const P,
     *QQ  = *Q;
     *Q   =  t;
     *P   =  PP;
+}
+//-----------------------------------------------------------------------------
+inline static bool reverse_step(unsigned long int* const P,
+                                unsigned long int* const Q,
+                                unsigned long int* const QQ,
+                                const unsigned long int S,
+                                unsigned long int* const factor) {
+    //
+    // One step of the reverse cycle: this is single_step with a symmetry-point
+    // check inserted before the state update. Returns true (and sets *factor)
+    // when P == PP, i.e. the point of symmetry giving a factor of N.
+    //
+    unsigned long int q  = divide(S + *P, *Q);
+    unsigned long int PP = q;
+    PP *= *Q;
+    PP -= *P;
+    if (IS_UNLIKELY(*P == PP)) {
+        *factor = *Q;
+        return true;
+    }
+    unsigned long int t = *P;
+    t   -=  PP;
+    t   *=   q;
+    t   += *QQ;
+    *QQ  = *Q;
+    *Q   =   t;
+    *P   =  PP;
+    return false;
 }
 //-----------------------------------------------------------------------------
 static unsigned long int large_step(unsigned long int* const P,
