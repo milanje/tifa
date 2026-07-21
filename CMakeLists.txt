@@ -77,6 +77,8 @@ set(TIFA_DOXYGEN_PAPER_TYPE "a4wide" CACHE STRING "Doxygen PDF paper type")
 set_property(CACHE TIFA_DOXYGEN_PAPER_TYPE PROPERTY
     STRINGS a4 a4wide letter legal executive)
 
+option(TIFA_BUILD_TESTS "Build the test suite (CTest)" ON)
+
 #------------------------------------------------------------------------------
 # Dependencies
 #------------------------------------------------------------------------------
@@ -182,6 +184,14 @@ configure_file(
 #------------------------------------------------------------------------------
 add_subdirectory(lib)
 add_subdirectory(tools)
+
+#------------------------------------------------------------------------------
+# Tests (CTest)
+#------------------------------------------------------------------------------
+if(TIFA_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 #------------------------------------------------------------------------------
 # Installation & packaging

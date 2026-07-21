@@ -196,7 +196,7 @@ byte_matrix_t* clone_byte_matrix(const byte_matrix_t * const matrix) {
     clone->ncols_alloced = matrix->ncols_alloced;
     clone->nrows = matrix->nrows;
     clone->ncols = matrix->ncols;
-    clone->data  = malloc(clone->nrows_alloced * sizeof(unsigned char));
+    clone->data  = malloc(clone->nrows_alloced * sizeof(unsigned char*));
 
     size_t rowsize = clone->ncols_alloced * sizeof(unsigned char);
 
