@@ -64,6 +64,12 @@
 // modular exponentiation.
 //
 #define MAX_GAP_HALF     100
+//
+// Number of (a^q - 1) terms accumulated into a single product before one gcd
+// with n in stage 2 (gcd dominates the per-prime cost, so batching it is a
+// win). A batch whose gcd equals n is rescanned prime-by-prime.
+//
+#define STAGE2_BATCH     256
 
 //
 // An ad-hoc structure holding the data variables used by the Pollard's p-1
@@ -352,7 +358,11 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
         }
 
         mpz_t t;
+        mpz_t H;
+        mpz_t aq0;
         mpz_init(t);
+        mpz_init_set_ui(H, 1);
+        mpz_init(aq0);
 
         //
         // Bootstrap: aq = a^{q0} mod n for the first prime q0 > b1.
@@ -360,40 +370,109 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
         unsigned long prev = first_primes[ip];
         mpz_powm_ui(aq, a, prev, n);
 
+        //
+        // Snapshot of the current batch's starting state, so a batch whose
+        // product shares all of n can be rescanned prime-by-prime.
+        //
+        uint32_t      batch_ip   = ip;
+        unsigned long batch_prev = prev;
+        mpz_set(aq0, aq);
+        uint32_t count = 0;
+
         while (true) {
             //
-            // g = gcd(aq - 1, n).
+            // Accumulate (aq - 1) into the running product H (mod n); the gcd
+            // is deferred to once per batch.
             //
             mpz_sub_ui(t, aq, 1);
-            mpz_gcd(g, t, n);
-            if ((mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0)) {
-                append_mpz_to_array(machine->factors, g);
-                mpz_divexact(g, n, g);
-                append_mpz_to_array(machine->factors, g);
-                ecode = SOME_FACTORS_FOUND;
-                break;
-            }
-            ip++;
-            if ((ip >= NFIRST_PRIMES) || (first_primes[ip] > params->b2)) {
-                break;
-            }
+            mpz_mul(H, H, t);
+            mpz_mod(H, H, n);
+            count++;
+
             //
-            // aq <- aq * a^{gap} mod n, gap = current prime - previous prime.
+            // Advance aq to the next prime <= b2 (aq <- aq * a^{gap} mod n),
+            // if there is one.
             //
-            unsigned long cur  = first_primes[ip];
-            unsigned long gap  = cur - prev;
-            unsigned long half = gap >> 1;
-            prev = cur;
-            if (half <= (unsigned long) MAX_GAP_HALF) {
-                mpz_mul(aq, aq, gap_pow[half]);
-            } else {
-                mpz_powm_ui(t, a, gap, n);
-                mpz_mul(aq, aq, t);
+            bool more = false;
+            if ((ip + 1 < NFIRST_PRIMES) && (first_primes[ip + 1] <= params->b2)) {
+                unsigned long cur  = first_primes[ip + 1];
+                unsigned long gap  = cur - prev;
+                unsigned long half = gap >> 1;
+                if (half <= (unsigned long) MAX_GAP_HALF) {
+                    mpz_mul(aq, aq, gap_pow[half]);
+                } else {
+                    mpz_powm_ui(t, a, gap, n);
+                    mpz_mul(aq, aq, t);
+                }
+                mpz_mod(aq, aq, n);
+                prev = cur;
+                ip++;
+                more = true;
             }
-            mpz_mod(aq, aq, n);
+
+            if ((count == STAGE2_BATCH) || !more) {
+                mpz_gcd(g, H, n);
+                if (mpz_cmp_ui(g, 1) > 0) {
+                    if (mpz_cmp(g, n) < 0) {
+                        append_mpz_to_array(machine->factors, g);
+                        mpz_divexact(g, n, g);
+                        append_mpz_to_array(machine->factors, g);
+                        ecode = SOME_FACTORS_FOUND;
+                    } else {
+                        //
+                        // The batch product is a multiple of n: rescan this
+                        // batch prime-by-prime to isolate a proper factor (the
+                        // rare case where >= 2 factors were caught in one batch).
+                        //
+                        mpz_set(aq, aq0);
+                        unsigned long rprev = batch_prev;
+                        uint32_t rip = batch_ip;
+                        for (uint32_t j = 0; j < count; j++) {
+                            mpz_sub_ui(t, aq, 1);
+                            mpz_gcd(g, t, n);
+                            if ((mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0)) {
+                                append_mpz_to_array(machine->factors, g);
+                                mpz_divexact(g, n, g);
+                                append_mpz_to_array(machine->factors, g);
+                                ecode = SOME_FACTORS_FOUND;
+                                break;
+                            }
+                            if (j + 1 == count) {
+                                break;
+                            }
+                            unsigned long cur  = first_primes[rip + 1];
+                            unsigned long gap  = cur - rprev;
+                            unsigned long half = gap >> 1;
+                            if (half <= (unsigned long) MAX_GAP_HALF) {
+                                mpz_mul(aq, aq, gap_pow[half]);
+                            } else {
+                                mpz_powm_ui(t, a, gap, n);
+                                mpz_mul(aq, aq, t);
+                            }
+                            mpz_mod(aq, aq, n);
+                            rprev = cur;
+                            rip++;
+                        }
+                    }
+                    break;
+                }
+                if (!more) {
+                    break;
+                }
+                //
+                // No factor in this batch: reset and snapshot the next one.
+                //
+                mpz_set_ui(H, 1);
+                count      = 0;
+                batch_ip   = ip;
+                batch_prev = prev;
+                mpz_set(aq0, aq);
+            }
         }
 
         mpz_clear(t);
+        mpz_clear(H);
+        mpz_clear(aq0);
         for (int k = 1; k <= MAX_GAP_HALF; k++) {
             mpz_clear(gap_pow[k]);
         }

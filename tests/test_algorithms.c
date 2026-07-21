@@ -129,6 +129,24 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- Pollard p-1 stage 2, batch rescan ---- two safe primes (10007,
+    // 10079) whose (p-1)/2 primes 5003 and 5039 are adjacent and fall in the
+    // same stage-2 batch, so the batch product is a multiple of n and the
+    // per-prime rescan must isolate a factor.
+    {
+        mul2(n, 10007UL, 10079UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_minus_1_params_t params;
+        set_p_minus_1_params_to_default(n, &params);
+        params.b1 = 1000;
+        params.b2 = 10000;
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_minus_1 rescan", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
     // ---- Trial division ---- 210 = 2*3*5*7, no mode parameter
     {
         mpz_set_ui(n, 210UL);
