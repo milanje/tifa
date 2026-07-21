@@ -187,7 +187,7 @@ ecode_t tdiv(mpz_array_t* const factors, uint32_array_t* const multis,
     PRINT_TIMING;
 
     ecode_t ecode   = NO_FACTOR_FOUND;
-    bool    success = false;
+    bool    MAYBE_UNUSED success = false;
 
     if (have_found_factors) {
         if (mpz_cmp_ui(n_atd, 1) == 0) {

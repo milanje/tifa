@@ -1195,8 +1195,6 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     mpz_t nsp_inv;
     mpz_init(nsp_inv);
     
-    static int npartials = 0;
-
     const uint32_t cand_yi_length = cand_yi->length;
 
     mpz_t* candidate_y = &(cand_yi->data[0]);
@@ -1277,8 +1275,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                     // particular prime number: we can compute a new
                     // pair to add in our arrays xi and smooth_yi
                     //
-                    npartials++;
-                    
+
                     mpz_set(*matching_a, *candidate_a);
                 
                     mpz_mul(*smooth_y, *candidate_y, found->y);

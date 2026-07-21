@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # clang enforces -Werror: this is the configuration verified to be
+          # warning-clean. It is the gate that can fail a PR.
+          - { cc: clang, werror: ON }
+          # gcc also builds and runs the full test suite. -Werror is left OFF
+          # for now because gcc's -Wall/-Wextra set differs from clang's and
+          # has not yet been confirmed clean; flip to ON once its log is clean.
+          - { cc: gcc, werror: OFF }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgmp-dev
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=${{ matrix.cc }}
+          -DTIFA_WERROR=${{ matrix.werror }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
