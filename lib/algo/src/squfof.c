@@ -358,7 +358,7 @@ static ecode_t clear_squfof_racer(squfof_racer_t* const racer);
 //-----------------------------------------------------------------------------
 static ecode_t cycle_forward(squfof_racer_t* const racer);
 //-----------------------------------------------------------------------------
-void add_pair_in_queue(
+inline static void add_pair_in_queue(
     unsigned long int x,
     unsigned long int y,
     linked_list_t* const queue
@@ -1425,8 +1425,8 @@ static ecode_t clear_squfof_racer(squfof_racer_t* const racer) {
  */
 
 //-----------------------------------------------------------------------------
-void add_pair_in_queue(unsigned long int x, unsigned long int y,
-                       linked_list_t* const queue) {
+inline static void add_pair_in_queue(unsigned long int x, unsigned long int y,
+                                     linked_list_t* const queue) {
 
     ulint_pair_t* current_pair = NULL;
     if (queue->length == 0) {

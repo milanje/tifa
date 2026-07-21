@@ -47,6 +47,7 @@
 #include "fermat.h"
 #include "siqs.h"
 #include "squfof.h"
+#include "rho.h"
 #include "tdiv.h"
 #include "tifa_factor.h"
 //

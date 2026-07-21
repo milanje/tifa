@@ -36,7 +36,7 @@
  * \li \c data - A pointer to the allocated memory space of \c alloced elements
  *
  * \warning Since version 1.2.1 memory management changed. See the
- * \c alloc_*_array and \c clear_*_array functions for more information.
+ * \c alloc_*_array and \c free_*_array functions for more information.
  */
 
 #if !defined(_TIFA_ARRAY_H_)
