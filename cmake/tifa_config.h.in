@@ -1,4 +1,4 @@
-// Copyright (C) 2011 CNRS - Ecole Polytechnique - INRIA.
+// Copyright (C) 2026 Jerome Milan.
 //
 // This file is part of TIFA.
 //
@@ -136,6 +136,9 @@
 /* Define to 1 to turn on output messages for the p-1 function */
 #define TIFA_VERBOSE_PM1 @TIFA_CFG_VERBOSE_PM1@
 
+/* Define to 1 to turn on output messages for the p+1 function */
+#define TIFA_VERBOSE_PP1 @TIFA_CFG_VERBOSE_PP1@
+
 /* Define to 1 to turn on extra (potentially costly) timing messages */
 #define TIFA_EXTRA_TIMING @TIFA_CFG_ALLOW_EXTRA_TIMING@
 
@@ -162,6 +165,9 @@
 
 /* Define to 1 to turn on timing messages for the p-1 function */
 #define TIFA_TIMING_PM1 @TIFA_CFG_TIMING_PM1@
+
+/* Define to 1 to turn on timing messages for the p+1 function */
+#define TIFA_TIMING_PP1 @TIFA_CFG_TIMING_PP1@
 
 /* NOTE: TIFA_ENDIANNESS was dropped during the CMake migration: it was never
  * referenced anywhere in the TIFA sources. Use CMAKE_C_BYTE_ORDER at configure

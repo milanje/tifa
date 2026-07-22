@@ -47,7 +47,8 @@ with `-D<OPTION>=<value>` (run `cmake -LH build` to list them); for example
 
 The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
 `libtifa.dylib`) library, plus the command-line factorization programs
-(`cfrac`, `ecm`, `fermat`, `siqs`, `squfof`, `rho`, `tdiv`). Installation also
+(`cfrac`, `ecm`, `fermat`, `siqs`, `squfof`, `rho`, `p_minus_1`, `p_plus_1`,
+`tdiv`). Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
 can consume TIFA with either:
 

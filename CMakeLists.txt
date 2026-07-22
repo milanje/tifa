@@ -53,7 +53,7 @@ option(TIFA_ALLOW_VERBOSE          "Master switch enabling per-algorithm verbose
 option(TIFA_ALLOW_TIMING           "Master switch enabling per-algorithm timing messages"    OFF)
 option(TIFA_ALLOW_EXTRA_TIMING     "Enable extra (potentially costly) timing measurements"   OFF)
 
-set(TIFA_ALGOS CFRAC ECM FERMAT SIQS SQUFOF RHO TDIV PM1)
+set(TIFA_ALGOS CFRAC ECM FERMAT SIQS SQUFOF RHO TDIV PM1 PP1)
 foreach(_a IN LISTS TIFA_ALGOS)
     string(TOLOWER "${_a}" _al)
     option(TIFA_VERBOSE_${_a} "Verbose output for the ${_al} function (needs TIFA_ALLOW_VERBOSE)" ON)

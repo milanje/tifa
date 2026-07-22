@@ -1,4 +1,4 @@
-// Copyright (C) 2011 CNRS - Ecole Polytechnique - INRIA.
+// Copyright (C) 2026 Jerome Milan.
 //
 // This file is part of TIFA.
 //

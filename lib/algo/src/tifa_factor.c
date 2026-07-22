@@ -31,6 +31,7 @@
 #include "siqs.h"
 #include "squfof.h"
 #include "p_minus_1.h"
+#include "p_plus_1.h"
 #include "tifa_factor.h"
 
 //-----------------------------------------------------------------------------
@@ -62,6 +63,12 @@
 // exponentiations before dropping through to the sieve.
 //
 #define TFACTOR_PM1_B1 2000
+//
+// Stage-1 bound for the opportunistic Williams p+1 pass tried before SIQS
+// (right after the p-1 pass). It peels off a prime p whenever p+1 is smooth,
+// which p-1 cannot see; a miss again costs only a handful of Lucas ladders.
+//
+#define TFACTOR_PP1_B1 2000
 //-----------------------------------------------------------------------------
 ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
                     const mpz_t n, const factoring_mode_t mode) {
@@ -135,6 +142,20 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
         ecode_t pm1_ecode = p_minus_1(factors, multis, n, &pm1_params, mode);
         if ((pm1_ecode != NO_FACTOR_FOUND) && (pm1_ecode != GIVING_UP)) {
             return pm1_ecode;
+        }
+    }
+    //
+    // Then a companion Williams p+1 pass: same idea, but it catches a prime p
+    // when p+1 (rather than p-1) is smooth. Stage 1 only (b2 = 0) to stay cheap.
+    //
+    {
+        p_plus_1_params_t pp1_params;
+        set_p_plus_1_params_to_default(n, &pp1_params);
+        pp1_params.b1 = TFACTOR_PP1_B1;
+        pp1_params.b2 = 0;   // stage 1 only: keep the pre-stage fail-fast
+        ecode_t pp1_ecode = p_plus_1(factors, multis, n, &pp1_params, mode);
+        if ((pp1_ecode != NO_FACTOR_FOUND) && (pp1_ecode != GIVING_UP)) {
+            return pp1_ecode;
         }
     }
     siqs_params_t params;

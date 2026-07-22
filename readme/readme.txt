@@ -78,6 +78,7 @@
       - SQUFOF  (SQUare FOrm Factorization)
       - Rho     (Pollard's rho method)
       - PM1     (Pollard's p-1 method)
+      - PP1     (Williams's p+1 method)
       - TDIV    (trial division)
 
   Needless to say, this library is not intended to break any factorization

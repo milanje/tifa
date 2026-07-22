@@ -62,6 +62,7 @@
  *       <li>SQUFOF (SQUare FOrm Factorization)</li>
  *       <li>Pollard's rho method</li>
  *       <li>Pollard's p-1 method</li>
+ *       <li>Williams's p+1 method</li>
  *       <li>trial division</li>
  *     </ul>
  *   </li>
@@ -75,6 +76,7 @@
  *       <li><tt>squfof_program</tt></li>
  *       <li><tt>rho_program</tt></li>
  *       <li><tt>p_minus_1_program</tt></li>
+ *       <li><tt>p_plus_1_program</tt></li>
  *       <li><tt>tdiv_program</tt></li>
  *     </ul>
  *   </li>
