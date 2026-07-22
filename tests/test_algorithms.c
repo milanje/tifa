@@ -10,6 +10,7 @@
 #include "fermat.h"
 #include "rho.h"
 #include "p_minus_1.h"
+#include "p_plus_1.h"
 #include "siqs.h"
 #include "squfof.h"
 #include "tdiv.h"
@@ -143,6 +144,75 @@ int main(void) {
         params.b2 = 10000;
         ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
         check("p_minus_1 rescan", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
+    // ---- Williams p+1 ---- (179 + 1 = 2^2*3^2*5 is smooth; (D/179) = -1 for
+    // the default seed 6, so 179 is exposed through its p+1 group. b1 = 50 keeps
+    // the 1000003 cofactor -- whose p+-1 are not 50-smooth -- out of stage 1.)
+    {
+        mul2(n, 179UL, 1000003UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_plus_1_params_t params;
+        set_p_plus_1_params_to_default(n, &params);
+        params.b1 = 50;
+        params.b2 = 0;       // stage 1 only
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_plus_1", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
+    // ---- Williams p+1 stage 2 ---- (4051 + 1 = 2^2*1013: b1 < 1013 < b2, so
+    // stage 1 misses and the large-prime continuation recovers the factor.)
+    {
+        mul2(n, 4051UL, 1000003UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_plus_1_params_t params;
+        set_p_plus_1_params_to_default(n, &params);
+        params.b1 = 1000;    // below 1013: stage 1 misses
+        params.b2 = 10000;   // above 1013: stage 2 catches it
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_plus_1 stage2", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
+    // ---- Williams p+1 stage 2, batch rescan ---- two primes 4051, 4243 whose
+    // p+1 large primes 1013 and 1061 fall in the same stage-2 batch, so the
+    // batch product is a multiple of n and the per-prime rescan must isolate a
+    // factor.
+    {
+        mul2(n, 4051UL, 4243UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_plus_1_params_t params;
+        set_p_plus_1_params_to_default(n, &params);
+        params.b1 = 1000;
+        params.b2 = 10000;
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_plus_1 rescan", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
+    // ---- Williams p+1 stage 2, many giant steps ---- 32323 + 1 = 2^2*8081,
+    // and 8081 = 38*210 + 101, so the BSGS giant walk must advance to m = 38
+    // (33 steps past m_min = 5) to catch it, exercising the giant-step
+    // recurrence and a near-top baby residue (j = 101).
+    {
+        mul2(n, 32323UL, 1000003UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_plus_1_params_t params;
+        set_p_plus_1_params_to_default(n, &params);
+        params.b1 = 1000;
+        params.b2 = 10000;
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_plus_1 bsgs", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
     }

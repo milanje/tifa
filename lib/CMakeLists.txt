@@ -12,6 +12,7 @@ set(TIFA_SOURCES
     algo/src/squfof.c
     algo/src/rho.c
     algo/src/p_minus_1.c
+    algo/src/p_plus_1.c
     algo/src/tdiv.c
     algo/src/tifa_factor.c
     # Precomputed data (generated prime table)
@@ -102,6 +103,7 @@ set(TIFA_PUBLIC_HEADERS
     algo/include/squfof.h
     algo/include/rho.h
     algo/include/p_minus_1.h
+    algo/include/p_plus_1.h
     algo/include/tdiv.h
     algo/include/tifa_factor.h
     # Data
