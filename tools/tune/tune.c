@@ -29,6 +29,16 @@
  * runtime (see lib/algo/include/tuning.h).
  */
 
+// This tool relies on POSIX facilities (fork/pipe/select/waitpid/kill for the
+// per-run watchdog, isatty/fileno for the progress bar, gettimeofday for wall
+// time, strtok_r for argument parsing). Request them explicitly before any
+// include, since the library is built in strict C99 mode where a conforming
+// libc otherwise hides these declarations. _GNU_SOURCE is a no-op where they
+// are already visible (e.g. macOS).
+#if !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
