@@ -39,6 +39,11 @@ install(TARGETS ${TIFA_PROGRAMS}
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 #------------------------------------------------------------------------------
+# The parameter-tuning tool (tifa_tune).
+#------------------------------------------------------------------------------
+add_subdirectory(tune)
+
+#------------------------------------------------------------------------------
 # Perl scripts, configuration files and modules
 #------------------------------------------------------------------------------
 install(PROGRAMS

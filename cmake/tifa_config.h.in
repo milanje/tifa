@@ -74,6 +74,15 @@
 /* Native type used to represent a string of bits */
 #define TIFA_BITSTRING_T @TIFA_CFG_BITSTRING_T@
 
+/* Directory searched at runtime for machine-tuned parameter files. Empty means
+ * no compiled-in default location (only tifa_tuning_set_dir() / the
+ * TIFA_TUNING_DIR environment variable are consulted). */
+#define TIFA_TUNING_DIR "@TIFA_CFG_TUNING_DIR@"
+
+/* Set to 1 to compile in the baked parameter-tuning tables (tuning_baked.c) as
+ * a fallback consulted when no runtime tuning file is found. */
+#define TIFA_USE_BAKED_TUNING @TIFA_CFG_USE_BAKED_TUNING@
+
 /* Size of type (in sizeof units) used to represent a string of bits */
 #define TIFA_SIZEOF_BITSTRING_T @TIFA_CFG_SIZEOF_BITSTRING_T@
 

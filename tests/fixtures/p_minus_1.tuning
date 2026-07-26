@@ -1,0 +1,7 @@
+# TIFA tuning file (schema v1) -- test fixture
+# algo:      p_minus_1
+# key:       bitsize(n)
+columns: min_bitsize b1 b2 base
+40   2000    40000    2
+56   12000   240000   2
+72   60000   1200000  2

@@ -38,6 +38,7 @@
 #include "factoring_machine.h"
 #include "ecm.h"
 #include "tifa_factor.h"
+#include "tuning.h"
 
 #define __PREFIX__   "ecm: "
 #define __VERBOSE__  TIFA_VERBOSE_ECM
@@ -472,6 +473,20 @@ void set_ecm_params_to_default(const mpz_t n MAYBE_UNUSED,
     params->b1      = default_b1s[i];
     params->b2      = default_ratios[i] * params->b1;
     params->ncurves = default_ncurves[i];
+
+    //
+    // Override the tabulated defaults with machine-tuned values if a tuning
+    // file supplies a row for this bit-size. The RNG seed is not tuned (it is
+    // set internally in init_ecm_context), so it is left untouched here.
+    //
+    const tuning_row_t* row = tifa_tuning_row_for(
+        "ecm", TIFA_TUNING_NCOLS_ECM, (uint32_t) sizen
+    );
+    if (row != NULL) {
+        params->b1      = row->cols[0];
+        params->b2      = row->cols[1];
+        params->ncurves = row->cols[2];
+    }
     return;
 }
 //------------------------------------------------------------------------------

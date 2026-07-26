@@ -48,7 +48,8 @@ with `-D<OPTION>=<value>` (run `cmake -LH build` to list them); for example
 The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
 `libtifa.dylib`) library, plus the command-line factorization programs
 (`cfrac`, `ecm`, `fermat`, `siqs`, `squfof`, `rho`, `p_minus_1`, `p_plus_1`,
-`tdiv`). Installation also
+`tdiv`) and the `tifa_tune` parameter-tuning tool (see
+[Parameter tuning](#parameter-tuning) below). Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
 can consume TIFA with either:
 
@@ -66,6 +67,83 @@ available) and `cpack --config build/CPackSourceConfig.cmake` (source tarball).
 
 A [very crude documentation](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/doc/tifa_user.pdf) is available as a PDF on the
 [project's LIX webpage](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/tifa.xhtml).
+
+# Parameter tuning
+
+Each algorithm depends on numeric parameters (smoothness bounds `b1`/`b2`, curve
+counts, sieve widths, factor-base sizes, ...) whose best values depend on the
+bit-size of the number being factored. `set_<algo>_params_to_default(n, params)`
+fills these; by default it uses built-in, size-indexed values. The `tifa_tune`
+tool lets you measure better values on your own machine and feed them back to
+the library.
+
+There are three ways parameters reach the library, tried in order, with the
+built-in defaults always as the final fallback:
+
+1. **A runtime tuning file** — `<dir>/<algo>.tuning`, where `<dir>` is set via
+   the `TIFA_TUNING_DIR` environment variable (or, for embedders,
+   `tifa_tuning_set_dir()`). Nothing is baked into the binary; you can swap files
+   without recompiling.
+2. **Compiled-in ("baked") tables** — enabled with `-DTIFA_USE_BAKED_TUNING=ON`;
+   consulted when no runtime file is found (see below).
+3. **The built-in defaults** — used whenever neither of the above applies, so an
+   untouched build behaves exactly as before this feature existed.
+
+## Generating tuning files
+
+```sh
+cmake --build build --target tifa_tune
+./build/tools/tune/tifa_tune --algo all --out ~/.tifa/tuning
+```
+
+`tifa_tune` builds test composites (products of similar-size primes), sweeps a
+parameter grid for each bit-size, times each run, and writes the combination
+minimizing the expected time to find a factor. Useful options (`--help` lists
+all): `--algo <names|all>` (a comma-separated list of algorithm names, or `all`;
+`--help` lists the valid names), `--min`/`--max`/`--step` (bit-size range), `--trials`,
+`--seed` (reproducible composites), `--timeout <sec>` (per-run wall-clock budget;
+a run that exceeds it is killed in its child process and scored as a failure, so
+a pathological parameter/input combination can never stall the tune — default
+30 s, `0` disables), and `--quick` (a fast, coarse preset). More
+test composites are used for small numbers (twice as many below 90 bits, four
+times below 64), where runs are cheap and timing noise is otherwise larger. When
+a given size takes more than a few seconds, a progress bar with an ETA is shown —
+only on an interactive terminal, so redirected output stays plain. A
+convenience target runs the quick preset into `<build>/tuning`:
+
+```sh
+cmake --build build --target tune-quick
+```
+
+Point the library at the generated files at runtime:
+
+```sh
+TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/siqs <number_to_factor>
+```
+
+## Baking tuned values into the library
+
+To compile the tuned tables in (so no runtime file or environment variable is
+needed), regenerate the committed baked tables and enable them:
+
+```sh
+# One-off: run a full tuning pass and regenerate lib/algo/{src,include}/tuning_baked.*
+cmake -S . -B build -DTIFA_REGEN_TUNING=ON
+cmake --build build --target regen-tuning
+
+# Then build with the baked tables compiled in
+cmake -S . -B build -DTIFA_USE_BAKED_TUNING=ON
+cmake --build build
+```
+
+The committed `tuning_baked.c` ships empty (the accessor returns nothing, so the
+built-in defaults are used); `regen-tuning` overwrites it with your machine's
+measured values, which you may then commit. Tuning data is machine-specific, so
+the shipped baseline is intentionally empty.
+
+> The Perl scripts under `tools/scripts/` (`benchmarker.pl`, `plotmaker.pl`, …)
+> remain available for ad-hoc benchmarking and gnuplot visualization; `tifa_tune`
+> is the self-contained, dependency-free path for parameter selection.
 
 # Licence
 

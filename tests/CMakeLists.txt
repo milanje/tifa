@@ -25,3 +25,9 @@ tifa_add_test(test_funcs)
 tifa_add_test(test_matrix)
 tifa_add_test(test_tifa_factor)
 tifa_add_test(test_algorithms)
+
+# The tuning-loader test reads fixture files from the source tree; hand it their
+# location as a compile definition (no env var, so the test is hermetic).
+tifa_add_test(test_tuning)
+target_compile_definitions(test_tuning PRIVATE
+    TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")

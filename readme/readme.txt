@@ -247,6 +247,8 @@
               Tifa/ ....... Perl modules used by the scripts and associated
                             man pages
           src/
+          tune/ ........... tifa_tune: the parameter-tuning tool (see the
+                            "Parameter tuning" section below)
 
   As you probably guessed, in addition to the library per se, this distribution
   includes a few Perl scripts (requiring Perl version 5.8 or higher) that I
@@ -375,6 +377,54 @@
     A truly minimalist configuration file reader used by TIFA's perl scripts.
 
     Type "man Tifa::SimpleConfigReader" for more information.
+
+  Parameter tuning (the tifa_tune tool):
+  --------------------------------------
+
+    Each algorithm depends on numeric parameters (smoothness bounds b1/b2,
+    curve counts, sieve widths, factor-base sizes, ...) whose best values
+    depend on the bit-size of the number to factor. The function
+    set_<algo>_params_to_default(n, params) fills these in; by default it uses
+    built-in, size-indexed values.
+
+    The self-contained C tool tifa/tools/tune/ (target "tifa_tune", built with
+    the rest of the programs) measures better values on the current machine and
+    writes them to per-algorithm text files "<algo>.tuning". The library then
+    consults these values, in order, always falling back to the built-in
+    defaults:
+
+      1. a runtime file <dir>/<algo>.tuning, where <dir> comes from the
+         TIFA_TUNING_DIR environment variable (or tifa_tuning_set_dir() for
+         embedders);
+      2. compiled-in "baked" tables, if built with -DTIFA_USE_BAKED_TUNING=ON;
+      3. the built-in defaults (an untouched build behaves as before).
+
+    Typical use:
+
+        prompt> cmake --build build --target tifa_tune
+        prompt> ./build/tools/tune/tifa_tune --algo all --out ~/.tifa/tuning
+        prompt> TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/siqs <number>
+
+    "tifa_tune --help" lists all options (algorithm, bit-size range, trials,
+    RNG seed, and a fast "--quick" preset). The convenience target
+    "cmake --build build --target tune-quick" runs the quick preset into
+    <build>/tuning.
+
+    To bake tuned values into the library, regenerate the committed tables and
+    enable them:
+
+        prompt> cmake -S . -B build -DTIFA_REGEN_TUNING=ON
+        prompt> cmake --build build --target regen-tuning
+        prompt> cmake -S . -B build -DTIFA_USE_BAKED_TUNING=ON
+        prompt> cmake --build build
+
+    The committed lib/algo/src/tuning_baked.c ships empty (so the built-in
+    defaults are used); regen-tuning overwrites it with the current machine's
+    measured values. Tuning data is machine-specific, hence the empty baseline.
+
+    tifa_tune supersedes the older Perl benchmarking scripts for parameter
+    selection specifically; those scripts remain useful for ad-hoc benchmarking
+    and gnuplot visualization.
 
 ------------------------------------------------------------------------------
 8. Documentation

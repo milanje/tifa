@@ -800,7 +800,7 @@ uint32_t bern_21_rt_pairs_lp(const mpz_t n,
                                     0,
                                     first_primes_array.length);
 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -988,7 +988,7 @@ uint32_t bern_21_pairs_lp(const mpz_t n,
                                     0,
                                     first_primes_array.length);
 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -1464,7 +1464,7 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                                     first_primes_array.length
                                 );
                 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // in_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -1675,7 +1675,7 @@ uint32_t djb_batch_rt_step(smooth_filter_t* const filter,
                                     0,
                                     first_primes_array.length);
                 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // in_y->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -1915,7 +1915,7 @@ uint32_t djb_batch_rt_first(smooth_filter_t* const filter) {
                                     first_primes_array.length
                                 );
                 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // in_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -2144,7 +2144,7 @@ uint32_t djb_batch_rt_last(smooth_filter_t* const filter) {
                                    first_primes_array.length
                                );
                 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // in_y->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]

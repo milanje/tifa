@@ -84,7 +84,9 @@ typedef struct struct_p_minus_1_params_t p_minus_1_params_t;
     * This function is intended to fill a previously allocated
     * \c p_minus_1_params_t with default values.
     *
-    * \param[in]  n The number to factor (currently unused).
+    * \param[in]  n The number to factor. Its bit-size selects the row from a
+    *               tuning file when one is available (see tuning.h); otherwise
+    *               size-independent built-in defaults are used.
     * \param[out] params A pointer to the \c p_minus_1_params_t structure to fill.
     */
 void set_p_minus_1_params_to_default(const mpz_t n, p_minus_1_params_t* const params);

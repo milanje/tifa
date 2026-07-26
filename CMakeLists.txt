@@ -62,6 +62,13 @@ endforeach()
 
 set(TIFA_BITSTRING_T "uint64_t" CACHE STRING "Native C type used to represent a string of bits")
 
+# Directory the library searches at runtime for machine-tuned parameter files
+# (<dir>/<algo>.tuning, produced by the tifa_tune tool). Consulted only as a
+# last resort, after tifa_tuning_set_dir() and the TIFA_TUNING_DIR environment
+# variable; a missing directory simply means the compiled-in defaults are used.
+set(TIFA_TUNING_DIR "${CMAKE_INSTALL_FULL_DATADIR}/tifa/tuning" CACHE PATH
+    "Directory searched at runtime for machine-tuned parameter files")
+
 set(GMP_INCDIR          "" CACHE PATH "Directory containing gmp.h (optional hint for FindGMP)")
 set(GMP_LIBDIR          "" CACHE PATH "Directory containing the GMP library (optional hint)")
 set(GMP_INTERNAL_INCDIR "" CACHE PATH "Directory containing gmp-impl.h (used only with TIFA_USE_GMP_INTERNAL_FUNCS)")
@@ -79,6 +86,14 @@ set_property(CACHE TIFA_DOXYGEN_PAPER_TYPE PROPERTY
 
 option(TIFA_BUILD_TESTS "Build the test suite (CTest)" ON)
 option(TIFA_WERROR "Treat compiler warnings as errors (used in CI)" OFF)
+
+# Compile the baked tuning tables (lib/algo/src/tuning_baked.c) into the library
+# as a fallback used when no runtime tuning file is found. OFF keeps builds
+# hermetic and behavior identical to the untuned defaults.
+option(TIFA_USE_BAKED_TUNING "Compile in the baked parameter-tuning tables" OFF)
+# Provide a 'regen-tuning' target that runs tifa_tune to regenerate the baked
+# tables in the source tree (a full tuning pass; can be lengthy).
+option(TIFA_REGEN_TUNING "Add a 'regen-tuning' target that rebuilds baked tables" OFF)
 
 #------------------------------------------------------------------------------
 # Dependencies
@@ -152,8 +167,10 @@ tifa_bool01(TIFA_CFG_USE_CALLOC_MEMSET      TIFA_USE_CALLOC_MEMSET)
 tifa_bool01(TIFA_CFG_USE_GMP_INTERNAL_FUNCS TIFA_USE_GMP_INTERNAL_FUNCS)
 tifa_bool01(TIFA_CFG_USE_OWN_RAND           TIFA_USE_OWN_RAND)
 tifa_bool01(TIFA_CFG_PRINT_ERROR            TIFA_PRINT_ERROR)
+tifa_bool01(TIFA_CFG_USE_BAKED_TUNING       TIFA_USE_BAKED_TUNING)
 
 set(TIFA_CFG_BITSTRING_T "${TIFA_BITSTRING_T}")
+set(TIFA_CFG_TUNING_DIR "${TIFA_TUNING_DIR}")
 
 # Per-algorithm verbose/timing, gated by the master switches (matches SConstruct).
 foreach(_a IN LISTS TIFA_ALGOS)

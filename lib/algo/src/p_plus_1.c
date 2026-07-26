@@ -33,6 +33,7 @@
 #include "factoring_machine.h"
 #include "p_plus_1.h"
 #include "tifa_factor.h"
+#include "tuning.h"
 
 #define __PREFIX__      "p+1: "
 #define __VERBOSE__     TIFA_VERBOSE_PP1
@@ -176,7 +177,7 @@ ecode_t p_plus_1(mpz_array_t* const factors, uint32_array_t* const multis,
     return ecode;
 }
 //------------------------------------------------------------------------------
-void set_p_plus_1_params_to_default(const mpz_t n MAYBE_UNUSED,
+void set_p_plus_1_params_to_default(const mpz_t n,
                                     p_plus_1_params_t* const params) {
     params->seed = DEFAULT_SEED;
     params->b1   = DEFAULT_B1;
@@ -188,6 +189,26 @@ void set_p_plus_1_params_to_default(const mpz_t n MAYBE_UNUSED,
         b2 = LARGEST_PRIME;
     }
     params->b2 = (uint32_t) b2;
+
+    //
+    // Override with machine-tuned values if a tuning file supplies a row for
+    // this bit-size; otherwise the defaults above are kept as-is.
+    //
+    const tuning_row_t* row = tifa_tuning_row_for(
+        "p_plus_1", TIFA_TUNING_NCOLS_P_PLUS_1,
+        (uint32_t) mpz_sizeinbase(n, 2)
+    );
+    if (row != NULL) {
+        params->b1   = row->cols[0];
+        params->b2   = row->cols[1];
+        params->seed = row->cols[2];
+        if (params->b1 > LARGEST_PRIME) {
+            params->b1 = LARGEST_PRIME;
+        }
+        if (params->b2 > LARGEST_PRIME) {
+            params->b2 = LARGEST_PRIME;
+        }
+    }
 }
 //------------------------------------------------------------------------------
 

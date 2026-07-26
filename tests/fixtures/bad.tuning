@@ -1,0 +1,3 @@
+# Deliberately malformed tuning file: a non-numeric field in a data row.
+columns: min_bitsize b1 b2 base
+40   2000    hello    2

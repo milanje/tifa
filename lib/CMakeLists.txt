@@ -15,6 +15,7 @@ set(TIFA_SOURCES
     algo/src/p_plus_1.c
     algo/src/tdiv.c
     algo/src/tifa_factor.c
+    algo/src/tuning.c
     # Precomputed data (generated prime table)
     data/src/first_primes.c
     # Structures, utilities, etc.
@@ -38,6 +39,12 @@ set(TIFA_SOURCES
     utils/src/x_array_list.c
     utils/src/x_tree.c
 )
+
+# The baked tuning tables are compiled in only when explicitly enabled; the
+# committed file is otherwise an inert placeholder (see tuning.h / tuning.c).
+if(TIFA_USE_BAKED_TUNING)
+    list(APPEND TIFA_SOURCES algo/src/tuning_baked.c)
+endif()
 
 # Include directories needed to compile the library sources.
 set(TIFA_BUILD_INCLUDE_DIRS
@@ -106,6 +113,8 @@ set(TIFA_PUBLIC_HEADERS
     algo/include/p_plus_1.h
     algo/include/tdiv.h
     algo/include/tifa_factor.h
+    algo/include/tuning.h
+    algo/include/tuning_baked.h
     # Data
     data/include/first_primes.h
     # Structures, utilities, etc.

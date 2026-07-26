@@ -29,6 +29,7 @@
 #include "tifa_config.h"
 #include "gmp_utils.h"
 #include "first_primes.h"
+#include "tuning.h"
 #include "matrix.h"
 #include "x_array_list.h"
 #include "funcs.h"
@@ -346,6 +347,21 @@ void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params) {
     params->filter_method      = DJB_BATCH;
     params->nsteps_early_abort = 0;
 
+    //
+    // Override the tabulated defaults with machine-tuned values if a tuning
+    // file supplies a row for this bit-size. The linear-algebra and smooth-
+    // batch filter methods are not tuned and keep their defaults.
+    //
+    const tuning_row_t* row = tifa_tuning_row_for(
+        "cfrac", TIFA_TUNING_NCOLS_CFRAC, size_n
+    );
+    if (row != NULL) {
+        params->nprimes_in_base    = row->cols[0];
+        params->nprimes_tdiv       = row->cols[1];
+        params->nrelations         = row->cols[2];
+        params->use_large_primes   = (row->cols[3] != 0);
+        params->nsteps_early_abort = (unsigned short) row->cols[4];
+    }
 }
 //------------------------------------------------------------------------------
 
@@ -487,10 +503,12 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     context->filter.nsteps = params->nsteps_early_abort;
 
     //
-    // _WARNING_: Large prime variation is mandatory for the time being...
+    // The large-prime variation is active iff the hashtable was allocated
+    // (i.e. iff params->use_large_primes). The filter backends key off a
+    // non-NULL htable, so partial (one-large-prime) relations are collected
+    // only when large primes are enabled and are simply discarded otherwise.
     //
-    //context->filter.use_large_primes = params->use_large_primes;
-    context->filter.use_large_primes = true;
+    context->filter.use_large_primes = params->use_large_primes;
     context->filter.use_siqs_variant = false;
 
     complete_filter_init(&(context->filter), context->factor_base);

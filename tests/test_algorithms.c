@@ -62,6 +62,26 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- CFRAC without the large-prime variation ---- regression test for a
+    // NULL-hashtable dereference: the filter backends read filter->htable
+    // unconditionally, but cfrac only allocates it when use_large_primes is
+    // true, so use_large_primes=false used to segfault. A larger factor base
+    // compensates for not recovering partial (one-large-prime) relations.
+    {
+        mul2(n, 15485863UL, 32452843UL);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        cfrac_params_t params;
+        set_cfrac_params_to_default(n, &params);
+        params.use_large_primes = false;
+        params.nprimes_in_base  = 1024;
+        params.nprimes_tdiv     = 1024;
+        ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("cfrac no-large-primes", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
     // ---- SIQS ---- (~2^60 semiprime, SIQS's intended range)
     {
         mul2(n, 1000000007UL, 1000000009UL);

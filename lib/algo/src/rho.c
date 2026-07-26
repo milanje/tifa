@@ -32,6 +32,7 @@
 #include "factoring_machine.h"
 #include "rho.h"
 #include "tifa_factor.h"
+#include "tuning.h"
 
 #define RHO_DEBUG 0
 #if RHO_DEBUG
@@ -155,12 +156,28 @@ ecode_t rho(mpz_array_t* const factors, uint32_array_t* const multis,
     return ecode;
 }
 //------------------------------------------------------------------------------
-void set_rho_params_to_default(const mpz_t n MAYBE_UNUSED, rho_params_t* const params) {
+void set_rho_params_to_default(const mpz_t n, rho_params_t* const params) {
     params->a          = DEFAULT_A;
     params->b          = DEFAULT_B;
     params->acc_niters = DEFAULT_ACC_NITERS;
     params->max_niters = DEFAULT_MAX_NITERS;
     params->method     = DEFAULT_RHO_METHOD;
+
+    //
+    // Override with machine-tuned values if a tuning file supplies a row for
+    // this bit-size; otherwise the defaults above are kept as-is. The cycle-
+    // finding method is not tuned and keeps its default.
+    //
+    const tuning_row_t* row = tifa_tuning_row_for(
+        "rho", TIFA_TUNING_NCOLS_RHO,
+        (uint32_t) mpz_sizeinbase(n, 2)
+    );
+    if (row != NULL) {
+        params->a          = row->cols[0];
+        params->b          = row->cols[1];
+        params->acc_niters = row->cols[2];
+        params->max_niters = row->cols[3];
+    }
 }
 //------------------------------------------------------------------------------
 

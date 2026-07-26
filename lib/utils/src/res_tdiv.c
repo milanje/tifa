@@ -220,7 +220,7 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
                                     0,
                                     first_primes_array.length);
 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -486,7 +486,7 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
                                     0,
                                     first_primes_array.length);
 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -788,7 +788,7 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
                                     0,
                                     first_primes_array.length);
 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
@@ -1068,7 +1068,7 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                                     0,
                                     first_primes_array.length);
 
-                if (ind != NOT_IN_ARRAY) {
+                if ((htable != NULL) && (ind != NOT_IN_ARRAY)) {
                     //
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]

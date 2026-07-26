@@ -49,6 +49,7 @@
 #include "bernsteinisms.h"
 #include "factoring_machine.h"
 #include "siqs.h"
+#include "tuning.h"
 #include "tifa_factor.h"
 #include "siqs_poly.h"
 #include "siqs_sieve.h"
@@ -422,6 +423,24 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->nrelations       = SIQS_DFLT_NRELATIONS;
     params->linalg_method    = SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = SIQS_DFLT_USE_LARGE_PRIMES;
+
+    //
+    // Override the tabulated/interpolated defaults with machine-tuned values if
+    // a tuning file supplies a row for this bit-size. The linear-algebra method
+    // is not tuned and keeps its default. Note that the local `size` was
+    // clobbered by the interpolation above, so the true bit-size is recomputed.
+    //
+    const tuning_row_t* row = tifa_tuning_row_for(
+        "siqs", TIFA_TUNING_NCOLS_SIQS, (uint32_t) mpz_sizeinbase(n, 2)
+    );
+    if (row != NULL) {
+        params->nprimes_in_base  = row->cols[0];
+        params->sieve_half_width = row->cols[1];
+        params->threshold        = row->cols[2];
+        params->nprimes_tdiv     = row->cols[3];
+        params->nrelations       = row->cols[4];
+        params->use_large_primes = (row->cols[5] != 0);
+    }
 }
 //------------------------------------------------------------------------------
 
