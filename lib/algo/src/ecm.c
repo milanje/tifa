@@ -530,18 +530,26 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
 
     context->sigma  = 5;
 
-    context->precomputations_done = false;
-    context->nupdated_more_curves = 0;
+    context->precomputations_done   = false;
+    context->nupdated_more_curves   = 0;
+    context->nupdated_larger_bounds = 0;
 
     //
     // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
     // tree...
     //
+    if (params->b1 > LARGEST_PRIME) {
+        //
+        // Stage 1 takes its primes from the precomputed table; stage 2 then
+        // starts right after it.
+        //
+        params->b1 = LARGEST_PRIME;
+    }
     unsigned int ip    = 0;
     unsigned int power = 0;
     double       logb1 = log(params->b1);
 
-    while (first_primes[ip] <= params->b1) {
+    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
         ip++;
     }
     context->first_lp_index = ip;
@@ -734,11 +742,18 @@ static ecode_t switch_to_larger_bounds(factoring_machine_t* const machine) {
     // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
     // tree...
     //
+    if (params->b1 > LARGEST_PRIME) {
+        //
+        // Stage 1 takes its primes from the precomputed table; stage 2 then
+        // starts right after it.
+        //
+        params->b1 = LARGEST_PRIME;
+    }
     unsigned int ip    = 0;
     unsigned int power = 0;
     double       logb1 = log(params->b1);
 
-    while (first_primes[ip] <= params->b1) {
+    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
         ip++;
     }
     context->first_lp_index = ip;

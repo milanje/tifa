@@ -66,7 +66,9 @@ extern "C" {
     */
 struct struct_ecm_params_t {
         /**
-         * Bound used in the first phase of ECM.
+         * Bound used in the first phase of ECM. Values above the largest
+         * tabulated prime (see \c LARGEST_PRIME in first_primes.h) are
+         * lowered to it.
          */
     uint32_t b1;
         /**
