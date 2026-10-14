@@ -559,7 +559,7 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
                 mpz_set_ui(gcd, x0);
                 mpz_add_ui(gcd, gcd, b[i]);
                 mpz_sub(gcd, gcd, Q);
-                mpz_gcd(gcd, gcd, ni[i]);
+                mpz_gcd(gcd, gcd, n);
 
                 if ((mpz_cmp_ui(gcd, 1) != 0) && (mpz_cmp(gcd, n) != 0) ) {
                     ecode = SOME_FACTORS_FOUND;
@@ -633,7 +633,7 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
             mpz_set_ui(Q, x0);
             mpz_add_ui(Q, Q, b[i]);
             mpz_mul(Q, Q, Q);
-            mpz_sub(Q, Q, n);
+            mpz_sub(Q, Q, ni[i]);
 
             if (MPZ_IS_SQUARE(Q)) {
                 mpz_sqrt(Q, Q);
@@ -838,9 +838,9 @@ static ecode_t perform_fermat_mpz(factoring_machine_t* const machine) {
 
             if (MPZ_IS_SQUARE(Q)) {
                 mpz_sqrt(Q, Q);
-                mpz_add_ui(x0, x0, b[i]);
-                mpz_sub(x0, x0, Q);
-                mpz_gcd(gcd, x0, n);
+                mpz_add_ui(gcd, x0, b[i]);
+                mpz_sub(gcd, gcd, Q);
+                mpz_gcd(gcd, gcd, n);
                 if ((mpz_cmp_ui(gcd, 1) != 0) && (mpz_cmp(gcd, n) != 0) ) {
                     ecode = SOME_FACTORS_FOUND;
                     goto compute_factors_and_return;
@@ -900,13 +900,13 @@ static ecode_t perform_fermat_mpz(factoring_machine_t* const machine) {
             //
             mpz_add_ui(Q, x0, b[i]);
             mpz_mul(Q, Q, Q);
-            mpz_sub(Q, Q, n);
+            mpz_sub(Q, Q, ni[i]);
 
             if (MPZ_IS_SQUARE(Q)) {
                 mpz_sqrt(Q, Q);
-                mpz_add_ui(x0, x0, b[i]);
-                mpz_sub(x0, x0, Q);
-                mpz_gcd(gcd, x0, n);
+                mpz_add_ui(gcd, x0, b[i]);
+                mpz_sub(gcd, gcd, Q);
+                mpz_gcd(gcd, gcd, n);
                 if ((mpz_cmp_ui(gcd, 1) != 0) && (mpz_cmp(gcd, n) != 0) ) {
                     ecode = SOME_FACTORS_FOUND;
                     goto compute_factors_and_return;

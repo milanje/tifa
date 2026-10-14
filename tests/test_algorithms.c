@@ -108,6 +108,25 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- Fermat with multipliers ---- q ~ 5p, 7p, 11p: the split is found on
+    // k*n, and must be taken modulo n, not k*n.
+    {
+        const char* const inputs[] = {
+            "22188730777", "12523140803", "1758490455136543", "2445747370601177"
+        };
+        for (uint32_t i = 0; i < 4; i++) {
+            mpz_set_str(n, inputs[i], 10);
+            mpz_array_t*    f = alloc_mpz_array(8);
+            uint32_array_t* m = alloc_uint32_array(8);
+            fermat_params_t params;
+            set_fermat_params_to_default(&params);
+            ecode_t rc = fermat(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+            check("fermat multiplier", rc, n, f, m);
+            free_mpz_array(f);
+            free_uint32_array(m);
+        }
+    }
+
     // ---- Pollard rho ---- (~2^37 semiprime)
     {
         mul2(n, 104729UL, 1299709UL);
