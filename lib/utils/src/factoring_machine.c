@@ -232,22 +232,17 @@ ecode_t find_some_coprime_factors(factoring_machine_t* machine) {
     machine->clear_context_func(machine);
 
     switch (exit_code) {
-    case SOME_FACTORS_FOUND: {
-        //
-        // Compute a coprime base for all the found factors.
-        //
-        uint32_t     flen = machine->factors->length;
-        mpz_array_t* base = alloc_mpz_array(flen * (flen + 1));
-
-        find_coprime_base(base, machine->n, machine->factors);
-        swap_mpz_array(machine->factors, base);
-
-        free_mpz_array(base);
-
-        exit_code = SOME_COPRIME_FACTORS_FOUND;
+    case SOME_FACTORS_FOUND:
+        exit_code = process_found_factors(
+                        machine->factors,
+                        machine->multis,
+                        machine->n,
+                        FIND_SOME_COPRIME_FACTORS,
+                        machine->recurse_func
+                    );
         machine->success = true;
         break;
-    }
+
     case COMPLETE_FACTORIZATION_FOUND:
         machine->success = true;
         break;
@@ -315,31 +310,20 @@ ecode_t find_some_prime_factors(factoring_machine_t* machine) {
 
 
     switch (exit_code) {
-    case SOME_FACTORS_FOUND: {
+    case SOME_FACTORS_FOUND:
         //
-        // Compute a coprime base for all the found factors.
+        // _NOTE_: We fail as soon as one element in the coprime base is
+        //         not prime. Is that a sensible behavior?
         //
-        uint32_t     flen = machine->factors->length;
-        mpz_array_t* base = alloc_mpz_array(flen * (flen + 1));
-
-        find_coprime_base(base, machine->n, machine->factors);
-        swap_mpz_array(machine->factors, base);
-
-        free_mpz_array(base);
-
-        if (are_all_prime(machine->factors)) {
-            exit_code = SOME_PRIME_FACTORS_FOUND;
-            machine->success = true;
-        } else {
-            //
-            // _NOTE_: We fail as soon as one element in the coprime base is
-            //         not prime. Is that a sensible behavior?
-            //
-            exit_code = SOME_COPRIME_FACTORS_FOUND;
-            machine->success = false;
-        }
+        exit_code = process_found_factors(
+                        machine->factors,
+                        machine->multis,
+                        machine->n,
+                        FIND_SOME_PRIME_FACTORS,
+                        machine->recurse_func
+                    );
+        machine->success = (exit_code == SOME_PRIME_FACTORS_FOUND);
         break;
-    }
 
     case COMPLETE_FACTORIZATION_FOUND:
         machine->success = true;
@@ -398,36 +382,63 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
     if (exit_code != SOME_FACTORS_FOUND) {
         return exit_code;
     }
-    //
-    // We have found at least one factor. Compute a coprime base for all the
-    // found factors, then compute the multiplicity of each element in said
-    // base (even if they are not all prime).
-    //
-    uint32_t     flen = machine->factors->length;
-    mpz_array_t* base = alloc_mpz_array(flen * (flen + 1));
-        
-    find_coprime_base(base, machine->n, machine->factors);
-    swap_mpz_array(machine->factors, base);
-    
-    free_mpz_array(base);
-    
-    exit_code = compute_multiplicities(
+    exit_code = process_found_factors(
+                    machine->factors,
                     machine->multis,
                     machine->n,
-                    machine->factors
+                    FIND_COMPLETE_FACTORIZATION,
+                    machine->recurse_func
                 );
-    
+    machine->success = (exit_code == COMPLETE_FACTORIZATION_FOUND);
+
+    return exit_code;
+}
+//-----------------------------------------------------------------------------
+
+/*
+ *-----------------------------------------------------------------------------
+ *                 Post-processing of the factors found by a run
+ *-----------------------------------------------------------------------------
+ */
+
+//-----------------------------------------------------------------------------
+static void replace_by_coprime_base(mpz_array_t* const factors,
+                                    const mpz_t n) {
+    uint32_t     flen = factors->length;
+    mpz_array_t* base = alloc_mpz_array(flen * (flen + 1));
+
+    find_coprime_base(base, n, factors);
+    swap_mpz_array(factors, base);
+
+    free_mpz_array(base);
+}
+//-----------------------------------------------------------------------------
+static ecode_t complete_factorization(
+    mpz_array_t* const factors,
+    uint32_array_t* const multis,
+    const mpz_t n,
+    ecode_t (*recurse)(mpz_array_t* const, uint32_array_t* const,
+                       const mpz_t, factoring_mode_t)) {
+
+    //
+    // Compute a coprime base for all the found factors, then compute the
+    // multiplicity of each element in said base (even if they are not all
+    // prime).
+    //
+    replace_by_coprime_base(factors, n);
+
+    ecode_t exit_code = compute_multiplicities(multis, n, factors);
+
     if (exit_code != SUCCESS) {
         return exit_code;
     }
     
-    if (are_all_prime(machine->factors)) {
+    if (are_all_prime(factors)) {
         //
-        // The found factors stored in machine->factors are all prime!
+        // The found factors stored in factors are all prime!
         // This means that we have found the complete factorization of
-        // machine->n.
+        // n.
         //
-        machine->success = true;
         return COMPLETE_FACTORIZATION_FOUND;
     }
     
@@ -436,21 +447,21 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
     // element. However, some of these factors are not prime so we should
     // factorize them.
     //
-    uint32_t alloced = 2 * machine->factors->length;
+    uint32_t alloced = 2 * factors->length;
     
     //
     // The all_* arrays will hold all the (hopefully prime) factors of
-    // machine->n and their multiplicities.
+    // n and their multiplicities.
     //
     mpz_array_t*    all_factors = alloc_mpz_array(alloced);
     uint32_array_t* all_multis  = alloc_uint32_array(alloced);
 
     bool factorization_is_partial = false;
 
-    for (uint32_t i = 0; i < machine->factors->length; i++) {
+    for (uint32_t i = 0; i < factors->length; i++) {
         
-        const mpz_ptr curfactor = machine->factors->data[i];
-        const uint32_t curmulti = machine->multis->data[i];
+        const mpz_ptr curfactor = factors->data[i];
+        const uint32_t curmulti = multis->data[i];
         
         if (MPZ_IS_PRIME(curfactor)) {
             
@@ -464,7 +475,7 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
             mpz_array_t*   morefactors = alloc_mpz_array(ELONGATION);
             uint32_array_t* moremultis = alloc_uint32_array(ELONGATION);
 
-            ecode_t retcode = machine->recurse_func(
+            ecode_t retcode = recurse(
                                   morefactors,
                                   moremultis,
                                   curfactor,
@@ -485,7 +496,7 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
                 factorization_is_partial = true;
                 
                 for (uint32_t j = 0; j < moremultis->length; j++) {
-                    moremultis->data[j] *= machine->multis->data[i];
+                    moremultis->data[j] *= multis->data[i];
                 }
                 append_mpz_array(all_factors, morefactors);
                 append_uint32_array(all_multis, moremultis);
@@ -509,8 +520,8 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
             free_uint32_array(moremultis);
         }
     }
-    swap_mpz_array(machine->factors, all_factors);
-    swap_uint32_array(machine->multis, all_multis);
+    swap_mpz_array(factors, all_factors);
+    swap_uint32_array(multis, all_multis);
 
     free_mpz_array(all_factors);
     free_uint32_array(all_multis);
@@ -518,8 +529,39 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
     if (factorization_is_partial) {
         return PARTIAL_FACTORIZATION_FOUND;
     } else {
-        machine->success = true;
         return COMPLETE_FACTORIZATION_FOUND;
+    }
+}
+//-----------------------------------------------------------------------------
+ecode_t process_found_factors(mpz_array_t* const factors,
+                              uint32_array_t* const multis,
+                              const mpz_t n,
+                              const factoring_mode_t mode,
+                              ecode_t (*recurse)(mpz_array_t* const,
+                                                 uint32_array_t* const,
+                                                 const mpz_t,
+                                                 factoring_mode_t)) {
+    switch (mode) {
+    case SINGLE_RUN:
+    case FIND_SOME_FACTORS:
+        return SOME_FACTORS_FOUND;
+
+    case FIND_SOME_COPRIME_FACTORS:
+        replace_by_coprime_base(factors, n);
+        return SOME_COPRIME_FACTORS_FOUND;
+
+    case FIND_SOME_PRIME_FACTORS:
+        replace_by_coprime_base(factors, n);
+        if (are_all_prime(factors)) {
+            return SOME_PRIME_FACTORS_FOUND;
+        }
+        return SOME_COPRIME_FACTORS_FOUND;
+
+    case FIND_COMPLETE_FACTORIZATION:
+        return complete_factorization(factors, multis, n, recurse);
+
+    default:
+        return UNKNOWN_FACTORING_MODE;
     }
 }
 //-----------------------------------------------------------------------------

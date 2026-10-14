@@ -222,6 +222,35 @@ typedef struct struct_factoring_machine factoring_machine_t;
     */
 ecode_t run_machine(factoring_machine_t* machine);
 
+   /**
+    * \brief Turns the factors found by a single run into the result expected
+    * by a factoring mode.
+    *
+    * This is the post-processing \c run_machine applies once an algorithm
+    * reports \c SOME_FACTORS_FOUND. It lets a caller that ran an algorithm in
+    * \c SINGLE_RUN mode (to avoid its retries) still honour another mode.
+    *
+    * \param[in,out] factors Non-trivial divisors of \c n on input; on output,
+    *                        the factors required by \c mode.
+    * \param[out] multis The multiplicities, filled only for
+    *                    \c FIND_COMPLETE_FACTORIZATION (may be NULL otherwise).
+    * \param[in] n The factored integer.
+    * \param[in] mode The factoring mode whose result is wanted.
+    * \param[in] recurse The function used to factor composite factors (only
+    *                    used for \c FIND_COMPLETE_FACTORIZATION).
+    * \return The exit code \c run_machine would have returned.
+    */
+ecode_t process_found_factors(
+    mpz_array_t* const factors,
+    uint32_array_t* const multis,
+    const mpz_t n,
+    const factoring_mode_t mode,
+    ecode_t (*recurse)(mpz_array_t* const,
+                       uint32_array_t* const,
+                       const mpz_t,
+                       factoring_mode_t)
+);
+
 #ifdef __cplusplus
 }
 #endif
