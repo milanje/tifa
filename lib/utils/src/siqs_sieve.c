@@ -1055,7 +1055,7 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
     }
 
     while (xindex <= sieve_end) {
-        if (sieve_data[sieve_end - xindex] & 0x80) {
+        if (sieve_data[xindex - sieve_begin] & 0x80) {
             *xpool_to_write = -xindex;
             xpool_to_write++;
             if (xpool_to_write == xpool_to_stop) {
