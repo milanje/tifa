@@ -439,10 +439,10 @@ unsigned long int sqrtm_p2(uint32_t a, uint32_t p);
    /**
     * \brief Find best multiplier using the Knuth-Schroeppel function.
     *
-    * Given the size of factor base \c size_base, returns the "best"
-    * multiplier to factor \c n, using the modified version of the
-    * Knuth-Schroeppel function described by Silverman in: "The Multiple
-    * Quadratic Sieve".
+    * Given the size of factor base \c size_base, returns the odd squarefree
+    * multiplier that maximizes the Knuth-Schroeppel function for \c n (in
+    * the form used by msieve and YAFU). Below 100 bits, only multipliers k
+    * with k.n = 1 mod 8 are considered.
     *
     * \note The greatest multiplier considered is given by
     * \c LARGEST_MULTIPLIER.

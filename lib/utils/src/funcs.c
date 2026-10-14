@@ -791,62 +791,138 @@ unsigned long int sqrtm_p2(uint32_t n, uint32_t p) {
     return (unsigned long int)s;
 }
 //-----------------------------------------------------------------------------
+#define KS_NPRIMES 300
+#define KS_ANY_RESIDUE_BITSIZE 100
 uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
+    //
+    // Knuth-Schroeppel function, as in msieve and YAFU: for each odd
+    // squarefree k, add the expected log contribution of the small primes to
+    // the sieve values of k.n (2.log(p)/(p-1) when k.n is a quadratic residue
+    // mod p, log(p)/(p-1) when p divides k, and a 2-adic term depending on
+    // k.n mod 8), minus the (1/2).log(k) the larger values cost.
+    //
+    // Below KS_ANY_RESIDUE_BITSIZE bits only k.n = 1 mod 8 is allowed: the
+    // SIQS thresholds for small numbers were tuned with that restriction, and
+    // lifting it there costs 5-25%, against 2-12% gained above 120 bits.
+    //
+    // Primes beyond the first few hundred change the score very little, so
+    // the sum stops at KS_NPRIMES primes (fewer for small factor bases).
+    //
+    const uint32_t nprimes = MIN(2 * size_base + 1, KS_NPRIMES);
+    const bool     any_residue
+        = (mpz_sizeinbase(n, 2) >= KS_ANY_RESIDUE_BITSIZE);
 
-    mpz_t kn;
-    mpz_init_set_ui(kn, 0);
+    uint32_t nq = 0;
+    while (first_primes[nq] <= LARGEST_MULTIPLIER) {
+        nq++;
+    }
+    //
+    // (kn/p) = (n/p) times the product of (q/p) over the primes q dividing k.
+    // The (q/p) for q <= LARGEST_MULTIPLIER come from quadratic reciprocity
+    // and small tables of residues mod q, so only the (n/p) need a symbol
+    // computation.
+    //
+    int8_t* legendre_q = malloc(nq * nprimes * sizeof(int8_t));
+    int8_t* legendre_n = malloc(nprimes * sizeof(int8_t));
+    double* logp       = malloc(nprimes * sizeof(double));
+    uint8_t isqr[LARGEST_MULTIPLIER + 1];
 
-    uint32_t mult   = 1;
-    uint32_t p      = 0;
-    float    ksf    = 0.0;
-    float    ksfmax = 0.0;
+    for (uint32_t j = 0; j < nq; j++) {
+        const uint32_t q = first_primes[j];
 
-    for (uint32_t k = 1; k <= LARGEST_MULTIPLIER; k++) {
-
-        ksf = 0.0;
-
-        mpz_add(kn, kn, n);
-
-        if (1 != (mpz_get_ui(kn) & 7)) {
-            //
-            // Silverman suggests to use a multiplier k such that kn mod 8 = 1.
-            //
-            continue;
+        if (q > 2) {
+            memset(isqr, 0, q);
+            for (uint32_t x = 1; x < q; x++) {
+                isqr[(x * x) % q] = 1;
+            }
         }
-        //
-        // p = 2
-        //
-        if (1 == mpz_kronecker_ui(kn, 2)) {
-            ksf += 2.0 * log(2.0);
-        }
+        for (uint32_t i = 1; i < nprimes; i++) {
+            const uint32_t p = first_primes[i];
+            int8_t l;
 
-        //
-        // p > 2
-        //
-        uint32_t ip = 1;
-        uint32_t np = 1;
-
-        while ((np < size_base) && (ip < NFIRST_PRIMES)) {
-
-            p = first_primes[ip];
-
-            if (1 == mpz_kronecker_ui(kn, p)) {
-                ksf += log(p) / p;
-                if (k % p != 0) {
-                    ksf += log(p) / p;
+            if (p == q) {
+                l = 0;
+            } else if (q == 2) {
+                l = (((p & 7) == 1) || ((p & 7) == 7)) ? 1 : -1;
+            } else {
+                l = isqr[p % q] ? 1 : -1;
+                if (((p & 3) == 3) && ((q & 3) == 3)) {
+                    l = -l;
                 }
             }
-            ip++;
-            np++;
-        }
-        ksf -= 0.5 * log(k);
-
-        if (ksf > ksfmax) {
-            ksfmax = ksf;
-            mult   = k;
+            legendre_q[j * nprimes + i] = l;
         }
     }
-    mpz_clear(kn);
+    for (uint32_t i = 1; i < nprimes; i++) {
+        const uint32_t p = first_primes[i];
+        legendre_n[i] = kronecker_ui(mpz_fdiv_ui(n, p), p);
+        logp[i]       = log((double) p) / (p - 1);
+    }
+    const uint32_t nmod8 = mpz_fdiv_ui(n, 8);
+    const double   log2  = log(2.0);
+
+    uint32_t mult      = 1;
+    double   bestscore = 0.0;
+    bool     scored    = false;
+
+    for (uint32_t k = 1; k <= LARGEST_MULTIPLIER; k += 2) {
+        if ((k % 9 == 0) || (k % 25 == 0) || (k % 49 == 0)) {
+            continue;
+        }
+        if (!any_residue && (((k * nmod8) & 7) != 1)) {
+            continue;
+        }
+        double score = -0.5 * log((double) k);
+
+        switch ((k * nmod8) & 7) {
+            case 1:
+                score += 2.0 * log2;
+                break;
+            case 5:
+                score += log2;
+                break;
+            case 3:
+            case 7:
+                score += 0.5 * log2;
+                break;
+            default:
+                break;
+        }
+        //
+        // Odd squarefree k <= 97 has at most three prime factors.
+        //
+        const int8_t* kq[3];
+        uint32_t      nkq = 0;
+        for (uint32_t j = 0; j < nq; j++) {
+            if (k % first_primes[j] == 0) {
+                kq[nkq++] = &legendre_q[j * nprimes];
+            }
+        }
+        for (uint32_t i = 1; i < nprimes; i++) {
+            int8_t l       = legendre_n[i];
+            bool   divides = false;
+
+            for (uint32_t t = 0; t < nkq; t++) {
+                if (kq[t][i] == 0) {
+                    divides = true;
+                }
+                l *= kq[t][i];
+            }
+            if (divides) {
+                score += logp[i];
+            } else if (l == 1) {
+                score += 2.0 * logp[i];
+            }
+        }
+        if (!scored || (score > bestscore)) {
+            bestscore = score;
+            mult      = k;
+            scored    = true;
+        }
+    }
+    free(legendre_q);
+    free(legendre_n);
+    free(logp);
 
     return mult;
 }
