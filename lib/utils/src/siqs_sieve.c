@@ -759,57 +759,55 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
     fbptr++;
     logptr++;
 
-    uint32_t npnb = sieve->nprimes_no_buckets;
+    //
+    // Primes above the a-range, both roots in one pass. A prime smaller than
+    // the chunk hits it several times; a larger one at most once per root.
+    //
+    const uint32_t       npnb = sieve->nprimes_no_buckets;
+    const uint8_t* const logs = log_primes->data;
 
-    for (uint32_t p = rimax + 1; p < npnb; p++) {
-        curprime = *fbptr;
-        logp     = *logptr;
+    uint32_t p = rimax + 1;
 
-        //
-        // Sieve with sol1
-        //
-        sindex    = *sol1ptr;
-        sieveptr  = &(sieve_data[*sol1ptr]);
-        endunroll = endptr - curprime;
+    for (; (p < npnb) && (fbdata[p] <= iend); p++) {
+        const uint32_t prime = fbdata[p];
+        const uint8_t  lp    = logs[p];
 
-        while (sieveptr <= endunroll) {
-            *sieveptr -= logp;
-            *(sieveptr + curprime) -= logp;
-            sieveptr  += (curprime << 1);
-            sindex  += (curprime << 1);
+        uint32_t r1 = (uint32_t) sol1data[p];
+        uint32_t r2 = (uint32_t) sol2data[p];
+        if (r1 > r2) {
+            uint32_t tmp = r1;
+            r1 = r2;
+            r2 = tmp;
         }
-
-        while (sieveptr <= endptr) {
-            *sieveptr -= logp;
-            sieveptr  += curprime;
-            sindex    += curprime;
+        while (r2 <= iend) {
+            sieve_data[r1] -= lp;
+            sieve_data[r2] -= lp;
+            r1 += prime;
+            r2 += prime;
         }
-        *sol1ptr = sindex - sieve_length;
-
-        //
-        // Sieve with sol2
-        //
-        sindex   = *sol2ptr;
-        sieveptr = &(sieve_data[*sol2ptr]);
-
-        while (sieveptr <= endunroll) {
-            *sieveptr -= logp;
-            *(sieveptr + curprime) -= logp;
-            sieveptr  += (curprime << 1);
-            sindex    += (curprime << 1);
+        if (r1 <= iend) {
+            sieve_data[r1] -= lp;
+            r1 += prime;
         }
+        sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
+        sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
+    }
+    for (; p < npnb; p++) {
+        const uint32_t prime = fbdata[p];
+        const uint8_t  lp    = logs[p];
 
-        while (sieveptr <= endptr) {
-            *sieveptr -= logp;
-            sieveptr  += curprime;
-            sindex    += curprime;
+        uint32_t r1 = (uint32_t) sol1data[p];
+        uint32_t r2 = (uint32_t) sol2data[p];
+        if (r1 <= iend) {
+            sieve_data[r1] -= lp;
+            r1 += prime;
         }
-        *sol2ptr = sindex - sieve_length;
-
-        sol1ptr++;
-        sol2ptr++;
-        fbptr++;
-        logptr++;
+        if (r2 <= iend) {
+            sieve_data[r2] -= lp;
+            r2 += prime;
+        }
+        sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
+        sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
     }
 
     STOP_EXTRA_TIMER(fill);
