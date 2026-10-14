@@ -54,6 +54,7 @@
 
 //-----------------------------------------------------------------------------
 uint32_t determine_nprimes(uint32_t bitsize);
+static void choose_a(siqs_poly_t* const poly);
 ecode_t  full_poly_init(siqs_poly_t* const poly);
 ecode_t  fast_poly_init(siqs_poly_t* const poly);
 //-----------------------------------------------------------------------------
@@ -91,7 +92,7 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     for (uint32_t i = 0; i < poly->factor_base->length; i++) {
         poly->Bainv2[i] = malloc(poly->nprimes_in_a * sizeof(uint32_t));
     }    
-    random_approximation(poly->approximer, poly->a, poly->idx_of_a);
+    choose_a(poly);
     
     full_poly_init(poly);
 
@@ -152,10 +153,39 @@ update_polynomial(siqs_poly_t* const poly)
     if (poly->polyno != poly->npolys) {    
         ecode = fast_poly_init(poly);
     } else {
-        random_approximation(poly->approximer, poly->a, poly->idx_of_a);
+        choose_a(poly);
         ecode = full_poly_init(poly);
     }    
     return ecode;
+}
+//-----------------------------------------------------------------------------
+static void
+choose_a(siqs_poly_t* const poly)
+{
+    //
+    // A prime dividing kn has the single root 0, which makes its B_l zero:
+    // successive b's would then repeat, sieving the same polynomials again
+    // and filling the matrix with duplicate relations (hence only trivial
+    // dependencies). Skip any 'a' with such a prime. Give up after one pass
+    // over all the subsets the approximer can produce.
+    //
+    const uint32_t* const sqrtm = poly->sqrtm_pi->data;
+    const uint32_t ntries = poly->approximer->nsubsets_odd;
+
+    for (uint32_t itry = 0; itry <= ntries; itry++) {
+        random_approximation(poly->approximer, poly->a, poly->idx_of_a);
+
+        bool divides_kn = false;
+        for (uint32_t j = 0; j < poly->nprimes_in_a; j++) {
+            if (sqrtm[poly->idx_of_a[j]] == 0) {
+                divides_kn = true;
+                break;
+            }
+        }
+        if (!divides_kn) {
+            return;
+        }
+    }
 }
 //-----------------------------------------------------------------------------
 ecode_t
