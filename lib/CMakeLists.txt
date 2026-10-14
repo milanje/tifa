@@ -23,6 +23,7 @@ set(TIFA_SOURCES
     utils/src/array.c
     utils/src/bernsteinisms.c
     utils/src/factoring_machine.c
+    utils/src/factor_u64.c
     utils/src/funcs.c
     utils/src/gauss_elim.c
     utils/src/gmp_utils.c
@@ -125,6 +126,7 @@ set(TIFA_PUBLIC_HEADERS
     utils/include/buckets.h
     utils/include/exit_codes.h
     utils/include/factoring_machine.h
+    utils/include/factor_u64.h
     utils/include/funcs.h
     utils/include/gauss_elim.h
     utils/include/gmp_utils.h
