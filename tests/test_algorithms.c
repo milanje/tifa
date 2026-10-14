@@ -153,6 +153,23 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- Pollard p-1 backtracking ---- p - 1 and q - 1 are both 1000-smooth,
+    // so stage 1 gives gcd = n; redoing it prime by prime splits n at 547.
+    {
+        mpz_set_str(n, "385402726458636771254457161", 10);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        p_minus_1_params_t params;
+        set_p_minus_1_params_to_default(n, &params);
+        params.b1   = 1000;
+        params.b2   = 0;
+        params.base = 2;
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        check("p_minus_1 backtrack", rc, n, f, m);
+        free_mpz_array(f);
+        free_uint32_array(m);
+    }
+
     // ---- Pollard p-1 stage 2 ---- (10007 = 2*5003 + 1: b1 < 5003 < b2,
     // so stage 1 misses and stage 2 recovers the factor)
     {

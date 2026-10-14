@@ -110,6 +110,8 @@ static ecode_t clear_p_minus_1_context(factoring_machine_t* const machine);
 static ecode_t update_p_minus_1_context(factoring_machine_t* const machine);
 //------------------------------------------------------------------------------
 static ecode_t perform_p_minus_1(factoring_machine_t* const machine);
+static void backtrack_stage_1(mpz_t g, const mpz_t n,
+                              const p_minus_1_params_t* const params);
 //------------------------------------------------------------------------------
 static ecode_t recurse(
     mpz_array_t* const,
@@ -283,6 +285,41 @@ static ecode_t update_p_minus_1_context(factoring_machine_t* const machine) {
     return ecode;
 }
 //------------------------------------------------------------------------------
+static void backtrack_stage_1(mpz_t g, const mpz_t n,
+                              const p_minus_1_params_t* const params) {
+    //
+    // Stage 1 caught every prime factor of n at once (g = n). Redo it one
+    // prime at a time, checking the gcd after each, and stop as soon as it
+    // splits n. If a single prime takes g from 1 to n, g is left equal to n.
+    //
+    mpz_t b;
+    mpz_init_set_ui(b, params->base);
+
+    uint32_t ip = 0;
+    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
+        unsigned long pr = first_primes[ip];
+        unsigned long pe = pr;
+        while (pe <= params->b1 / pr) {
+            pe *= pr;
+        }
+        for (unsigned long q = pr; ; q *= pr) {
+            mpz_powm_ui(b, b, pr, n);
+            mpz_sub_ui(g, b, 1);
+            mpz_gcd(g, g, n);
+            if (mpz_cmp_ui(g, 1) > 0) {
+                mpz_clear(b);
+                return;
+            }
+            if (q == pe) {
+                break;
+            }
+        }
+        ip++;
+    }
+    mpz_set(g, n);
+    mpz_clear(b);
+}
+//------------------------------------------------------------------------------
 static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
     p_minus_1_context_t* context = (p_minus_1_context_t*) machine->context;
     p_minus_1_params_t*  params  = (p_minus_1_params_t*)  machine->params;
@@ -340,6 +377,9 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
     mpz_sub_ui(g, a, 1);
     mpz_gcd(g, g, n);
 
+    if (mpz_cmp(g, n) == 0) {
+        backtrack_stage_1(g, n, params);
+    }
     if ((mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0)) {
         append_mpz_to_array(machine->factors, g);
         mpz_divexact(g, n, g);
