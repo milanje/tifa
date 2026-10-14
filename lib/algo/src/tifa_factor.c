@@ -28,6 +28,7 @@
 
 #include "tifa_config.h"
 #include "macros.h"
+#include "factor_u64.h"
 #include "tdiv.h"
 #include "siqs.h"
 #include "squfof.h"
@@ -232,6 +233,43 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
     return siqs(factors, multis, n, &params, mode);
 }
 //-----------------------------------------------------------------------------
+#if TIFA_HAVE_FACTOR_U64
+//
+// Factors n < 2^64 entirely in machine words. Returns FAILURE if some
+// composite factor could not be split, so that the caller falls back to the
+// multi-precision algorithms.
+//
+static ecode_t factor_with_u64(mpz_array_t* const factors,
+                               uint32_array_t* const multis,
+                               const mpz_t n,
+                               const factoring_mode_t mode) {
+    uint64_t primes[FACTOR_U64_MAX_PRIMES];
+    uint32_t pmultis[FACTOR_U64_MAX_PRIMES];
+
+    const uint32_t nprimes = factor_u64(
+                                 (uint64_t) mpz_get_ui(n), primes, pmultis
+                             );
+    if (nprimes == 0) {
+        return FAILURE;
+    }
+    if ((nprimes == 1) && (pmultis[0] == 1)) {
+        return NO_FACTOR_FOUND;
+    }
+    mpz_t p;
+    mpz_init(p);
+    for (uint32_t i = 0; i < nprimes; i++) {
+        mpz_set_ui(p, (unsigned long int) primes[i]);
+        append_mpz_to_array(factors, p);
+        if (mode == FIND_COMPLETE_FACTORIZATION) {
+            append_uint32_to_array(multis, pmultis[i]);
+        }
+    }
+    mpz_clear(p);
+
+    return mode_to_outcome[mode];
+}
+#endif
+//-----------------------------------------------------------------------------
 ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
                     const mpz_t n, const factoring_mode_t mode) {
 
@@ -241,6 +279,14 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
     if (mpz_cmp_ui(n, 1) <= 0) {
         return NO_FACTOR_FOUND;
     }
+#if TIFA_HAVE_FACTOR_U64
+    if (mpz_sizeinbase(n, 2) <= 64) {
+        ecode_t ecode = factor_with_u64(factors, multis, n, mode);
+        if (ecode != FAILURE) {
+            return ecode;
+        }
+    }
+#endif
     const bool tdiv_only = (mpz_sizeinbase(n, 2) <= TFACTOR_TDIV_THRESH);
 
     mpz_array_t*    tfactors = alloc_mpz_array(ELONGATION);

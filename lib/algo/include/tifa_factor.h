@@ -53,7 +53,9 @@ extern "C" {
     * and with the factoring mode given by <tt>mode</tt>. Found factors are
     * then stored in \c factors. Additionally, if the factoring mode used is
     * set to \c FIND_COMPLETE_FACTORIZATION, factors' multiplicities are stored
-    * in the array <tt>multis</tt>. Prime factors below 1000 (below 8192 for
+    * in the array <tt>multis</tt>. Numbers below 2^64 are factored with
+    * machine-word arithmetic where the compiler supports it (see
+    * factor_u64.h). Otherwise, prime factors below 1000 (below 8192 for
     * numbers of at most 26 bits) are found by trial division before any
     * other algorithm runs.
     *
