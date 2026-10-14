@@ -1445,7 +1445,7 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
             acc_yi->length++;
                     
             if (acc_yi->length == acc_yi->alloced) {
-                retval = k + 1;
+                retval = in_yi->length - k;
                 break;
             }
         } else {            
@@ -1533,9 +1533,6 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                             //clear_mpz_pair(found);
                             //free(found);
                             
-                            mpz_clear(acc_yi->data[next]);
-                            mpz_clear(acc_xi->data[next]);
-                            
                             continue;
                         }
                         acc_yi->length++;
@@ -1547,7 +1544,7 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                         //free(found);
             
                         if (acc_yi->length == acc_yi->alloced) {
-                            retval = k + 1;
+                            retval = in_yi->length - k;
                             break;
                         }
                     } else {
@@ -1657,7 +1654,7 @@ uint32_t djb_batch_rt_step(smooth_filter_t* const filter,
             acc_yi->length++;
         
             if (acc_yi->length == acc_yi->alloced) {
-                retval = k + 1;
+                retval = in_yi->length - k;
                 break;
             }
         } else {
@@ -1770,7 +1767,7 @@ uint32_t djb_batch_rt_step(smooth_filter_t* const filter,
                         //free(found);
             
                         if (acc_yi->length == acc_yi->alloced) {
-                            retval = k + 1;
+                            retval = in_yi->length - k;
                             break;
                         }
                     } else {
@@ -1810,7 +1807,7 @@ uint32_t djb_batch_rt_step(smooth_filter_t* const filter,
                 out_cof->length++;
 
                 if (out_yi->length == out_yi->alloced) {
-                    retval = k + 1;
+                    retval = in_yi->length - k;
                     break;
                 }
             }
@@ -1896,7 +1893,7 @@ uint32_t djb_batch_rt_first(smooth_filter_t* const filter) {
             acc_yi->length++;
                     
             if (acc_yi->length == acc_yi->alloced) {
-                retval = k + 1;
+                retval = in_yi->length - k;
                 break;
             }
         } else {
@@ -2001,7 +1998,7 @@ uint32_t djb_batch_rt_first(smooth_filter_t* const filter) {
                         //free(found);
             
                         if (acc_yi->length == acc_yi->alloced) {
-                            retval = k + 1;
+                            retval = in_yi->length - k;
                             break;
                         }
                     } else {
@@ -2040,7 +2037,7 @@ uint32_t djb_batch_rt_first(smooth_filter_t* const filter) {
                 cofact->length++;
                 
                 if (out_yi->length == out_yi->alloced) {
-                    retval = k + 1;
+                    retval = in_yi->length - k;
                     break;
                 }
             }
@@ -2125,7 +2122,7 @@ uint32_t djb_batch_rt_last(smooth_filter_t* const filter) {
             acc_yi->length++;
         
             if (acc_yi->length == acc_yi->alloced) {
-                retval = k + 1;
+                retval = in_yi->length - k;
                 break;
             }
         } else {
@@ -2216,9 +2213,6 @@ uint32_t djb_batch_rt_last(smooth_filter_t* const filter) {
                             free(key);
                             //clear_mpz_pair(found);
                             //free(found);
-                            
-                            mpz_clear(acc_yi->data[next]);
-                            mpz_clear(acc_xi->data[next]);
             
                             continue;
                         }
@@ -2230,7 +2224,7 @@ uint32_t djb_batch_rt_last(smooth_filter_t* const filter) {
                         //free(found);
             
                         if (acc_yi->length == acc_yi->alloced) {
-                            retval = k + 1;
+                            retval = in_yi->length - k;
                             break;
                         }
                     } else {
