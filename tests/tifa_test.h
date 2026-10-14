@@ -48,11 +48,12 @@ static int _tifa_test_checks   = 0;
 
 // Verify that (factors, multis) is a complete prime factorization of n:
 // every factor is prime and the product of factors^multiplicities equals n.
-// Missing multiplicities (multis shorter than factors) default to 1.
+// Every factor must have a multiplicity.
 static inline int tifa_is_complete_factorization(const mpz_t n,
                                                  const mpz_array_t* factors,
                                                  const uint32_array_t* multis) {
-    if (factors == NULL || factors->length == 0) {
+    if (   factors == NULL || factors->length == 0
+        || multis == NULL || multis->length != factors->length) {
         return 0;
     }
     mpz_t prod;
@@ -65,10 +66,7 @@ static inline int tifa_is_complete_factorization(const mpz_t n,
         if (mpz_probab_prime_p(factors->data[i], 25) == 0) {
             ok = 0;
         }
-        unsigned long e = 1UL;
-        if (multis != NULL && i < multis->length) {
-            e = (unsigned long)multis->data[i];
-        }
+        unsigned long e = (unsigned long)multis->data[i];
         mpz_pow_ui(tmp, factors->data[i], e);
         mpz_mul(prod, prod, tmp);
     }

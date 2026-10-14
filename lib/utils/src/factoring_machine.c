@@ -375,10 +375,22 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
     machine->clear_context_func(machine);
 
     if (exit_code == COMPLETE_FACTORIZATION_FOUND) {
+        //
+        // The algorithm may report the complete factorization without the
+        // multiplicities (e.g. the semiprime early exit of SIQS).
+        //
+        exit_code = compute_multiplicities(
+                        machine->multis,
+                        machine->n,
+                        machine->factors
+                    );
+        if (exit_code != SUCCESS) {
+            return exit_code;
+        }
         machine->success = true;
-        return exit_code;
+        return COMPLETE_FACTORIZATION_FOUND;
     }
-    
+
     if (exit_code != SOME_FACTORS_FOUND) {
         return exit_code;
     }
