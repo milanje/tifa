@@ -159,6 +159,19 @@ update_polynomial(siqs_poly_t* const poly)
     return ecode;
 }
 //-----------------------------------------------------------------------------
+//
+// Roots and Bainv2 entries stay in [0, p), so one conditional correction
+// replaces a division when switching to the next polynomial.
+//
+static inline int32_t add_mod(int32_t r, uint32_t d, uint32_t p) {
+    uint32_t s = (uint32_t) r + d;
+    return (int32_t) ((s >= p) ? (s - p) : s);
+}
+static inline int32_t sub_mod(int32_t r, uint32_t d, uint32_t p) {
+    int32_t s = r - (int32_t) d;
+    return (s < 0) ? (s + (int32_t) p) : s;
+}
+//-----------------------------------------------------------------------------
 static void
 choose_a(siqs_poly_t* const poly)
 {
@@ -513,7 +526,6 @@ fast_poly_init(siqs_poly_t* const poly)
     poly->logc = mpz_sizeinbase(c, 2);
 
     uint32_t curprime = 0;
-    int32_t  tmp32    = 0;
 
     uint32_t* avoid_primes = poly->idx_of_a;
 
@@ -530,11 +542,8 @@ fast_poly_init(siqs_poly_t* const poly)
         for (uint32_t i = 0; i < rimin; i++) {
             curprime = base->data[i];
 
-            *sol1ptr += Bainv2[i][nu-1];
-            *sol1ptr %= curprime;
-            
-            *sol2ptr += Bainv2[i][nu-1];
-            *sol2ptr %= curprime;
+            *sol1ptr = add_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
+            *sol2ptr = add_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
             
             sol1ptr++;
             sol2ptr++;
@@ -551,11 +560,8 @@ fast_poly_init(siqs_poly_t* const poly)
             }
             curprime = base->data[i];
 
-            *sol1ptr += Bainv2[i][nu-1];
-            *sol1ptr %= curprime;
-            
-            *sol2ptr += Bainv2[i][nu-1];
-            *sol2ptr %= curprime;
+            *sol1ptr = add_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
+            *sol2ptr = add_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
             
             sol1ptr++;
             sol2ptr++;       
@@ -566,40 +572,19 @@ fast_poly_init(siqs_poly_t* const poly)
         for (uint32_t i = rimax + 1; i < fb_length; i++) {
             curprime = base->data[i];
 
-            *sol1ptr += Bainv2[i][nu-1];
-            *sol1ptr %= curprime;
-                        
-            *sol2ptr += Bainv2[i][nu-1];
-            *sol2ptr %= curprime;
+            *sol1ptr = add_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
+            *sol2ptr = add_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
             
             sol1ptr++;
             sol2ptr++;        
         }
         
     } else {
-        //
-        // _NOTE_ : Be very careful with the possible negative case: use
-        //          a temporary _signed_ variable and beware of
-        //          automatic type coercion that can @#%!* results.
-        //
-        // _TODO_: Do we really need _unsigned_ variables anyway?
-        //
         for (uint32_t i = 0; i < rimin; i++) {
             curprime = base->data[i];
             
-            tmp32  = (int32_t)(*sol1ptr) - (int32_t)Bainv2[i][nu-1];
-            tmp32 %= (int32_t)curprime;
-            if (tmp32 < 0) {
-                tmp32 += (int32_t)curprime;
-            }
-            *sol1ptr = (int32_t)tmp32;
-            
-            tmp32  = (int32_t)(*sol2ptr) - (int32_t)Bainv2[i][nu-1];
-            tmp32 %= (int32_t)curprime;
-            if (tmp32 < 0) {
-                tmp32 += (int32_t)curprime;
-            }
-            *sol2ptr = (int32_t)tmp32;
+            *sol1ptr = sub_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
+            *sol2ptr = sub_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
             
             sol1ptr++;
             sol2ptr++;
@@ -616,19 +601,8 @@ fast_poly_init(siqs_poly_t* const poly)
             }
             curprime = base->data[i];
             
-            tmp32  = (int32_t)(*sol1ptr) - (int32_t)Bainv2[i][nu-1];
-            tmp32 %= (int32_t)curprime;
-            if (tmp32 < 0) {
-                tmp32 += (int32_t)curprime;
-            }
-            *sol1ptr = (int32_t)tmp32;
-            
-            tmp32  = (int32_t)(*sol2ptr) - (int32_t)Bainv2[i][nu-1];
-            tmp32 %= (int32_t)curprime;
-            if (tmp32 < 0) {
-                tmp32 += (int32_t)curprime;
-            }
-            *sol2ptr = (int32_t)tmp32;
+            *sol1ptr = sub_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
+            *sol2ptr = sub_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
             
             sol1ptr++;
             sol2ptr++;
@@ -639,19 +613,8 @@ fast_poly_init(siqs_poly_t* const poly)
         for (uint32_t i = rimax + 1; i < fb_length; i++) {
             curprime = base->data[i];
             
-            tmp32  = (int32_t)(*sol1ptr) - (int32_t)Bainv2[i][nu-1];
-            tmp32 %= (int32_t)curprime;
-            if (tmp32 < 0) {
-                tmp32 += (int32_t)curprime;
-            }
-            *sol1ptr = (int32_t)tmp32;
-            
-            tmp32  = (int32_t)(*sol2ptr) - (int32_t)Bainv2[i][nu-1];
-            tmp32 %= (int32_t)curprime;
-            if (tmp32 < 0) {
-                tmp32 += (int32_t)curprime;
-            }
-            *sol2ptr = (int32_t)tmp32;
+            *sol1ptr = sub_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
+            *sol2ptr = sub_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
             
             sol1ptr++;
             sol2ptr++;
