@@ -1275,6 +1275,15 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                     // particular prime number: we can compute a new
                     // pair to add in our arrays xi and smooth_yi
                     //
+                    if (0 == mpz_cmpabs(*candidate_x, found->x)) {
+                        //
+                        // The same relation, found again with another
+                        // polynomial: pairing it with itself would only
+                        // give a trivial relation.
+                        //
+                        free(key);
+                        goto next_candidate;
+                    }
 
                     mpz_set(*matching_a, *candidate_a);
                 
@@ -1297,7 +1306,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                         free(key);
                         //clear_mpz_pair(found);
                         //free(found);
-                        continue;
+                        goto next_candidate;
                     }
                     smooth_yi->length++;
                     xi->length++;
@@ -1332,6 +1341,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                 }
             }
         }
+      next_candidate:
         candidate_y++;
         candidate_x++;
         candidate_a++;

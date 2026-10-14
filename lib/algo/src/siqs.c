@@ -230,6 +230,17 @@ struct struct_siqs_context_t {
     //
     hashtable_t *htable;
     //
+    // Set once a run has produced only trivial dependencies: from then on,
+    // duplicate relations are dropped as they are collected.
+    //
+    bool drop_duplicates;
+    //
+    // Open-addressing set of the relations kept so far (index in u plus one,
+    // zero for an empty slot), used to drop duplicate relations.
+    //
+    uint32_t* relset;
+    uint32_t  relset_mask;
+    //
     // Use extra timers to get finer information.
     //
     DECL_EXTRA_TIMER(fill);
@@ -334,6 +345,10 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context);
 static ecode_t collect_relations(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
 static void multiply_by_smooth_a(siqs_context_t* const context);
+static void drop_duplicate_relations(
+    siqs_context_t* const context,
+    const uint32_t first_new
+);
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -525,6 +540,10 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     context->a_for_smooth_redgx = alloc_mpz_array(context->matrix_nrows);
     context->u                  = alloc_mpz_array(context->matrix_nrows);
 
+    context->drop_duplicates = false;
+    context->relset          = NULL;
+    context->relset_mask     = 0;
+
     context->htable = NULL;
 
     if (params->use_large_primes) {
@@ -596,6 +615,7 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
         if (context->htable != NULL) {
             free_mpzpair_htable(context->htable);
         }
+        free(context->relset);
         free(context);
     }
 
@@ -605,12 +625,46 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
     return SUCCESS;
 }
 //------------------------------------------------------------------------------
-static ecode_t update_siqs_context(factoring_machine_t* const machine MAYBE_UNUSED) {
+static ecode_t update_siqs_context(factoring_machine_t* const machine) {
     //
-    // _TO_DO_: No fallback strategy is implemented yet. We could for example
-    //          try to gather more relations...
+    // All the dependencies were trivial. The usual culprit is duplicate
+    // relations (the same u found by several polynomials): drop them, then
+    // let the next run collect replacements, dropping duplicates as it goes.
+    // Deduplicating only now keeps the common case free of the extra batches
+    // that replacing a dropped relation costs.
     //
-    return GIVING_UP;
+    siqs_context_t* const context = (siqs_context_t*) machine->context;
+
+    if (context->drop_duplicates) {
+        return GIVING_UP;
+    }
+    context->drop_duplicates = true;
+
+    uint32_t relset_size = 1U << (most_significant_bit(context->matrix_nrows)
+                                  + 2);
+    context->relset      = calloc(relset_size, sizeof(uint32_t));
+    context->relset_mask = relset_size - 1;
+    //
+    // Undo multiply_by_smooth_a: the next run multiplies again.
+    //
+    for (uint32_t i = 0; i < context->smooth_redgx->length; i++) {
+        mpz_divexact(
+            context->smooth_redgx->data[i],
+            context->smooth_redgx->data[i],
+            context->a_for_smooth_redgx->data[i]
+        );
+    }
+    const uint32_t nrels = context->u->length;
+
+    drop_duplicate_relations(context, 0);
+
+    if (context->u->length == nrels) {
+        return GIVING_UP;
+    }
+    reset_binary_matrix(context->matrix);
+    context->matrix->nrows = 0;
+
+    return SUCCESS;
 }
 //------------------------------------------------------------------------------
 static ecode_t perform_siqs(factoring_machine_t* const machine) {
@@ -1011,10 +1065,55 @@ static ecode_t collect_relations(siqs_context_t* const context) {
  */
 
 //-----------------------------------------------------------------------------
+static void drop_duplicate_relations(siqs_context_t* const context,
+                                     const uint32_t first_new) {
+    //
+    // The same u = a.x + b is found by every polynomial whose 'a' divides
+    // u^2 - kn, which is common for small numbers. Duplicate relations (u or
+    // -u) only yield trivial dependencies, so keep the first copy of each.
+    //
+    mpz_t* const u     = context->u->data;
+    mpz_t* const redgx = context->smooth_redgx->data;
+    mpz_t* const a     = context->a_for_smooth_redgx->data;
+
+    uint32_t* const relset = context->relset;
+    const uint32_t  mask   = context->relset_mask;
+
+    uint32_t nkept = first_new;
+
+    for (uint32_t i = first_new; i < context->u->length; i++) {
+        uint32_t slot = (uint32_t) mpz_getlimbn(u[i], 0) & mask;
+        bool     dup  = false;
+
+        while (relset[slot] != 0) {
+            if (0 == mpz_cmpabs(u[relset[slot] - 1], u[i])) {
+                dup = true;
+                break;
+            }
+            slot = (slot + 1) & mask;
+        }
+        if (dup) {
+            continue;
+        }
+        if (nkept != i) {
+            mpz_swap(u[nkept], u[i]);
+            mpz_swap(redgx[nkept], redgx[i]);
+            mpz_swap(a[nkept], a[i]);
+        }
+        relset[slot] = nkept + 1;
+        nkept++;
+    }
+    context->u->length                  = nkept;
+    context->smooth_redgx->length       = nkept;
+    context->a_for_smooth_redgx->length = nkept;
+}
+//-----------------------------------------------------------------------------
 inline static void
 keep_relations_with_smooth_gx(siqs_context_t* const context) {
 
     START_EXTRA_TIMER(batch);
+
+    const uint32_t first_new = context->u->length;
 
     if (context->params->use_large_primes) {
         bern_21_rt_pairs_lp_siqs(
@@ -1038,6 +1137,9 @@ keep_relations_with_smooth_gx(siqs_context_t* const context) {
             context->cand_a_array,
             context->ptree->data[0]
         );
+    }
+    if (context->drop_duplicates) {
+        drop_duplicate_relations(context, first_new);
     }
 
     STOP_EXTRA_TIMER(batch);
