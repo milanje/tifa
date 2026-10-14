@@ -28,7 +28,7 @@
 
 #include "tifa_config.h"
 #include "macros.h"
-#include "first_primes.h"
+#include "tdiv.h"
 #include "siqs.h"
 #include "squfof.h"
 #include "p_minus_1.h"
@@ -48,11 +48,11 @@
 //
 #define TFACTOR_TDIV_THRESH 26
 //
-// Number of small primes (all the primes below 1000) divided out of larger
-// numbers before any other algorithm runs. SQUFOF, for one, fails on 2p and
-// on factors shared with its multipliers.
+// Number of primes (all the primes below 1000) to use for trial division on
+// larger numbers, before any other algorithm runs. SQUFOF, for one, fails on
+// 2p and on factors shared with its multipliers.
 //
-#define TFACTOR_NPRIMES_STRIP 168
+#define TFACTOR_NPRIMES_PRE_TDIV 168
 #if TIFA_WORDSIZE < 64
     //
     // Bitsize threshold for SQUFOF on 32 bit machines. On 32 bit machines
@@ -85,74 +85,17 @@
 
 //-----------------------------------------------------------------------------
 //
-// Divides the first nprimes primes out of n, records them with their
-// multiplicities in primes and pmultis, and leaves what remains in cofactor.
-// Returns true if cofactor is then known to be 1 or prime.
-//
-static bool strip_small_primes(mpz_array_t* const primes,
-                               uint32_array_t* const pmultis,
-                               mpz_t cofactor,
-                               const mpz_t n,
-                               const uint32_t nprimes) {
-    mpz_t p;
-    mpz_init(p);
-    mpz_set(cofactor, n);
-
-    unsigned long int ntwos = mpz_scan1(cofactor, 0);
-    if (ntwos > 0) {
-        mpz_tdiv_q_2exp(cofactor, cofactor, ntwos);
-        mpz_set_ui(p, 2UL);
-        append_mpz_to_array(primes, p);
-        append_uint32_to_array(pmultis, (uint32_t) ntwos);
-    }
-    bool known_prime_or_one = false;
-
-    for (uint32_t i = 1; i < nprimes; i++) {
-        const unsigned long int pi = first_primes[i];
-
-        if (mpz_cmp_ui(cofactor, pi * pi) < 0) {
-            known_prime_or_one = true;
-            break;
-        }
-        if (mpz_divisible_ui_p(cofactor, pi)) {
-            uint32_t multi = 0;
-            do {
-                mpz_divexact_ui(cofactor, cofactor, pi);
-                multi++;
-            } while (mpz_divisible_ui_p(cofactor, pi));
-
-            mpz_set_ui(p, pi);
-            append_mpz_to_array(primes, p);
-            append_uint32_to_array(pmultis, multi);
-        }
-    }
-    if (!known_prime_or_one) {
-        const unsigned long int pnext = first_primes[nprimes];
-        known_prime_or_one = (mpz_cmp_ui(cofactor, pnext * pnext) < 0);
-    }
-    mpz_clear(p);
-
-    return known_prime_or_one;
-}
-//-----------------------------------------------------------------------------
-//
-// Adds the cofactor c > 1 left by strip_small_primes to the factors found.
+// Adds the composite cofactor c left by trial division to the factors found.
 //
 static ecode_t add_cofactor(mpz_array_t* const factors,
                             uint32_array_t* const multis,
                             const mpz_t c,
-                            const bool c_is_prime,
                             const factoring_mode_t mode) {
     if (mode != FIND_COMPLETE_FACTORIZATION) {
-        if (c_is_prime || (mode != FIND_SOME_PRIME_FACTORS)) {
+        if (mode != FIND_SOME_PRIME_FACTORS) {
             append_mpz_to_array(factors, c);
         }
         return mode_to_outcome[mode];
-    }
-    if (c_is_prime) {
-        append_mpz_to_array(factors, c);
-        append_uint32_to_array(multis, 1);
-        return COMPLETE_FACTORIZATION_FOUND;
     }
     mpz_array_t*    cfactors = alloc_mpz_array(ELONGATION);
     uint32_array_t* cmultis  = alloc_uint32_array(ELONGATION);
@@ -300,42 +243,44 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
     }
     const bool tdiv_only = (mpz_sizeinbase(n, 2) <= TFACTOR_TDIV_THRESH);
 
-    mpz_array_t*    primes  = alloc_mpz_array(ELONGATION);
-    uint32_array_t* pmultis = alloc_uint32_array(ELONGATION);
-    mpz_t cofactor;
-    mpz_init(cofactor);
+    mpz_array_t*    tfactors = alloc_mpz_array(ELONGATION);
+    uint32_array_t* tmultis  = alloc_uint32_array(ELONGATION);
 
-    bool cofactor_is_prime = strip_small_primes(
-                                 primes, pmultis, cofactor, n,
-                                 tdiv_only ? TFACTOR_NPRIMES_TDIV
-                                           : TFACTOR_NPRIMES_STRIP
-                             );
-    ecode_t ecode;
+    ecode_t ecode = tdiv(tfactors, tmultis, n,
+                         tdiv_only ? TFACTOR_NPRIMES_TDIV
+                                   : TFACTOR_NPRIMES_PRE_TDIV);
 
-    if (primes->length == 0) {
-        if (cofactor_is_prime) {
-            ecode = NO_FACTOR_FOUND;
-        } else {
+    if (ecode == NO_FACTOR_FOUND) {
+        if (!tdiv_only) {
             ecode = factor_without_small_primes(factors, multis, n, mode);
         }
     } else {
-        append_mpz_array(factors, primes);
+        //
+        // tdiv appends the cofactor last and reports SOME_FACTORS_FOUND only
+        // when that cofactor is composite.
+        //
+        const bool composite_left = (ecode == SOME_FACTORS_FOUND);
+        mpz_t cofactor;
+        mpz_init(cofactor);
+
+        if (composite_left) {
+            tfactors->length--;
+            tmultis->length--;
+            mpz_set(cofactor, tfactors->data[tfactors->length]);
+        }
+        append_mpz_array(factors, tfactors);
         if (mode == FIND_COMPLETE_FACTORIZATION) {
-            append_uint32_array(multis, pmultis);
+            append_uint32_array(multis, tmultis);
         }
-        if (mpz_cmp_ui(cofactor, 1) == 0) {
-            ecode = mode_to_outcome[mode];
+        if (composite_left) {
+            ecode = add_cofactor(factors, multis, cofactor, mode);
         } else {
-            if (!cofactor_is_prime) {
-                cofactor_is_prime = MPZ_IS_PRIME(cofactor);
-            }
-            ecode = add_cofactor(factors, multis, cofactor,
-                                 cofactor_is_prime, mode);
+            ecode = mode_to_outcome[mode];
         }
+        mpz_clear(cofactor);
     }
-    mpz_clear(cofactor);
-    free_mpz_array(primes);
-    free_uint32_array(pmultis);
+    free_mpz_array(tfactors);
+    free_uint32_array(tmultis);
 
     return ecode;
 }
