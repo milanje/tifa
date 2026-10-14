@@ -46,42 +46,16 @@ extern "C" {
 #endif
 
 //
-// Logarithm (in base 2) of the largest size of a sieve chunk. The optimal
-// value is architecture dependant, so this value should be tweaked according
-// to the target processor.
+// The sieve is processed in chunks sized to the L1 data cache: the largest
+// power of two not above it, from 2^LOG2_SIEVE_CHUNK_MIN to
+// 2^LOG2_SIEVE_CHUNK_MAX bytes, detected at run time. Define
+// LOG2_SIEVE_CHUNK_MAX_SIZE (in [10..20]) to force a size instead.
 //
-// WARNING: Should be an integer in the [10..20] range.
-//
-#define LOG2_SIEVE_CHUNK_MAX_SIZE 15
+#define LOG2_SIEVE_CHUNK_MIN 15
+#define LOG2_SIEVE_CHUNK_MAX 17
 
-//
-// Largest size of a sieve chunk.
-//
-// SIEVE_CHUNK_MAX_SIZE = 2^LOG2_SIEVE_CHUNK_MAX_SIZE
-//
-#if   (LOG2_SIEVE_CHUNK_MAX_SIZE == 10)
-    #define SIEVE_CHUNK_MAX_SIZE 1024
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 11)
-    #define SIEVE_CHUNK_MAX_SIZE 2048
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 12)
-    #define SIEVE_CHUNK_MAX_SIZE 4096
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 13)
-    #define SIEVE_CHUNK_MAX_SIZE 8192
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 14)
-    #define SIEVE_CHUNK_MAX_SIZE 16384
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 15)
-    #define SIEVE_CHUNK_MAX_SIZE 32768
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 16)
-    #define SIEVE_CHUNK_MAX_SIZE 65536
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 17)
-    #define SIEVE_CHUNK_MAX_SIZE 131072
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 18)
-    #define SIEVE_CHUNK_MAX_SIZE 262144
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 19)
-    #define SIEVE_CHUNK_MAX_SIZE 524288
-#elif (LOG2_SIEVE_CHUNK_MAX_SIZE == 20)
-    #define SIEVE_CHUNK_MAX_SIZE 1048576
-#else
+#if defined(LOG2_SIEVE_CHUNK_MAX_SIZE) \
+    && ((LOG2_SIEVE_CHUNK_MAX_SIZE < 10) || (LOG2_SIEVE_CHUNK_MAX_SIZE > 20))
   #error "LOG2_SIEVE_CHUNK_MAX_SIZE should be in [10..20]"
 #endif
 
@@ -107,8 +81,8 @@ extern "C" {
 
 //
 // If ROUND_HALF_WIDTH is not zero, round the half-width to the nearest
-// multiple of SIEVE_CHUNK_MAX_SIZE (unless if the half-width is less than 
-// SIEVE_CHUNK_MAX_SIZE).
+// multiple of the chunk size (unless if the half-width is less than the chunk
+// size).
 //
 #define ROUND_HALF_WIDTH  0
 
@@ -130,6 +104,10 @@ struct struct_siqs_sieve_t {
      * \tt{2 * chunk_size * nchunks}
      */
     uint32_t chunk_size;
+    /**
+     * Logarithm (in base 2) of the size of a full sieve chunk.
+     */
+    uint32_t log2_chunk_size;
     /**
      * The number of the next sieve chunk to fill (in [\tt{nchunks}, 0[ U
      * ]0, \tt{nchunks}])

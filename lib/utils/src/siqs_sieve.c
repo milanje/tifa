@@ -26,10 +26,23 @@
  *        the SIQS algorithm.
  */
 
+//
+// sysconf's L1 cache query is a glibc extension, hidden in strict C99 mode.
+//
+#if !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#if defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#else
+#include <unistd.h>
+#endif
 #include "tifa_config.h"
 #include "macros.h"
 #include "funcs.h"
@@ -92,16 +105,6 @@
         }                                         \
     } while (0)
 #endif
-//
-// Divides X by the length of a chunk sieve.
-// WARNING: a chunk sieve must have a length which is a power of two!
-//
-#define DIV_CHUNK_LEN(X) ((X) >> LOG2_SIEVE_CHUNK_MAX_SIZE)
-//
-// X modulo the length of a chunk sieve.
-// WARNING: a chunk sieve must have a length which is a power of two!
-//
-#define MOD_CHUNK_LEN(X) ((X) & (SIEVE_CHUNK_MAX_SIZE - 1))
 //-----------------------------------------------------------------------------
 int compute_threshold_correction(siqs_sieve_t* const sieve);
 ecode_t fill_sieve_chunk(siqs_sieve_t* const sieve);
@@ -124,6 +127,37 @@ static inline ecode_t empty_bucket(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket_posi(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket_nega(siqs_sieve_t* const sieve);
 //-----------------------------------------------------------------------------
+static uint32_t log2_sieve_chunk_size(void)
+{
+#if defined(LOG2_SIEVE_CHUNK_MAX_SIZE)
+    return LOG2_SIEVE_CHUNK_MAX_SIZE;
+#else
+    //
+    // On CPUs mixing core types the system reports the smallest L1 (64 KB on
+    // Apple's efficiency cores against 128 KB on its performance cores), so
+    // a chunk stays in cache whichever core the thread runs on.
+    //
+    unsigned long l1d = 0;
+#if defined(__APPLE__)
+    uint64_t value  = 0;
+    size_t   length = sizeof(value);
+    if (0 == sysctlbyname("hw.l1dcachesize", &value, &length, NULL, 0)) {
+        l1d = (unsigned long) value;
+    }
+#elif defined(_SC_LEVEL1_DCACHE_SIZE)
+    long value = sysconf(_SC_LEVEL1_DCACHE_SIZE);
+    if (value > 0) {
+        l1d = (unsigned long) value;
+    }
+#endif
+    uint32_t log2 = LOG2_SIEVE_CHUNK_MIN;
+    while ((log2 < LOG2_SIEVE_CHUNK_MAX) && ((1UL << (log2 + 1)) <= l1d)) {
+        log2++;
+    }
+    return log2;
+#endif
+}
+//-----------------------------------------------------------------------------
 siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const factor_base,
                                byte_array_t*   const log_primes,
@@ -138,7 +172,10 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
 
     sieve->log_primes = log_primes;
 
-    if (half_width <= SIEVE_CHUNK_MAX_SIZE) {
+    sieve->log2_chunk_size   = log2_sieve_chunk_size();
+    const uint32_t chunk_max = 1U << sieve->log2_chunk_size;
+
+    if (half_width <= chunk_max) {
         sieve->sieve         = alloc_byte_array(half_width);
         sieve->sieve->length = half_width;
         sieve->chunk_size    = half_width;
@@ -149,18 +186,18 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
 #endif
 
     } else {
-        sieve->sieve         = alloc_byte_array(SIEVE_CHUNK_MAX_SIZE);
-        sieve->sieve->length = SIEVE_CHUNK_MAX_SIZE;
+        sieve->sieve         = alloc_byte_array(chunk_max);
+        sieve->sieve->length = chunk_max;
 
-        uint32_t hwmod = half_width % SIEVE_CHUNK_MAX_SIZE;
-        sieve->nchunks = half_width / SIEVE_CHUNK_MAX_SIZE;
+        uint32_t hwmod = half_width % chunk_max;
+        sieve->nchunks = half_width / chunk_max;
 
 #if ROUND_HALF_WIDTH
         //
         // Rounds the half width to the closest multiple of
-        // SIEVE_CHUNK_MAX_SIZE.
+        // the chunk size.
         //
-        if (hwmod > (SIEVE_CHUNK_MAX_SIZE / 2)) {
+        if (hwmod > (chunk_max / 2)) {
             sieve->nchunks++;
         }
 #else
@@ -171,11 +208,11 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
             sieve->nchunks++;
             sieve->endlast = hwmod - 1;
         } else {
-            sieve->endlast = SIEVE_CHUNK_MAX_SIZE - 1;
+            sieve->endlast = chunk_max - 1;
         }
 #endif
 
-        sieve->chunk_size = SIEVE_CHUNK_MAX_SIZE;
+        sieve->chunk_size = chunk_max;
     }
     //
     // Setting scan_begin = chunk_size means that a new chunk should be filled
@@ -1109,6 +1146,9 @@ void fill_buckets(siqs_sieve_t* const sieve) {
     int32_t ibin = 0;
     int32_t rpos = 0;
 
+    const uint32_t log2c = sieve->log2_chunk_size;
+    const int32_t  maskc = (int32_t) sieve->chunk_size - 1;
+
     const uint32_t* fbptr = &(fb[ipmin]);
     const int32_t*  s1ptr = &(sol1[ipmin]);
     const int32_t*  s2ptr = &(sol2[ipmin]);
@@ -1126,16 +1166,16 @@ void fill_buckets(siqs_sieve_t* const sieve) {
         logp = *lgptr;
 
         while (spos < hw) {
-            ibin = DIV_CHUNK_LEN(spos);
-            rpos = MOD_CHUNK_LEN(spos);
+            ibin = spos >> log2c;
+            rpos = spos & maskc;
             add_to_buckets(rpos, logp, ibin, bposi);
             spos += curprime;
         }
         spos = curprime - *s1ptr - 1;
 
         while (spos < hw) {
-            ibin = DIV_CHUNK_LEN(spos);
-            rpos = MOD_CHUNK_LEN(spos);
+            ibin = spos >> log2c;
+            rpos = spos & maskc;
             add_to_buckets(rpos, logp, ibin, bnega);
             spos += curprime;
         }
@@ -1145,8 +1185,8 @@ void fill_buckets(siqs_sieve_t* const sieve) {
         //
         spos = *s2ptr;
         while (spos < hw) {
-            ibin = DIV_CHUNK_LEN(spos);
-            rpos = MOD_CHUNK_LEN(spos);
+            ibin = spos >> log2c;
+            rpos = spos & maskc;
 
             add_to_buckets(rpos, logp, ibin, bposi);
             spos += curprime;
@@ -1154,8 +1194,8 @@ void fill_buckets(siqs_sieve_t* const sieve) {
         spos = curprime - *s2ptr - 1;
 
         while (spos < hw) {
-            ibin = DIV_CHUNK_LEN(spos);
-            rpos = MOD_CHUNK_LEN(spos);
+            ibin = spos >> log2c;
+            rpos = spos & maskc;
 
             add_to_buckets(rpos, logp, ibin, bnega);
             spos += curprime;
