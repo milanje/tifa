@@ -27,7 +27,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <time.h>
 
 #include "approx.h"
 #include "gmp_utils.h"
@@ -111,9 +110,6 @@ approximer_t* alloc_approximer(mpz_t                 target,
                                uint32_array_t* const facpool,
                                uint32_t              nfactors)
 {
-    long unsigned int seed = time(NULL);
-    srand(seed);
-
     approximer_t* const aximer = malloc(sizeof(approximer_t));
 
     mpz_init_set(aximer->target, target);
@@ -282,8 +278,14 @@ approximer_t* alloc_approximer(mpz_t                 target,
     aximer->nsubsets_odd = n_choose_k(aximer->nodd, aximer->kodd);
     aximer->subset_odd   = malloc(aximer->kodd  * sizeof(uint32_t));
 
-    aximer->rank  = aximer->nsubsets_odd / 4;
-    aximer->rank += (rand() % (aximer->nsubsets_odd / 4));
+    //
+    // Start from a rank derived from the target rather than from a clock-seeded
+    // rand(): runs are reproducible and no global state is touched.
+    //
+    aximer->rank = aximer->nsubsets_odd / 4;
+    if (aximer->nsubsets_odd >= 4) {
+        aximer->rank += mpz_fdiv_ui(target, aximer->nsubsets_odd / 4);
+    }
 
     return aximer;
 }
