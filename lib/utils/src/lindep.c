@@ -34,6 +34,7 @@
 #endif
 
 #include "macros.h"
+#include "funcs.h"
 #include "lindep.h"
 #include "gauss_elim.h"
 #include "first_primes.h"

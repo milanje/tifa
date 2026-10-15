@@ -380,6 +380,18 @@ inline static unsigned long int is_square(unsigned long int x) {
 bool is_prime(uint32_t n);
 
    /**
+    * \brief Primality test for multi-precision integers.
+    *
+    * Conclusive below 2^64 (see \c is_prime_u64, used there when available).
+    * Above, a Baillie-PSW test, with no known counterexample (see
+    * \c NMILLER_RABIN). Tests the absolute value of \c n.
+    *
+    * \param[in] n The integer to test.
+    * \returns \c true if \c n is (probably) prime.
+    */
+bool is_prime_mpz(const mpz_t n);
+
+   /**
     * \brief Greatest common divisor for unsigned long int
     *
     * Returns the greatest common divisor of \c a and \c b as an unsigned

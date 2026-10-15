@@ -28,6 +28,7 @@
 
 #include "tifa_config.h"
 #include "macros.h"
+#include "funcs.h"
 #include "factor_u64.h"
 #include "tdiv.h"
 #include "siqs.h"

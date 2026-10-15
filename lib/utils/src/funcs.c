@@ -31,6 +31,7 @@
 #include "first_primes.h"
 
 #include "funcs.h"
+#include "factor_u64.h"
 #include "macros.h"
 
 /*
@@ -564,6 +565,15 @@ bool is_prime(uint32_t n) {
         }
     }
     return true;
+}
+//-----------------------------------------------------------------------------
+bool is_prime_mpz(const mpz_t n) {
+#if TIFA_HAVE_FACTOR_U64
+    if (mpz_sizeinbase(n, 2) <= 64) {
+        return is_prime_u64((uint64_t) mpz_get_ui(n));
+    }
+#endif
+    return (0 != mpz_probab_prime_p(n, NMILLER_RABIN));
 }
 //-----------------------------------------------------------------------------
 unsigned long int gcd_ulint(unsigned long int a, unsigned long int b) {

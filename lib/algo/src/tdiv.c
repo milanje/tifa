@@ -35,6 +35,7 @@
 #include "first_primes.h"
 #include "factoring_machine.h"
 #include "macros.h"
+#include "funcs.h"
 #include "tdiv.h"
 
 #define __PREFIX__  "tdiv: "

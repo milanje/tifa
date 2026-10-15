@@ -305,19 +305,22 @@ extern "C" {
    /**
     * \def NMILLER_RABIN
     *
-    * Number of Miller-Rabin iterations to perform for each compositeness test.
+    * The \c reps argument of \c mpz_probab_prime_p. GMP 6.2 and later run
+    * a Baillie-PSW test followed by <tt>reps - 24</tt> Miller-Rabin rounds:
+    * 24 gives Baillie-PSW alone. Earlier versions run \c reps Miller-Rabin
+    * rounds.
     */
-#define NMILLER_RABIN    32
+#define NMILLER_RABIN    24
 
    /**
     * \def MPZ_IS_PRIME(X)
     *
-    * Syntaxic sugar macro wrapping a call to <tt>mpz_probab_prime_p</tt>.
-    * "Returns" true if and only if the \c mpz_t \c X is (probably) prime.
+    * "Returns" true if and only if the \c mpz_t \c X is (probably) prime
+    * (see \c is_prime_mpz in funcs.h).
     *
     * Takes as parameter an <tt>mpz_t</tt>.
     */
-#define MPZ_IS_PRIME(X) (0 != mpz_probab_prime_p((X), NMILLER_RABIN))
+#define MPZ_IS_PRIME(X) (is_prime_mpz(X))
 
    /**
     * \def MPN_ADD(A, B, C)

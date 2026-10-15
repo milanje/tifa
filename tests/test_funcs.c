@@ -70,6 +70,40 @@ int main(void) {
         }
     }
 
+    // is_prime_mpz agrees with GMP on small and negative integers, around
+    // 2^32 and 2^64, and on strong pseudoprimes to many bases.
+    {
+        mpz_t n;
+        mpz_init(n);
+        uint32_t ndisagree = 0;
+        for (long i = -100; i < 70000; i++) {
+            mpz_set_si(n, i);
+            ndisagree += (is_prime_mpz(n) != (mpz_probab_prime_p(n, 50) != 0));
+        }
+        for (unsigned long e = 32; e <= 64; e += 32) {
+            for (long d = -3000; d <= 3000; d++) {
+                mpz_ui_pow_ui(n, 2, e);
+                if (d < 0) {
+                    mpz_sub_ui(n, n, (unsigned long) -d);
+                } else {
+                    mpz_add_ui(n, n, (unsigned long) d);
+                }
+                ndisagree += (is_prime_mpz(n) != (mpz_probab_prime_p(n, 50) != 0));
+            }
+        }
+        const char* const spsp[] = {
+            "3215031751", "2152302898747", "3474749660383", "341550071728321",
+            "3825123056546413051", "318665857834031151167461",
+            "3317044064679887385961981"
+        };
+        for (size_t i = 0; i < sizeof(spsp) / sizeof(spsp[0]); i++) {
+            mpz_set_str(n, spsp[i], 10);
+            ndisagree += is_prime_mpz(n);
+        }
+        CHECK_EQ_UI(ndisagree, 0, "is_prime_mpz agrees with GMP");
+        mpz_clear(n);
+    }
+
 #if ULONG_MAX > 4294967295UL
     // modinv_ui with moduli above 2^32 (all wrong when the bit length of p
     // was taken on 32 bits), up to the largest prime below 2^63.
