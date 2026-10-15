@@ -298,7 +298,7 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
                                    : TFACTOR_NPRIMES_PRE_TDIV);
 
     if (ecode == NO_FACTOR_FOUND) {
-        if (!tdiv_only) {
+        if (!tdiv_only && !MPZ_IS_PRIME(n)) {
             ecode = factor_without_small_primes(factors, multis, n, mode);
         }
     } else {

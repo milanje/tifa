@@ -138,6 +138,27 @@ int main(void) {
         free_uint32_array(multis);
     }
     CHECK_EQ_UI(nincomplete, 0, "random 8-64-bit composites fully factored");
+
+    // Primes of every size: above 64 bits, they used to go through p-1, p+1
+    // and SIQS until these gave up.
+    uint32_t nmisreported = 0;
+    for (uint32_t bits = 20; bits <= 200; bits += 15) {
+        do {
+            mpz_urandomb(n, state, bits);
+            mpz_setbit(n, bits - 1);
+        } while (!mpz_probab_prime_p(n, 25));
+
+        mpz_array_t*    factors = alloc_mpz_array(8);
+        uint32_array_t* multis  = alloc_uint32_array(8);
+        ecode_t rc = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION);
+        if ((rc != NO_FACTOR_FOUND) || (factors->length != 0)) {
+            gmp_fprintf(stderr, "  prime %Zd: rc = %d\n", n, rc);
+            nmisreported++;
+        }
+        free_mpz_array(factors);
+        free_uint32_array(multis);
+    }
+    CHECK_EQ_UI(nmisreported, 0, "primes of 20-200 bits: NO_FACTOR_FOUND");
     gmp_randclear(state);
 
     mpz_clear(n);

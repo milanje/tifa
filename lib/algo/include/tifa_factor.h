@@ -75,7 +75,7 @@ extern "C" {
     *                     \c FIND_COMPLETE_FACTORIZATION).
     * \param[in] n The non perfect square integer to factor.
     * \param[in] mode The factoring mode to use.
-    * \return An exit code.
+    * \return An exit code: \c NO_FACTOR_FOUND if \c n is prime.
     */
 ecode_t tifa_factor(
     mpz_array_t* const factors,
