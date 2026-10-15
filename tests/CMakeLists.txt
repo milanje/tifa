@@ -35,3 +35,8 @@ tifa_add_test(test_mont_pm1)
 tifa_add_test(test_tuning)
 target_compile_definitions(test_tuning PRIVATE
     TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+
+tifa_add_test(test_threads)
+target_link_libraries(test_threads PRIVATE Threads::Threads)
+target_compile_definitions(test_threads PRIVATE
+    TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
