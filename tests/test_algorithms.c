@@ -301,6 +301,26 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- ECM, default bounds ---- a 40-bit factor of a 189-bit n: the
+    // bounds start at the level for 20-bit factors and move up until found.
+    {
+        mpz_set_str(n, "665996203062451295188310324867037030192120874180607253493",
+                    10);
+        mpz_array_t* f = alloc_mpz_array(8);
+        ecm_params_t params;
+        set_ecm_params_to_default(n, &params);
+        ecode_t rc = ecm(f, NULL, n, &params, FIND_SOME_FACTORS);
+        CHECK(rc == SOME_FACTORS_FOUND, "ecm defaults: rc == SOME_FACTORS_FOUND");
+        int found = 0;
+        for (uint32_t i = 0; i < f->length; i++) {
+            if (mpz_cmp_ui(f->data[i], 817225028183UL) == 0) {
+                found = 1;
+            }
+        }
+        CHECK(found, "ecm defaults: the 40-bit factor is found");
+        free_mpz_array(f);
+    }
+
     mpz_clear(n);
     TIFA_TEST_END();
 }

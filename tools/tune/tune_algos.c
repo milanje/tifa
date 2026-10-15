@@ -217,14 +217,14 @@ static bool run_rho(const mpz_t n, const mpz_t p, const uint32_t cols[],
 
 static void build_grid_ecm(uint32_t bitsize, grid_t* g) {
     grid_clear(g);
-    // Center on ECM's own size-dependent defaults (b1, b2, ncurves tables).
-    mpz_t n;
-    mpz_init(n);
-    representative_n(n, bitsize);
+    // Center on ECM's bounds for the smallest factor of the test composites:
+    // ~bitsize/3 for the 3-prime ones used at/above the crossover, ~bitsize/2
+    // below it.
+    unsigned int factor_bits = (bitsize >= TUNE_MULTI_FACTOR_MIN_BITS)
+                             ? (bitsize / 3) : (bitsize / 2);
     ecm_params_t d;
     memset(&d, 0, sizeof(d));
-    set_ecm_params_to_default(n, &d);
-    mpz_clear(n);
+    set_ecm_params_for_factor_size(factor_bits, &d);
 
     grid_add_axis_mul(g, (double) d.b1,      R3, 3, 100, LARGEST_PRIME);  // b1
     grid_add_axis_mul(g, (double) d.b2,      R3, 3, 200, LARGEST_PRIME);  // b2

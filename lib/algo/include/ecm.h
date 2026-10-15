@@ -81,8 +81,9 @@ struct struct_ecm_params_t {
          */
     uint32_t b2;
         /**
-         * Number of curves to try before giving up the factorization when
-         * using the SINGLE_RUN factoring mode.
+         * Number of curves per round: the only round in the SINGLE_RUN
+         * factoring mode, the first one otherwise (see
+         * \c set_ecm_params_to_default).
          */
     uint32_t ncurves;
     
@@ -96,20 +97,32 @@ struct struct_ecm_params_t {
 typedef struct struct_ecm_params_t ecm_params_t;
 
    /**
-    * \brief Fills an \c ecm_params_t with "good" default values.
+    * \brief Fills an \c ecm_params_t with default values.
     *
-    * Fills an \c ecm_params_t with "good" default values choosen according
-    * to the size of the number n to factor.
-    *
-    * \warning This is, for the time being, a dummy function. Parameters
-    * are \e not set to suitable values \e at \e all! Do \e not use it:
-    * for the time being, you should choose the parameters by yourself!
-    * Shocking!
+    * Sets the bounds suited to the smallest factors (about 20 bits). In
+    * modes other than SINGLE_RUN, \c ecm then moves up to the bounds for
+    * larger factors, 5 bits at a time, as long as no factor is found, up to
+    * factors of half the size of \c n, and tries that last level a few more
+    * times before giving up. A tuning file row for the size of \c n (see
+    * tuning.h) overrides the starting values.
     *
     * \param[in]  n The \c mpz_t integer to factor.
     * \param[out] params A pointer to the \c ecm_params_t structure to fill.
     */
 void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params);
+
+   /**
+    * \brief Fills an \c ecm_params_t for factors of a given size.
+    *
+    * Sets \c b1 and \c b2 to the bounds minimizing the expected time to
+    * find a prime factor of \c fbits bits, and \c ncurves to the mean number
+    * of curves that takes.
+    *
+    * \param[in]  fbits The size of the factor sought, in bits.
+    * \param[out] params A pointer to the \c ecm_params_t structure to fill.
+    */
+void set_ecm_params_for_factor_size(uint32_t fbits,
+                                    ecm_params_t* const params);
 
    /**
     * \brief Integer factorization with the elliptic curve method (ECM).
