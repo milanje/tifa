@@ -445,16 +445,16 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     // is not tuned and keeps its default. Note that the local `size` was
     // clobbered by the interpolation above, so the true bit-size is recomputed.
     //
-    const tuning_row_t* row = tifa_tuning_row_for(
-        "siqs", TIFA_TUNING_NCOLS_SIQS, (uint32_t) mpz_sizeinbase(n, 2)
-    );
-    if (row != NULL) {
-        params->nprimes_in_base  = row->cols[0];
-        params->sieve_half_width = row->cols[1];
-        params->threshold        = row->cols[2];
-        params->nprimes_tdiv     = row->cols[3];
-        params->nrelations       = row->cols[4];
-        params->use_large_primes = (row->cols[5] != 0);
+    tuning_row_t row;
+    if (tifa_tuning_get_row(
+        "siqs", TIFA_TUNING_NCOLS_SIQS, (uint32_t) mpz_sizeinbase(n, 2),
+        &row)) {
+        params->nprimes_in_base  = row.cols[0];
+        params->sieve_half_width = row.cols[1];
+        params->threshold        = row.cols[2];
+        params->nprimes_tdiv     = row.cols[3];
+        params->nrelations       = row.cols[4];
+        params->use_large_primes = (row.cols[5] != 0);
     }
 }
 //------------------------------------------------------------------------------

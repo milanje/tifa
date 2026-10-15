@@ -57,6 +57,7 @@ extern "C" {
 #endif
 
 #include <inttypes.h>
+#include <stdbool.h>
 
    /**
     * \def TIFA_TUNING_MAX_COLS
@@ -220,9 +221,9 @@ void tifa_tuning_set_dir(const char* dir);
     * each file is parsed at most once. Any failure (no directory, missing file,
     * parse error, or column-count mismatch) yields NULL and is cached as a miss.
     *
-    * \warning The internal cache is not thread-safe on first load. Embedders
-    * needing multi-threaded access should force loading on the main thread
-    * first (for instance by calling this function once per algorithm).
+    * \warning The returned row lives in the cache: it is freed by the next
+    * call to \c tifa_tuning_set_dir. Use \c tifa_tuning_get_row when that
+    * call may happen in another thread.
     *
     * \param[in] algo         The algorithm name (matches the file base name).
     * \param[in] expect_ncols The expected number of parameter columns.
@@ -231,6 +232,22 @@ void tifa_tuning_set_dir(const char* dir);
     */
 const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
                                         uint32_t bitsize);
+
+   /**
+    * \brief Copies the tuning row for an algorithm and bit-size, if any.
+    *
+    * Same as \c tifa_tuning_row_for, but copies the row into \c out, so the
+    * result stays valid whatever other threads do. The tuning functions may
+    * be called from several threads at once.
+    *
+    * \param[in]  algo         The algorithm name (matches the file base name).
+    * \param[in]  expect_ncols The expected number of parameter columns.
+    * \param[in]  bitsize      The bit-size of the number to factor.
+    * \param[out] out          The applicable tuning row, if any.
+    * \return true if a tuning row applies (and was copied into \c out).
+    */
+bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
+                         uint32_t bitsize, tuning_row_t* out);
 
 #ifdef __cplusplus
 }

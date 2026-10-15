@@ -327,13 +327,13 @@ void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params) {
     // file supplies a row for this bit-size. The RNG seed is not tuned (it is
     // set internally in init_ecm_context), so it is left untouched here.
     //
-    const tuning_row_t* row = tifa_tuning_row_for(
-        "ecm", TIFA_TUNING_NCOLS_ECM, (uint32_t) sizen
-    );
-    if (row != NULL) {
-        params->b1      = row->cols[0];
-        params->b2      = row->cols[1];
-        params->ncurves = row->cols[2];
+    tuning_row_t row;
+    if (tifa_tuning_get_row(
+        "ecm", TIFA_TUNING_NCOLS_ECM, (uint32_t) sizen,
+        &row)) {
+        params->b1      = row.cols[0];
+        params->b2      = row.cols[1];
+        params->ncurves = row.cols[2];
     }
     return;
 }

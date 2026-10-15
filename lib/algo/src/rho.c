@@ -168,15 +168,15 @@ void set_rho_params_to_default(const mpz_t n, rho_params_t* const params) {
     // this bit-size; otherwise the defaults above are kept as-is. The cycle-
     // finding method is not tuned and keeps its default.
     //
-    const tuning_row_t* row = tifa_tuning_row_for(
+    tuning_row_t row;
+    if (tifa_tuning_get_row(
         "rho", TIFA_TUNING_NCOLS_RHO,
-        (uint32_t) mpz_sizeinbase(n, 2)
-    );
-    if (row != NULL) {
-        params->a          = row->cols[0];
-        params->b          = row->cols[1];
-        params->acc_niters = row->cols[2];
-        params->max_niters = row->cols[3];
+        (uint32_t) mpz_sizeinbase(n, 2),
+        &row)) {
+        params->a          = row.cols[0];
+        params->b          = row.cols[1];
+        params->acc_niters = row.cols[2];
+        params->max_niters = row.cols[3];
     }
 }
 //------------------------------------------------------------------------------

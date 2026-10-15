@@ -204,14 +204,14 @@ void set_p_plus_1_params_to_default(const mpz_t n,
     // Override with machine-tuned values if a tuning file supplies a row for
     // this bit-size; otherwise the defaults above are kept as-is.
     //
-    const tuning_row_t* row = tifa_tuning_row_for(
+    tuning_row_t row;
+    if (tifa_tuning_get_row(
         "p_plus_1", TIFA_TUNING_NCOLS_P_PLUS_1,
-        (uint32_t) mpz_sizeinbase(n, 2)
-    );
-    if (row != NULL) {
-        params->b1   = row->cols[0];
-        params->b2   = row->cols[1];
-        params->seed = row->cols[2];
+        (uint32_t) mpz_sizeinbase(n, 2),
+        &row)) {
+        params->b1   = row.cols[0];
+        params->b2   = row.cols[1];
+        params->seed = row.cols[2];
         if (params->b1 > LARGEST_PRIME) {
             params->b1 = LARGEST_PRIME;
         }

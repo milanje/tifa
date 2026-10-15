@@ -82,7 +82,7 @@ foreach(_t tifa_static tifa_shared)
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/data/include>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/utils/include>"
     )
-    target_link_libraries(${_t} PUBLIC GMP::GMP)
+    target_link_libraries(${_t} PUBLIC GMP::GMP Threads::Threads)
     if(TIFA_M_LIBRARY)
         target_link_libraries(${_t} PUBLIC "${TIFA_M_LIBRARY}")
     endif()

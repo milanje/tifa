@@ -99,6 +99,7 @@ option(TIFA_REGEN_TUNING "Add a 'regen-tuning' target that rebuilds baked tables
 # Dependencies
 #------------------------------------------------------------------------------
 find_package(GMP REQUIRED)
+find_package(Threads REQUIRED)   # the tuning cache is shared between threads
 find_library(TIFA_M_LIBRARY m)   # libm; may be absent (folded into libc) on some platforms
 
 #------------------------------------------------------------------------------
@@ -263,12 +264,12 @@ install(FILES
 # .pc is self-contained.
 if(PC_GMP_FOUND)
     set(TIFA_PC_REQUIRES_PRIVATE "gmp")
-    set(TIFA_PC_LIBS_PRIVATE "-lm")
+    set(TIFA_PC_LIBS_PRIVATE "-lm ${CMAKE_THREAD_LIBS_INIT}")
     set(TIFA_PC_CFLAGS_EXTRA "")
 else()
     set(TIFA_PC_REQUIRES_PRIVATE "")
     get_filename_component(_tifa_gmp_libdir "${GMP_LIBRARY}" DIRECTORY)
-    set(TIFA_PC_LIBS_PRIVATE "-L${_tifa_gmp_libdir} -lgmp -lm")
+    set(TIFA_PC_LIBS_PRIVATE "-L${_tifa_gmp_libdir} -lgmp -lm ${CMAKE_THREAD_LIBS_INIT}")
     set(TIFA_PC_CFLAGS_EXTRA " -I${GMP_INCLUDE_DIR}")
 endif()
 configure_file(

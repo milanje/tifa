@@ -28,6 +28,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include <gmp.h>
 
@@ -278,6 +279,10 @@ typedef struct {
 
 static tuning_cache_entry_t tuning_cache[TUNING_CACHE_SIZE];
 static char*                tuning_dir_override = NULL;
+//
+// Guards tuning_cache and tuning_dir_override.
+//
+static pthread_mutex_t      tuning_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //
 // Drops all cached tables (called when the search directory changes).
@@ -341,6 +346,7 @@ static const char* resolve_tuning_dir(void) {
 
 //------------------------------------------------------------------------------
 void tifa_tuning_set_dir(const char* dir) {
+    pthread_mutex_lock(&tuning_lock);
     free(tuning_dir_override);
     tuning_dir_override = NULL;
     if (dir != NULL) {
@@ -352,11 +358,15 @@ void tifa_tuning_set_dir(const char* dir) {
     }
     // A directory change invalidates every cached table.
     tuning_cache_reset();
+    pthread_mutex_unlock(&tuning_lock);
 }
 
 //------------------------------------------------------------------------------
-const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
-                                        uint32_t bitsize) {
+//
+// tifa_tuning_row_for without the lock (the caller holds it).
+//
+static const tuning_row_t* row_for(const char* algo, uint32_t expect_ncols,
+                                   uint32_t bitsize) {
     tuning_cache_entry_t* entry = tuning_cache_entry(algo);
     if (entry == NULL) {
         return NULL;
@@ -387,4 +397,25 @@ const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
 #else
     return NULL;
 #endif
+}
+
+//------------------------------------------------------------------------------
+const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
+                                        uint32_t bitsize) {
+    pthread_mutex_lock(&tuning_lock);
+    const tuning_row_t* row = row_for(algo, expect_ncols, bitsize);
+    pthread_mutex_unlock(&tuning_lock);
+    return row;
+}
+
+//------------------------------------------------------------------------------
+bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
+                         uint32_t bitsize, tuning_row_t* const out) {
+    pthread_mutex_lock(&tuning_lock);
+    const tuning_row_t* row = row_for(algo, expect_ncols, bitsize);
+    if (row != NULL) {
+        *out = *row;
+    }
+    pthread_mutex_unlock(&tuning_lock);
+    return row != NULL;
 }
