@@ -71,7 +71,7 @@
 // Bitsize from which the p-1 and p+1 pre-stages are tried before SIQS. Below
 // it, a single run of both costs more than about 10% of the SIQS run.
 //
-#define TFACTOR_PRESTAGE_THRESH 110
+#define TFACTOR_PRESTAGE_THRESH 90
 //
 // Stage-1 bound for the single Pollard p-1 run tried before SIQS on large
 // numbers. It peels off a prime factor p whenever p-1 is smooth.
