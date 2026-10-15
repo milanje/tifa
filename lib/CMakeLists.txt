@@ -32,6 +32,7 @@ set(TIFA_SOURCES
     utils/src/lindep.c
     utils/src/linked_list.c
     utils/src/matrix.c
+    utils/src/ecm_schedule.c
     utils/src/mont_ecm.c
     utils/src/res_tdiv.c
     utils/src/siqs_poly.c
@@ -138,6 +139,7 @@ set(TIFA_PUBLIC_HEADERS
     utils/include/linked_list.h
     utils/include/macros.h
     utils/include/matrix.h
+    utils/include/ecm_schedule.h
     utils/include/mont_ecm.h
     utils/include/messages.h
     utils/include/print_error.h

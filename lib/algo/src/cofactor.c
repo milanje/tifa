@@ -31,7 +31,7 @@
 #include "factor_u64.h"
 #include "first_primes.h"
 #include "funcs.h"
-#include "mont_ecm.h"
+#include "ecm_schedule.h"
 #include "siqs.h"
 #include "tifa_factor.h"
 
@@ -42,56 +42,6 @@
 // Primes divided out first when the caller knows of no factor base bound.
 //
 #define COFACTOR_TDIV_BOUND 1000
-
-#if TIFA_HAVE_MONT_ECM
-//
-// ECM levels (as in ecm.c): the B1 for factors of fbits bits (so for the
-// range (fbits - 5, fbits]), the mean number of curves that takes, and the
-// time of one curve on two limbs (us, Apple M series), which only matters
-// relative to siqs_cost.
-//
-typedef struct {
-    uint32_t fbits;
-    uint32_t b1;
-    uint32_t ncurves;
-    double   cost;
-} level_t;
-
-static const level_t levels[] = {
-    { 20,   100,  2,   17.0 },
-    { 25,   200,  3,   31.0 },
-    { 30,   400,  4,   58.0 },
-    { 35,   800,  7,  112.0 },
-    { 40,  1600,  8,  220.0 },
-    { 45,  3200, 10,  410.0 },
-    { 50,  6400, 15,  800.0 },
-    { 55, 12800, 17, 1600.0 },
-    { 60, 25600, 25, 3200.0 }
-};
-#define NLEVELS (sizeof(levels) / sizeof(levels[0]))
-//
-// Curve time on n limbs relative to two limbs.
-//
-static const double limb_factor[MONT_ECM_MAX_LIMBS + 1] = {
-    0.0, 0.6, 1.0, 2.0, 3.3
-};
-//
-// Rounds of curves at the last level when ECM is the last resort (see
-// max_siqs_bits): finds a factor of the size sought 86% of the time.
-//
-#define ROUNDS_AT_TOP 2
-#define PM1_B1 315
-#define PM1_B2 (50 * PM1_B1)
-//
-// Time of tifa_factor on a balanced semiprime (us, same machine).
-//
-static const struct { double bits; double cost; } siqs_costs[] = {
-    {  64,     200 }, {  72,    320 }, {  80,    480 }, {  90,    740 },
-    { 100,    1400 }, { 110,   2600 }, { 120,   4500 }, { 128,   7300 },
-    { 140,   15000 }, { 160,  60000 }, { 200, 1000000 }
-};
-#define NSIQS_COSTS (sizeof(siqs_costs) / sizeof(siqs_costs[0]))
-#endif
 
 struct struct_cofactor_strategy_t {
     uint32_t lpb;
@@ -107,9 +57,7 @@ struct struct_cofactor_strategy_t {
     mpz_t    bound2;
     double   bound_bits;
 #if TIFA_HAVE_MONT_ECM
-    mont_ecm_plan_t* pm1_plan;
-    uint32_t         nlevels;
-    mont_ecm_plan_t* plans[NLEVELS];
+    ecm_schedule_t* schedule;
 #endif
 };
 
@@ -125,7 +73,6 @@ typedef struct {
     uint32_t*       pmultis;
     uint32_t        npending;
     uint32_t        nlarge;
-    uint32_t        sigma;
     mpz_t           tmp;
 } cofactor_run_t;
 
@@ -154,20 +101,7 @@ cofactor_strategy_t* alloc_cofactor_strategy(const cofactor_params_t* params) {
     s->bound_bits = log2(mpz_get_d(s->bound));
 
 #if TIFA_HAVE_MONT_ECM
-    s->pm1_plan = alloc_mont_ecm_plan(PM1_B1, PM1_B2);
-    //
-    // Levels up to the one whose range holds factors of lpb bits: larger
-    // factors are not sought.
-    //
-    s->nlevels = 0;
-    while (   (s->nlevels < NLEVELS)
-           && (levels[s->nlevels].fbits - 5 < s->lpb)) {
-        s->plans[s->nlevels] = alloc_mont_ecm_plan(
-                                   levels[s->nlevels].b1,
-                                   50 * levels[s->nlevels].b1
-                               );
-        s->nlevels++;
-    }
+    s->schedule = alloc_ecm_schedule(s->lpb);
 #endif
     return s;
 }
@@ -177,10 +111,7 @@ void free_cofactor_strategy(cofactor_strategy_t* strategy) {
         return;
     }
 #if TIFA_HAVE_MONT_ECM
-    free_mont_ecm_plan(strategy->pm1_plan);
-    for (uint32_t i = 0; i < strategy->nlevels; i++) {
-        free_mont_ecm_plan(strategy->plans[i]);
-    }
+    free_ecm_schedule(strategy->schedule);
 #endif
     mpz_clear(strategy->fb_bound);
     mpz_clear(strategy->bound);
@@ -333,67 +264,6 @@ static cofactor_status_t split_by_siqs(cofactor_run_t* const run,
     return status;
 }
 //------------------------------------------------------------------------------
-#if TIFA_HAVE_MONT_ECM
-static double siqs_cost(double bits) {
-    if (bits <= siqs_costs[0].bits) {
-        return siqs_costs[0].cost;
-    }
-    for (uint32_t i = 1; i < NSIQS_COSTS; i++) {
-        if (bits <= siqs_costs[i].bits) {
-            const double t = (bits - siqs_costs[i - 1].bits)
-                           / (siqs_costs[i].bits - siqs_costs[i - 1].bits);
-            return exp(  (1 - t) * log(siqs_costs[i - 1].cost)
-                       + t * log(siqs_costs[i].cost));
-        }
-    }
-    return siqs_costs[NSIQS_COSTS - 1].cost;
-}
-//------------------------------------------------------------------------------
-//
-// p-1, then ECM curves level by level up to the size the smallest prime
-// factor of c has at most if c splits as required. With a SIQS run to fall
-// back on, only while the curves cost less than that run would; without,
-// the last level is run ROUNDS_AT_TOP times. Returns true if g is a proper
-// factor of c.
-//
-static bool split_by_ecm(cofactor_run_t* const run, mpz_t g, const mpz_t c,
-                         bool last_resort) {
-    const cofactor_strategy_t* const s = run->strategy;
-
-    if (mont_pm1(g, c, 2, s->pm1_plan) == 1) {
-        return true;
-    }
-    const double bits   = (double) mpz_sizeinbase(c, 2);
-    const double budget = siqs_cost(bits);
-    const double lfac   = limb_factor[mpz_size(c)];
-    const double target = fmin((double) s->lpb,
-                               bits / min_nprimes(run, c, true));
-    double spent = 0;
-
-    for (uint32_t i = 0; i < s->nlevels; i++) {
-        const double hi = (double) levels[i].fbits;
-        if (hi <= s->bound_bits) {
-            continue;
-        }
-        if (hi - 5 >= target) {
-            break;
-        }
-        spent += levels[i].ncurves * levels[i].cost * lfac;
-        if (!last_resort && (spent > budget)) {
-            break;
-        }
-        const uint32_t ncurves = (last_resort && (hi >= target))
-                               ? ROUNDS_AT_TOP * levels[i].ncurves
-                               : levels[i].ncurves;
-        for (uint32_t j = 0; j < ncurves; j++) {
-            if (mont_ecm_curve(g, c, run->sigma++, s->plans[i])) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-#endif
 //------------------------------------------------------------------------------
 static cofactor_status_t split(cofactor_run_t* const run, const mpz_t c,
                                uint32_t e) {
@@ -441,8 +311,17 @@ static cofactor_status_t split(cofactor_run_t* const run, const mpz_t c,
     if (mont_ecm_handles(c)) {
         mpz_t g;
         mpz_init(g);
+        //
+        // If c splits as allowed, its smallest prime factor has at most
+        // target bits. With SIQS to fall back on, ECM may take as long as
+        // SIQS would.
+        //
+        const double target = fmin((double) s->lpb,
+                                   (double) bits
+                                   / min_nprimes(run, c, true));
         cofactor_status_t status = COFACTOR_GAVE_UP;
-        if (split_by_ecm(run, g, c, no_siqs)) {
+        if (ecm_schedule_split(g, c, s->schedule, s->bound_bits, target,
+                               no_siqs ? 0 : 1)) {
             status = add_split(run, c, g, e);
         } else if (!no_siqs) {
             status = split_by_siqs(run, c, e);
@@ -487,7 +366,6 @@ cofactor_status_t tifa_cofactor(mpz_array_t* factors, uint32_array_t* multis,
                                        : malloc(max_pending * sizeof(uint32_t));
     run.npending = 0;
     run.nlarge   = 0;
-    run.sigma    = 6;
     for (uint32_t i = 0; i < max_pending; i++) {
         mpz_init(run.pending[i]);
     }
