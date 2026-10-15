@@ -1,6 +1,6 @@
 // Concurrent factorizations, one per thread, as in a cofactorization farm:
-// tifa_factor, and the algorithms called directly with parameter structs
-// shared by all the threads. Phase 1 starts on an empty tuning cache, so the
+// tifa_factor, tifa_cofactor, and the algorithms called directly, with
+// parameter structs and cofactorization strategy shared by all the threads. Phase 1 starts on an empty tuning cache, so the
 // threads race to load it; in phase 2 another thread keeps resetting it.
 // Built with -fsanitize=thread, this catches the data races; otherwise it
 // checks that every result is right.
@@ -15,6 +15,7 @@
 #include "p_minus_1.h"
 #include "p_plus_1.h"
 #include "siqs.h"
+#include "cofactor.h"
 #include "tifa_factor.h"
 #include "tuning.h"
 
@@ -29,6 +30,7 @@ typedef struct {
     p_minus_1_params_t pm1;
     p_plus_1_params_t  pp1;
     siqs_params_t      siqs;
+    cofactor_strategy_t* cofactor;
 } shared_params_t;
 
 typedef struct {
@@ -141,6 +143,24 @@ static void* worker(void* arg) {
     mpz_mul(n, p, q);
     factor_and_check(w, run_siqs, n);
 
+    // Three large primes, above 64 bits.
+    mpz_array_t*    f = alloc_mpz_array(4);
+    uint32_array_t* m = alloc_uint32_array(4);
+    for (uint32_t i = 0; i < 3; i++) {
+        random_prime(p, state, 28);
+        random_prime(q, state, 30);
+        mpz_mul(n, p, q);
+        random_prime(p, state, 31);
+        mpz_mul(n, n, p);
+        if (tifa_cofactor(f, m, n, w->shared->cofactor) != COFACTOR_SMOOTH) {
+            w->nfailed++;
+            gmp_fprintf(stderr, "  thread %u: %Zd not smooth\n", w->index, n);
+        }
+        w->nrun++;
+    }
+    free_mpz_array(f);
+    free_uint32_array(m);
+
     mpz_clears(n, p, q, NULL);
     gmp_randclear(state);
     return NULL;
@@ -202,6 +222,9 @@ int main(void) {
     shared.pp1.b2 = 10000;
     mpz_ui_pow_ui(n, 2, 99);
     set_siqs_params_to_default(n, &shared.siqs);
+    const cofactor_params_t cofactor = { .lpb = 31, .fb_bound = 1UL << 22,
+                                         .max_large_primes = 3 };
+    shared.cofactor = alloc_cofactor_strategy(&cofactor);
     shared_params_t before;
     memcpy(&before, &shared, sizeof(shared));
     mpz_clear(n);
@@ -228,6 +251,7 @@ int main(void) {
 
     CHECK(memcmp(&shared, &before, sizeof(shared)) == 0,
           "shared parameters left untouched");
+    free_cofactor_strategy(shared.cofactor);
 
     TIFA_TEST_END();
 }
