@@ -535,9 +535,10 @@ bool is_prime(uint32_t n) {
     }
 
     //
-    // Perform standard Miller-Rabin test...
+    // Strong probable prime tests to the bases 2, 7 and 61, which are
+    // conclusive below 4759123141 (Jaeschke).
     //
-    unsigned short try = NMILLER_RABIN;
+    static const uint32_t bases[] = { 2, 7, 61 };
 
     q = n - 1;
     int t = 0;
@@ -546,9 +547,9 @@ bool is_prime(uint32_t n) {
         q >>= 1;
         t++;
     }
-    while (try > 0) {
+    for (uint32_t ib = 0; ib < 3; ib++) {
         int      e = 0;
-        uint32_t a = 2 + rand() % (n - 2);
+        uint32_t a = bases[ib];
         uint64_t b = powm(a, q, n);
 
         if (b != 1) {
@@ -561,7 +562,6 @@ bool is_prime(uint32_t n) {
                 return false;
             }
         }
-        try--;
     }
     return true;
 }

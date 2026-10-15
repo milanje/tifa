@@ -217,7 +217,7 @@ typedef struct struct_fermat_context_t fermat_context_t;
 //
 // List of multipliers used.
 //
-static unsigned int multipliers[NMULTIPLIERS] = {1, 3, 5, 7, 11};
+static const unsigned int multipliers[NMULTIPLIERS] = {1, 3, 5, 7, 11};
 
 //-----------------------------------------------------------------------------
 //                 PROTOTYPES OF NON PUBLIC FUNCTION(S)

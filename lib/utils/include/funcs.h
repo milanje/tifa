@@ -369,18 +369,13 @@ inline static unsigned long int is_square(unsigned long int x) {
 }
 
    /**
-    * \brief Composition test for \c uint32_t integers
+    * \brief Primality test for \c uint32_t integers
     *
-    * Returns \c false if \c n is definitely composite. Returns \c true if
-    * \c n is \e probably prime.
+    * Trial division for small \c n, otherwise strong probable prime tests
+    * to the bases 2, 7 and 61, which are conclusive for 32-bit integers.
     *
-    * \note This is actually a basic Miller-Rabin composition test with
-    * \c NMILLER_RABIN iterations preceded with some trial divisions if
-    * \c n is sufficiently small.
-    *
-    * \param[in] n The \c uint32_t to be checked for composition.
-    * \returns Returns \c false if \c n is found to be definitely composite.
-    *          \c true otherwise.
+    * \param[in] n The \c uint32_t to be checked.
+    * \returns \c true if \c n is prime.
     */
 bool is_prime(uint32_t n);
 
@@ -719,6 +714,10 @@ void unrank_subset_revdoor(uint32_t n, uint32_t k, uint32_t r,
     *   Initializes TIFA's basic random number generator with a user
     *   defined seed.
     * </p>
+    * <p>
+    *   The generator state is global: not thread-safe. The library itself
+    *   does not use it.
+    * </p>
     * \param[in] seed The seed as a \c uint32_t.
     */
 void tifa_srand(uint32_t seed);
@@ -727,9 +726,8 @@ void tifa_srand(uint32_t seed);
     * \brief Returns a pseudo-random integer.
     * <p>
     *   Returns a pseudo-random integer using TIFA's basic random number
-    *   generator.
+    *   generator (not thread-safe, see \c tifa_srand).
     * </p>
-    * \param[in] seed The seed as a \c uint32_t.
     */
 uint32_t tifa_rand();
 

@@ -176,7 +176,7 @@ divide_trick(const unsigned long int N, const unsigned long int D);
 // List of multipliers used in case of a multiplier race. These are the 15
 // squarefree divisors of 1155 = 3 * 5 * 7 * 11.
 //
-static unsigned int multipliers[NMULTIPLIERS] = {
+static const unsigned int multipliers[NMULTIPLIERS] = {
        3,   5,   7,  11,   15,
       21,  33,  35,  55,   77,
      105, 165, 231, 385, 1155
@@ -503,8 +503,6 @@ static ecode_t init_squfof_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    mpf_set_default_prec(128);
-
     machine->context          = (void*) malloc(sizeof(squfof_context_t));
     squfof_context_t* context = (squfof_context_t*) machine->context;
 
@@ -620,8 +618,6 @@ static ecode_t perform_squfof_no_race(factoring_machine_t* const machine) {
 
     ecode_t ecode = SOME_FACTORS_FOUND;
 
-    mpf_set_default_prec(128);
-
     //
     // Step 1: Initialization
     //
@@ -639,7 +635,7 @@ static ecode_t perform_squfof_no_race(factoring_machine_t* const machine) {
     // We need a floating point computation here. See next comment.
     //
     mpf_t sqrtD;
-    mpf_init(sqrtD);
+    mpf_init2(sqrtD, 128);
     mpf_set_z(sqrtD, D);
     mpf_sqrt(sqrtD, sqrtD);
 
@@ -1323,7 +1319,7 @@ static ecode_t init_squfof_racer(squfof_racer_t* const racer, const mpz_t n,
     //
     // We need a floating point computation here. See next comment.
     //
-    mpf_init(racer->sqrtD);
+    mpf_init2(racer->sqrtD, 128);
     mpf_set_z(racer->sqrtD, racer->D);
     mpf_sqrt(racer->sqrtD, racer->sqrtD);
 
