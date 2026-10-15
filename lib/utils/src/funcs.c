@@ -678,17 +678,21 @@ unsigned long int modinv_ui(unsigned long int num, unsigned long int p) {
     const unsigned long int nth_bit_mask  = 1UL << n;
     const unsigned long int nth_minus_one_bit_mask = 1UL << (n-1);
 
+    //
+    // u, v, r and s may be negative: they are doubled and halved, not
+    // shifted. r and s are always even when halved.
+    //
     while ((u != exp_cu) && (u != -exp_cu) && (v != exp_cv) && (v != -exp_cv)) {
 
         if (!HIGH_BITS(u) || (BIT_N(u) && BIT_N_MINUS_ONE(u) && LOW_BITS(u))) {
             if (cu >= cv) {
-                u <<= 1;
-                r <<= 1;
+                u *= 2;
+                r *= 2;
                 cu++;
                 exp_cu <<= 1;
             } else {
-                u <<= 1;
-                s >>= 1;
+                u *= 2;
+                s /= 2;
                 cu++;
                 exp_cu <<= 1;
             }
@@ -697,13 +701,13 @@ unsigned long int modinv_ui(unsigned long int num, unsigned long int p) {
                 || (BIT_N(v) && BIT_N_MINUS_ONE(v) && LOW_BITS(v)) ) {
 
                if (cv >= cu) {
-                   v <<= 1;
-                   s <<= 1;
+                   v *= 2;
+                   s *= 2;
                    cv++;
                    exp_cv <<= 1;
                } else {
-                   v <<= 1;
-                   r >>= 1;
+                   v *= 2;
+                   r /= 2;
                    cv++;
                    exp_cv <<= 1;
                }
