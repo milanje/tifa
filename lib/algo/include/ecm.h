@@ -86,8 +86,11 @@ struct struct_ecm_params_t {
          * \c set_ecm_params_to_default).
          */
     uint32_t ncurves;
-    
-    
+        /**
+         * Seed of the curve choice: two runs on the same number with the
+         * same nonzero seed use the same curves. 0 derives the seed from the
+         * number to factor.
+         */
     uint32_t seed;
 };
    /**

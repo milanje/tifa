@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <math.h>
-#include <time.h>
 
 #include "tifa_config.h"
 #include "first_primes.h"
@@ -98,6 +97,10 @@ struct struct_ecm_context_t {
     //
     unsigned long int sigma;
     //
+    // State of the generator choosing the curves (xorshift64*).
+    //
+    uint64_t rng;
+    //
     // Index of first "large prime" i.e. smallest prime greater than B1
     //
     uint32_t  first_lp_index;
@@ -156,11 +159,6 @@ struct struct_ecm_context_t {
     unsigned int** prime_table;
     mpz_t* SX;
     mpz_t* SZ;
-    //
-    // How many times did we update the context to try more curves (with
-    // the same bounds)?
-    //
-    unsigned int nrounds;
     //
     // Next level of ecm_levels to escalate to, last level worth trying (for
     // factors of half the size of n), and rounds run at that last level.
@@ -288,12 +286,12 @@ ecode_t ecm(mpz_array_t* const factors, uint32_array_t* const multis,
     INIT_TIMER;
     START_TIMER;
 
+    ecode_t ecode = NO_FACTOR_FOUND;
+
     //
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     ecm_params_t own_params = *params;
-
-    ecode_t ecode = NO_FACTOR_FOUND;
 
     factoring_machine_t machine;
 
@@ -343,6 +341,18 @@ void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params) {
     return;
 }
 //------------------------------------------------------------------------------
+static unsigned long int next_sigma(ecm_context_t* const context) {
+    //
+    // xorshift64*, top 24 bits (Suyama's sigma must be at least 6).
+    //
+    uint64_t x = context->rng;
+    x ^= x >> 12;
+    x ^= x << 25;
+    x ^= x >> 27;
+    context->rng = x;
+    return (unsigned long int) ((x * 2685821657736338717ULL) >> 40) + 6;
+}
+//------------------------------------------------------------------------------
 void set_ecm_params_for_factor_size(const uint32_t fbits,
                                     ecm_params_t* const params) {
     uint32_t i = 0;
@@ -352,6 +362,7 @@ void set_ecm_params_for_factor_size(const uint32_t fbits,
     params->b1      = ecm_levels[i].b1;
     params->b2      = ECM_B2_RATIO * ecm_levels[i].b1;
     params->ncurves = ecm_levels[i].ncurves;
+    params->seed    = 0;
 }
 //------------------------------------------------------------------------------
 static void set_stage1_bound(ecm_context_t* const context,
@@ -413,8 +424,7 @@ static ecode_t mont_curve(factoring_machine_t* const machine) {
         context->mplan_b1 = params->b1;
         context->mplan_b2 = params->b2;
     }
-    context->sigma  = (tifa_rand() & 16777215) + 6;
-    context->sigma += context->nrounds;
+    context->sigma  = next_sigma(context);
 
     ecode_t ecode = NO_FACTOR_FOUND;
 
@@ -439,14 +449,10 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    tifa_srand(time(NULL));
-
     machine->context             = (void*) malloc(sizeof(ecm_context_t));
     ecm_context_t* const context = (ecm_context_t* const) machine->context;
     ecm_params_t*  const params  = (ecm_params_t* const)  machine->params;
     
-    params->seed = (uint32_t)tifa_rand();
-
     context->factors = machine->factors;
     context->params  = params;
 
@@ -458,6 +464,14 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
     mpz_init(context->zk);
     mpz_init(context->k);
     mpz_init_set(context->n, machine->n);
+    //
+    // The curves follow from params->seed, or from n when it is 0: runs are
+    // reproducible and share no state with other threads.
+    //
+    const uint64_t seed = (params->seed != 0)
+                        ? params->seed
+                        : mpz_fdiv_ui(context->n, 4294967291UL);
+    context->rng = (seed << 1) | 1;
 
     mpz_init(context->tmp_add_1);
     mpz_init(context->tmp_add_2);
@@ -474,7 +488,6 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
     context->sigma  = 5;
 
     context->precomputations_done   = false;
-    context->nrounds       = 0;
     context->rounds_at_top = 0;
     //
     // Escalate from the first level above the given bounds, up to the level
@@ -594,8 +607,6 @@ static ecode_t update_ecm_context(factoring_machine_t* const machine) {
 
     ecm_context_t* context = (ecm_context_t*) machine->context;
     ecode_t ecode = SUCCESS;
-
-    context->nrounds++;
 
     if (context->next_level <= context->top_level) {
         PRINT_UPDATE_LARGER_BOUNDS_MSG;
@@ -957,9 +968,7 @@ static ecode_t choose_curve(ecm_context_t* const context) {
     //
     ecode_t exit_code = SUCCESS;
 
-    context->sigma = (tifa_rand() & 16777215) + 6;
-
-    context->sigma += context->nrounds;
+    context->sigma = next_sigma(context);
 
     mpz_ptr n = context->n;
 
