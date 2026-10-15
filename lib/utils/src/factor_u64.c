@@ -24,6 +24,7 @@
  */
 
 #include <math.h>
+#include <pthread.h>
 
 #include "factor_u64.h"
 
@@ -81,10 +82,6 @@ static inline uint64_t mont_sub(const uint64_t a, const uint64_t b,
 
 static inline uint64_t to_mont(const uint64_t a, const mont_t* const m) {
     return mont_mul(a % m->n, m->r2, m);
-}
-
-static inline uint64_t from_mont(const uint64_t a, const mont_t* const m) {
-    return mont_mul(a, 1, m);
 }
 
 //------------------------------------------------------------------------------
@@ -437,7 +434,7 @@ bool is_prime_u64(const uint64_t n) {
 //------------------------------------------------------------------------------
 
 #if !defined(HART_MAX_BITS)
-#define HART_MAX_BITS   42
+#define HART_MAX_BITS   40
 #endif
 #if !defined(HART_MAX_ITERS)
 #define HART_MAX_ITERS  4096
@@ -518,160 +515,346 @@ static inline xz_t xadd(const xz_t p, const xz_t q, const xz_t diff,
     return r;
 }
 
-static xz_t ladder(const xz_t p, const uint64_t k, const uint64_t a24,
-                   const mont_t* const m) {
-    xz_t r0 = p;
-    xz_t r1 = xdbl(p, a24, m);
-    for (int b = 62 - __builtin_clzll(k); b >= 0; b--) {
-        if ((k >> b) & 1) {
-            r0 = xadd(r1, r0, p, m);
-            r1 = xdbl(r1, a24, m);
-        } else {
-            r1 = xadd(r1, r0, p, m);
-            r0 = xdbl(r0, a24, m);
-        }
-    }
-    return r0;
+//
+// xadd with a difference (xd : 1): one multiplication less.
+//
+static inline xz_t xadd_norm(const xz_t p, const xz_t q, const uint64_t xd,
+                             const mont_t* const m) {
+    const uint64_t u = mont_mul(mont_sub(p.x, p.z, m),
+                                mont_add(q.x, q.z, m), m);
+    const uint64_t v = mont_mul(mont_add(p.x, p.z, m),
+                                mont_sub(q.x, q.z, m), m);
+    const uint64_t s = mont_add(u, v, m);
+    const uint64_t d = mont_sub(u, v, m);
+    xz_t r;
+    r.x = mont_mul(s, s, m);
+    r.z = mont_mul(xd, mont_mul(d, d, m), m);
+    return r;
 }
 
 //
-// Stage 2 uses m.D +/- j for odd j < D/2 coprime to D, so the primes up to
-// D/2 are left to stage 1.
+// Montgomery form of the inverse of a (in Montgomery form), or 0 with
+// *g = gcd(a, n) when a is not invertible. r3 = 2^192 mod n.
 //
-#define ECM_D     210
-#define ECM_NBABY (ECM_D / 4)
+static uint64_t mont_inv(const uint64_t a, const uint64_t r3,
+                         const mont_t* const m, uint64_t* const g) {
+    const uint64_t x = inv_mod_u64(a, m->n, g);
+    return (x == 0) ? 0 : mont_mul(x, r3, m);
+}
 
 //
-// One curve of Suyama's family with parameter sigma, bounds b1 and b2.
-// Returns a proper factor of n, or 0.
+// The work that depends only on the bounds: the stage 1 multiplier E (the
+// prime powers up to b1, and the primes up to d/2, which stage 2 cannot
+// reach), and the stage 2 schedule. Stage 2 covers the primes q in (b1, b2]
+// as q = m.d +/- j, j odd and coprime to d, d = 2 mod 4: for each giant step
+// m, the slots (among the j coprime to d) to multiply in, one per pair.
 //
-static uint64_t ecm_curve(const mont_t* const m, const uint64_t sigma,
-                          uint32_t b1, const uint32_t b2) {
+#define ECM_MAX_EWORDS 8
+#define ECM_MAX_BABY   64
+#define ECM_MAX_GIANTS 128
+#define ECM_MAX_PAIRS  1024
+
+typedef struct {
+    uint32_t b1;
+    uint32_t b2;
+    uint32_t d;
+    uint32_t ebits;
+    uint64_t e[ECM_MAX_EWORDS];
+    uint32_t nbaby;
+    uint32_t nslots;
+    uint8_t  slot_baby[ECM_MAX_BABY];
+    uint32_t mfirst;
+    uint32_t mlast;
+    uint16_t offsets[ECM_MAX_GIANTS + 1];
+    uint8_t  slots[ECM_MAX_PAIRS];
+} ecm_plan_t;
+
+//
+// Bounds by size of n, for its smallest factor (at most half its bits),
+// tuned on balanced semiprimes; d = 30 or 90 suits these b2. The ECM_MAX_*
+// sizes above hold their plans.
+//
+static const struct {
+    uint32_t bits;
+    uint32_t b1;
+    uint32_t b2;
+    uint32_t d;
+} ecm_bounds[] = {
+    { 46,  40,  800, 30 },
+    { 50,  70, 2100, 90 },
+    { 54,  85, 2550, 90 },
+    { 58, 100, 3000, 90 },
+    { 62, 150, 3000, 90 },
+    { 64, 200, 6000, 90 }
+};
+#define ECM_NPLANS (sizeof(ecm_bounds) / sizeof(ecm_bounds[0]))
+
+static ecm_plan_t     ecm_plans[ECM_NPLANS];
+static pthread_once_t ecm_plans_once = PTHREAD_ONCE_INIT;
+
+static void build_ecm_plan(ecm_plan_t* const pl, const uint32_t b1,
+                           const uint32_t b2, const uint32_t d) {
+    pl->b1 = b1;
+    pl->b2 = b2;
+    pl->d  = d;
+    const uint32_t s1 = (b1 > d / 2) ? b1 : d / 2;
+
+    uint32_t nw = 1;
+    pl->e[0] = 1;
+    for (uint32_t i = 0; first_primes[i] <= s1; i++) {
+        uint64_t q = first_primes[i];
+        while ((first_primes[i] <= b1) && (q <= b1 / first_primes[i])) {
+            q *= first_primes[i];
+        }
+        u128 carry = 0;
+        for (uint32_t w = 0; w < nw; w++) {
+            const u128 t = (u128) pl->e[w] * q + carry;
+            pl->e[w] = (uint64_t) t;
+            carry    = t >> 64;
+        }
+        if (carry != 0) {
+            pl->e[nw++] = (uint64_t) carry;
+        }
+    }
+    pl->ebits = 64 * nw - (uint32_t) __builtin_clzll(pl->e[nw - 1]);
+
+    uint8_t slot_of[ECM_MAX_BABY];
+    pl->nbaby  = (d / 2 + 1) / 2;
+    pl->nslots = 0;
+    for (uint32_t i = 0; i < pl->nbaby; i++) {
+        if (gcd_u64(2 * i + 1, d) == 1) {
+            slot_of[i] = (uint8_t) pl->nslots;
+            pl->slot_baby[pl->nslots++] = (uint8_t) i;
+        } else {
+            slot_of[i] = UINT8_MAX;
+        }
+    }
+    pl->mfirst = (s1 + 1 + d / 2) / d;
+    pl->mlast  = (b2 + d / 2) / d;
+
+    uint32_t ip = 0;
+    uint32_t np = 0;
+    while (first_primes[ip] <= s1) {
+        ip++;
+    }
+    for (uint32_t mi = pl->mfirst; mi <= pl->mlast; mi++) {
+        bool used[ECM_MAX_BABY] = { false };
+        pl->offsets[mi - pl->mfirst] = (uint16_t) np;
+        while (   (first_primes[ip] <= b2)
+               && (first_primes[ip] <= mi * d + d / 2)) {
+            const uint32_t q = first_primes[ip];
+            const uint32_t j = (q > mi * d) ? (q - mi * d) : (mi * d - q);
+            const uint8_t  s = slot_of[j / 2];
+            if (!used[s]) {
+                used[s] = true;
+                pl->slots[np++] = s;
+            }
+            ip++;
+        }
+    }
+    pl->offsets[pl->mlast - pl->mfirst + 1] = (uint16_t) np;
+}
+
+static void build_ecm_plans(void) {
+    for (uint32_t i = 0; i < ECM_NPLANS; i++) {
+        build_ecm_plan(&ecm_plans[i], ecm_bounds[i].b1, ecm_bounds[i].b2,
+                       ecm_bounds[i].d);
+    }
+}
+
+//
+// Curves run ECM_LANES at a time: they share E and the stage 2 schedule, so
+// they proceed in lockstep, and their independent multiplications overlap
+// (1.5x to 2x faster than one at a time, even counting the curves run past
+// the one that succeeds).
+//
+#define ECM_LANES 3
+
+//
+// The curves of Suyama's family with parameters sigma, sigma + 1...,
+// normalized to a base point (x0 : 1) with a single inversion. Returns a
+// proper factor of n, or 0.
+//
+static uint64_t ecm_curves(const mont_t* const m, const uint64_t r3,
+                           const uint64_t sigma, const ecm_plan_t* const pl) {
     const uint64_t n = m->n;
     uint64_t g;
+    uint64_t a24[ECM_LANES];
+    uint64_t x0[ECM_LANES];
+    uint64_t num[ECM_LANES];
+    uint64_t den[ECM_LANES];
+    uint64_t u3[ECM_LANES];
+    uint64_t v3[ECM_LANES];
+    uint64_t pre[ECM_LANES];
 
-    const uint64_t s     = to_mont(sigma, m);
-    const uint64_t three = to_mont(3, m);
-    const uint64_t u     = mont_sub(mont_mul(s, s, m), to_mont(5, m), m);
-    const uint64_t v     = mont_mul(to_mont(4, m), s, m);
-    const uint64_t u3    = mont_mul(mont_mul(u, u, m), u, m);
-    const uint64_t v3    = mont_mul(mont_mul(v, v, m), v, m);
-    const uint64_t vmu   = mont_sub(v, u, m);
-    const uint64_t num   = mont_mul(
-                               mont_mul(mont_mul(vmu, vmu, m), vmu, m),
-                               mont_add(mont_mul(three, u, m), v, m),
-                               m
-                           );
-    const uint64_t den   = mont_mul(mont_mul(to_mont(16, m), u3, m), v, m);
-    const uint64_t inv   = inv_mod_u64(from_mont(den, m), n, &g);
+    const uint64_t five = to_mont(5, m);
+    for (int c = 0; c < ECM_LANES; c++) {
+        const uint64_t s   = to_mont(sigma + c, m);
+        const uint64_t s2  = mont_add(s, s, m);
+        const uint64_t u   = mont_sub(mont_mul(s, s, m), five, m);
+        const uint64_t v   = mont_add(s2, s2, m);
+        const uint64_t vmu = mont_sub(v, u, m);
+        u3[c]  = mont_mul(mont_mul(u, u, m), u, m);
+        v3[c]  = mont_mul(mont_mul(v, v, m), v, m);
+        num[c] = mont_mul(mont_mul(mont_mul(vmu, vmu, m), vmu, m),
+                          mont_add(mont_add(u, u, m), mont_add(u, v, m), m),
+                          m);
+        den[c] = mont_mul(u3[c], v, m);
+        for (int i = 0; i < 4; i++) {
+            den[c] = mont_add(den[c], den[c], m);
+        }
+        //
+        // a24 = num / den and x0 = u^3 / v^3: both from 1 / (den.v^3).
+        //
+        const uint64_t dv = mont_mul(den[c], v3[c], m);
+        pre[c] = (c == 0) ? dv : mont_mul(pre[c - 1], dv, m);
+    }
+    uint64_t inv = mont_inv(pre[ECM_LANES - 1], r3, m, &g);
     if (inv == 0) {
         return ((g > 1) && (g < n)) ? g : 0;
     }
-    const uint64_t a24 = mont_mul(num, to_mont(inv, m), m);
-
-    xz_t p;
-    p.x = u3;
-    p.z = v3;
-    //
-    // Stage 1: multiply by every prime power up to b1, packed into 64-bit
-    // scalars.
-    //
-    if (b1 < ECM_D / 2) {
-        b1 = ECM_D / 2;
-    }
-    uint64_t k  = 1;
-    uint32_t ip = 0;
-    while (first_primes[ip] <= b1) {
-        const uint64_t pr = first_primes[ip];
-        uint64_t q = pr;
-        while (q <= b1 / pr) {
-            q *= pr;
+    for (int c = ECM_LANES - 1; c >= 0; c--) {
+        const uint64_t ic = (c == 0) ? inv : mont_mul(inv, pre[c - 1], m);
+        if (c > 0) {
+            inv = mont_mul(inv, mont_mul(den[c], v3[c], m), m);
         }
-        if (k > UINT64_MAX / q) {
-            p = ladder(p, k, a24, m);
-            k = 1;
-        }
-        k *= q;
-        ip++;
-    }
-    p = ladder(p, k, a24, m);
-
-    g = gcd_u64(p.z, n);
-    if ((g > 1) && (g < n)) {
-        return g;
-    }
-    if ((g == n) || (b2 <= b1)) {
-        return 0;
+        a24[c] = mont_mul(mont_mul(num[c], v3[c], m), ic, m);
+        x0[c]  = mont_mul(mont_mul(u3[c], den[c], m), ic, m);
     }
     //
-    // Stage 2: for each giant step G = mD.P, multiply together
-    // x(G).z(jP) - x(jP).z(G) for the j such that mD +/- j is a prime in
-    // (b1, b2]. A pair of primes mD - j and mD + j shares one product.
+    // Stage 1: Montgomery ladder over the bits of E.
     //
-    xz_t baby[ECM_NBABY + 1];
-    const xz_t p2 = xdbl(p, a24, m);
-    baby[0] = p;
-    baby[1] = xadd(p2, p, p, m);
-    for (uint32_t i = 2; i <= ECM_NBABY; i++) {
-        baby[i] = xadd(baby[i - 1], p2, baby[i - 2], m);
+    xz_t r0[ECM_LANES];
+    xz_t r1[ECM_LANES];
+    for (int c = 0; c < ECM_LANES; c++) {
+        r0[c].x = x0[c];
+        r0[c].z = m->one;
+        r1[c]   = xdbl(r0[c], a24[c], m);
     }
-    const xz_t dp = xdbl(baby[ECM_NBABY], a24, m);
-
-    xz_t gprev = dp;
-    xz_t gcur  = dp;
-    uint64_t acc = m->one;
-
-    for (uint32_t mi = 1; mi * ECM_D - ECM_D / 2 <= b2; mi++) {
-        if (mi == 2) {
-            gcur = xdbl(dp, a24, m);
-        } else if (mi > 2) {
-            const xz_t gnext = xadd(gcur, dp, gprev, m);
-            gprev = gcur;
-            gcur  = gnext;
-        }
-        const uint32_t center = mi * ECM_D;
-        bool needed[ECM_NBABY + 1] = { false };
-
-        while ((first_primes[ip] <= b2)
-               && (first_primes[ip] <= center + ECM_D / 2)) {
-            const uint32_t q = first_primes[ip];
-            const uint32_t j = (q > center) ? (q - center) : (center - q);
-            needed[j / 2] = true;
-            ip++;
-        }
-        for (uint32_t i = 0; i <= ECM_NBABY; i++) {
-            if (needed[i]) {
-                const uint64_t t = mont_sub(mont_mul(gcur.x, baby[i].z, m),
-                                            mont_mul(baby[i].x, gcur.z, m),
-                                            m);
-                acc = mont_mul(acc, t, m);
+    for (int b = (int) pl->ebits - 2; b >= 0; b--) {
+        if ((pl->e[b / 64] >> (b % 64)) & 1) {
+            for (int c = 0; c < ECM_LANES; c++) {
+                r0[c] = xadd_norm(r1[c], r0[c], x0[c], m);
+                r1[c] = xdbl(r1[c], a24[c], m);
+            }
+        } else {
+            for (int c = 0; c < ECM_LANES; c++) {
+                r1[c] = xadd_norm(r1[c], r0[c], x0[c], m);
+                r0[c] = xdbl(r0[c], a24[c], m);
             }
         }
     }
-    g = gcd_u64(acc, n);
-    return ((g > 1) && (g < n)) ? g : 0;
+    for (int c = 0; c < ECM_LANES; c++) {
+        g = gcd_u64(r0[c].z, n);
+        if ((g > 1) && (g < n)) {
+            return g;
+        }
+        if (g == n) {
+            //
+            // Both factors found at once: any point does for the other
+            // lanes' sake (whatever gcd stage 2 finds still divides n).
+            //
+            r0[c].x = m->one;
+            r0[c].z = m->one;
+        }
+    }
+    //
+    // Stage 2. Baby steps j.Q for odd j <= d/2; those coprime to d are
+    // normalized (one inversion for all lanes), so that each pair costs
+    // x(G) - x(jQ).z(G) and one multiplication into the accumulator.
+    //
+    xz_t     baby[ECM_LANES][ECM_MAX_BABY];
+    uint64_t xs[ECM_LANES][ECM_MAX_BABY];
+    uint64_t zpre[ECM_LANES * ECM_MAX_BABY];
+    xz_t     dq[ECM_LANES];
+
+    for (int c = 0; c < ECM_LANES; c++) {
+        const xz_t q2 = xdbl(r0[c], a24[c], m);
+        baby[c][0] = r0[c];
+        baby[c][1] = xadd(q2, r0[c], r0[c], m);
+        for (uint32_t i = 2; i < pl->nbaby; i++) {
+            baby[c][i] = xadd(baby[c][i - 1], q2, baby[c][i - 2], m);
+        }
+        dq[c] = xdbl(baby[c][pl->nbaby - 1], a24[c], m);
+    }
+    uint32_t t = 0;
+    for (int c = 0; c < ECM_LANES; c++) {
+        for (uint32_t k = 0; k < pl->nslots; k++, t++) {
+            const uint64_t z = baby[c][pl->slot_baby[k]].z;
+            zpre[t] = (t == 0) ? z : mont_mul(zpre[t - 1], z, m);
+        }
+    }
+    inv = mont_inv(zpre[t - 1], r3, m, &g);
+    if (inv == 0) {
+        return ((g > 1) && (g < n)) ? g : 0;
+    }
+    for (int c = ECM_LANES - 1; c >= 0; c--) {
+        for (int k = (int) pl->nslots - 1; k >= 0; k--) {
+            t--;
+            const xz_t     b  = baby[c][pl->slot_baby[k]];
+            const uint64_t iz = (t == 0) ? inv : mont_mul(inv, zpre[t - 1], m);
+            if (t > 0) {
+                inv = mont_mul(inv, b.z, m);
+            }
+            xs[c][k] = mont_mul(b.x, iz, m);
+        }
+    }
+    xz_t     gprev[ECM_LANES];
+    xz_t     gcur[ECM_LANES];
+    uint64_t acc[ECM_LANES];
+    for (int c = 0; c < ECM_LANES; c++) {
+        gprev[c] = dq[c];
+        gcur[c]  = dq[c];
+        acc[c]   = m->one;
+    }
+    for (uint32_t mi = 1; mi <= pl->mlast; mi++) {
+        if (mi == 2) {
+            for (int c = 0; c < ECM_LANES; c++) {
+                gcur[c] = xdbl(dq[c], a24[c], m);
+            }
+        } else if (mi > 2) {
+            for (int c = 0; c < ECM_LANES; c++) {
+                const xz_t next = xadd(gcur[c], dq[c], gprev[c], m);
+                gprev[c] = gcur[c];
+                gcur[c]  = next;
+            }
+        }
+        if (mi < pl->mfirst) {
+            continue;
+        }
+        const uint32_t k = mi - pl->mfirst;
+        for (uint32_t i = pl->offsets[k]; i < pl->offsets[k + 1]; i++) {
+            const uint8_t s = pl->slots[i];
+            for (int c = 0; c < ECM_LANES; c++) {
+                const uint64_t d = mont_sub(gcur[c].x,
+                                            mont_mul(xs[c][s], gcur[c].z, m),
+                                            m);
+                acc[c] = mont_mul(acc[c], d, m);
+            }
+        }
+    }
+    for (int c = 0; c < ECM_LANES; c++) {
+        g = gcd_u64(acc[c], n);
+        if ((g > 1) && (g < n)) {
+            return g;
+        }
+    }
+    return 0;
 }
 
 static uint64_t ecm_u64(const uint64_t n, const uint32_t bits) {
-    //
-    // Bounds by size of n for its smallest factor (at most half its bits),
-    // with b2 = 25.b1: about 2 to 8 curves on average.
-    //
-    uint32_t b1;
-    if (bits <= 44) {
-        b1 = 70;
-    } else if (bits <= 52) {
-        b1 = 85;
-    } else if (bits <= 58) {
-        b1 = 125;
-    } else {
-        b1 = 165;
+    pthread_once(&ecm_plans_once, build_ecm_plans);
+
+    uint32_t i = 0;
+    while ((i < ECM_NPLANS - 1) && (bits > ecm_bounds[i].bits)) {
+        i++;
     }
     mont_t m;
     mont_init(&m, n);
+    const uint64_t r3 = mont_mul(m.r2, m.r2, &m);
 
-    for (uint64_t sigma = 7; sigma < 7 + 300; sigma++) {
-        const uint64_t g = ecm_curve(&m, sigma, b1, 25 * b1);
+    for (uint64_t sigma = 7; sigma < 7 + 300; sigma += ECM_LANES) {
+        const uint64_t g = ecm_curves(&m, r3, sigma, &ecm_plans[i]);
         if (g != 0) {
             return g;
         }

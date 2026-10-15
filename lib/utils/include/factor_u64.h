@@ -23,7 +23,7 @@
  *        machine-word arithmetic.
  *
  * Trial division by the primes below 1000, then Hart's one line factoring
- * (up to 42 bits), ECM on Montgomery curves and Brent's rho, all in 64-bit
+ * (up to 40 bits), ECM on Montgomery curves and Brent's rho, all in 64-bit
  * Montgomery arithmetic. Only available where the compiler provides 128-bit
  * integers and \c unsigned \c long is 64 bits wide.
  */
