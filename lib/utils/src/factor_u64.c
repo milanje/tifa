@@ -350,6 +350,12 @@ static const tdiv_entry_t tdiv_table[] = {
 };
 #define NTDIV (sizeof(tdiv_table) / sizeof(tdiv_table[0]))
 #define TDIV_BOUND 1000
+//
+// Primes tried by is_prime_u64 before its (conclusive) strong probable prime
+// tests: more costs primes and the composites that reach them, as callers
+// have usually trial-divided already.
+//
+#define IS_PRIME_NTDIV 12
 
 //------------------------------------------------------------------------------
 //                                 Primality
@@ -392,7 +398,7 @@ bool is_prime_u64(const uint64_t n) {
     if (n == 1) {
         return false;
     }
-    for (uint32_t i = 0; i < NTDIV; i++) {
+    for (uint32_t i = 0; i < IS_PRIME_NTDIV; i++) {
         const uint64_t p = tdiv_table[i].p;
         if (n == p) {
             return true;
