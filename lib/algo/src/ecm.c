@@ -288,13 +288,18 @@ ecode_t ecm(mpz_array_t* const factors, uint32_array_t* const multis,
     INIT_TIMER;
     START_TIMER;
 
+    //
+    // A copy: the algorithm adjusts it, and the caller's may be shared.
+    //
+    ecm_params_t own_params = *params;
+
     ecode_t ecode = NO_FACTOR_FOUND;
 
     factoring_machine_t machine;
 
     mpz_init_set(machine.n, n);
     machine.mode                = mode;
-    machine.params              = (void*) params;
+    machine.params              = (void*) &own_params;
     machine.init_context_func   = init_ecm_context;
     machine.perform_algo_func   = perform_ecm;
     machine.update_context_func = update_ecm_context;

@@ -146,11 +146,16 @@ ecode_t p_minus_1(mpz_array_t* const factors, uint32_array_t* const multis,
 
     ecode_t ecode = NO_FACTOR_FOUND;
 
+    //
+    // A copy: the algorithm adjusts it, and the caller's may be shared.
+    //
+    p_minus_1_params_t own_params = *params;
+
     factoring_machine_t machine;
 
     mpz_init_set(machine.n, n);
     machine.mode                = mode;
-    machine.params              = (void*) params;
+    machine.params              = (void*) &own_params;
     machine.init_context_func   = init_p_minus_1_context;
     machine.perform_algo_func   = perform_p_minus_1;
     machine.update_context_func = update_p_minus_1_context;
