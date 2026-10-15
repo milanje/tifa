@@ -36,14 +36,10 @@ typedef unsigned __int128 u128;
 
 struct struct_mont_ecm_plan_t {
     //
-    // Stage 1: the prime powers up to b1, packed into 64-bit scalars.
+    // Stage 1: the product E of the prime powers up to b1 (least
+    // significant limb first).
     //
     uint32_t  b1;
-    uint32_t  nscalars;
-    uint64_t* scalars;
-    //
-    // Their product E (least significant limb first), for p-1 and p+1.
-    //
     uint64_t* e;
     size_t    ne;
     size_t    ebits;
@@ -69,6 +65,7 @@ typedef struct {
     uint64_t ninv;                       // -n^-1 mod 2^64
     uint64_t one[MONT_ECM_MAX_LIMBS];    // 2^(64.nl) mod n
     uint64_t r2[MONT_ECM_MAX_LIMBS];     // 2^(128.nl) mod n
+    uint64_t r3[MONT_ECM_MAX_LIMBS];     // 2^(192.nl) mod n
     int      nl;
 } mod_t;
 
@@ -300,12 +297,11 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
         k *= q;
     }
     push_u64(&scalars, k);
-    plan->scalars  = scalars.data;
-    plan->nscalars = scalars.length;
 
     mpz_t e;
     mpz_init(e);
-    product_of_scalars(e, plan->scalars, 0, plan->nscalars);
+    product_of_scalars(e, scalars.data, 0, scalars.length);
+    free(scalars.data);
     plan->ebits = mpz_sizeinbase(e, 2);
     plan->e     = malloc((plan->ebits / 64 + 1) * sizeof(uint64_t));
     mpz_export(plan->e, &plan->ne, -1, sizeof(uint64_t), 0, 0, e);
@@ -319,7 +315,6 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
 
 void free_mont_ecm_plan(mont_ecm_plan_t* const plan) {
     if (plan != NULL) {
-        free(plan->scalars);
         free(plan->e);
         free(plan->jslot);
         free(plan->offsets);
@@ -359,9 +354,15 @@ static void mod_init(mod_t* const m, const mpz_t n) {
     mpz_setbit(r, 64 * m->nl);
     mpz_mod(r, r, n);
     to_limbs(m->one, r, m->nl);
+    mpz_t one;
+    mpz_init_set(one, r);
     mpz_mul(r, r, r);
     mpz_mod(r, r, n);
     to_limbs(m->r2, r, m->nl);
+    mpz_mul(r, r, one);
+    mpz_mod(r, r, n);
+    to_limbs(m->r3, r, m->nl);
+    mpz_clear(one);
     mpz_clear(r);
 }
 
@@ -382,16 +383,19 @@ static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
 #define RUN_CURVE(NLIMBS)                                                     \
     do {                                                                      \
         FN_(pt_t, NLIMBS) p;                                                  \
+        uint64_t x0m[NLIMBS];                                                 \
         uint64_t a24m[NLIMBS];                                                \
-        FN_(mul, NLIMBS)(p.x, x0, m.r2, &m);                                  \
-        FN_(mul, NLIMBS)(p.z, z0, m.r2, &m);                                  \
+        FN_(mul, NLIMBS)(x0m, x0, m.r2, &m);                                  \
         FN_(mul, NLIMBS)(a24m, a24, m.r2, &m);                                \
-        FN_(stage1, NLIMBS)(&p, a24m, plan, &m);                              \
+        FN_(stage1, NLIMBS)(&p, x0m, a24m, plan, &m);                         \
         found = limbs_gcd(factor, p.z, NLIMBS, n);                            \
         if ((found == 0) && (plan->d != 0)) {                                 \
             uint64_t acc[NLIMBS];                                             \
-            FN_(stage2, NLIMBS)(acc, &p, a24m, plan, &m);                     \
-            found = limbs_gcd(factor, acc, NLIMBS, n);                        \
+            if (FN_(stage2, NLIMBS)(acc, &p, a24m, plan, &m, factor, n)) {    \
+                found = limbs_gcd(factor, acc, NLIMBS, n);                    \
+            } else {                                                          \
+                found = (mpz_cmp(factor, n) < 0) ? 1 : -1;                    \
+            }                                                                 \
         }                                                                     \
     } while (0)
 
@@ -402,11 +406,11 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
     }
     //
     // Suyama's parametrization: u = sigma^2 - 5, v = 4.sigma, starting
-    // point (u^3 : v^3) on the curve with (A + 2)/4 =
-    // (v - u)^3 (3u + v) / (16 u^3 v).
+    // point (u^3 : v^3) = (u^3/v^3 : 1) on the curve with (A + 2)/4 =
+    // (v - u)^3 (3u + v) / (16 u^3 v): both from the inverse of 16 u^3 v^4.
     //
-    mpz_t u, v, x0z, z0z, a24z, t;
-    mpz_inits(u, v, x0z, z0z, a24z, t, NULL);
+    mpz_t u, v, u3, v3, d, t;
+    mpz_inits(u, v, u3, v3, d, t, NULL);
 
     mpz_set_ui(u, sigma);
     mpz_mul(u, u, u);
@@ -415,41 +419,42 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
     mpz_set_ui(v, sigma);
     mpz_mul_ui(v, v, 4);
     mpz_mod(v, v, n);
-
-    mpz_powm_ui(x0z, u, 3, n);
-    mpz_powm_ui(z0z, v, 3, n);
-
-    mpz_mul(t, x0z, v);
-    mpz_mul_ui(t, t, 16);
+    mpz_powm_ui(u3, u, 3, n);
+    mpz_powm_ui(v3, v, 3, n);
+    mpz_mul(d, u3, v);
+    mpz_mul_ui(d, d, 16);
+    mpz_mod(d, d, n);
+    mpz_mul(t, d, v3);
     mpz_mod(t, t, n);
 
     int found = 0;
     if (mpz_invert(t, t, n) == 0) {
-        mpz_mul(t, x0z, v);
-        mpz_mul_ui(t, t, 16);
+        mpz_mul(t, d, v3);
         mpz_gcd(factor, t, n);
         found = ((mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0));
-        mpz_clears(u, v, x0z, z0z, a24z, t, NULL);
+        mpz_clears(u, v, u3, v3, d, t, NULL);
         return found;
     }
-    mpz_sub(a24z, v, u);
-    mpz_powm_ui(a24z, a24z, 3, n);
-    mpz_mul(a24z, a24z, t);
-    mpz_mul_ui(t, u, 3);
-    mpz_add(t, t, v);
-    mpz_mul(a24z, a24z, t);
-    mpz_mod(a24z, a24z, n);
-
     mod_t m;
     mod_init(&m, n);
 
     uint64_t x0[MONT_ECM_MAX_LIMBS];
-    uint64_t z0[MONT_ECM_MAX_LIMBS];
     uint64_t a24[MONT_ECM_MAX_LIMBS];
-    to_limbs(x0, x0z, m.nl);
-    to_limbs(z0, z0z, m.nl);
-    to_limbs(a24, a24z, m.nl);
-    mpz_clears(u, v, x0z, z0z, a24z, t, NULL);
+    mpz_mul(d, d, u3);
+    mpz_mul(d, d, t);
+    mpz_mod(d, d, n);
+    to_limbs(x0, d, m.nl);
+
+    mpz_sub(d, v, u);
+    mpz_powm_ui(d, d, 3, n);
+    mpz_mul(d, d, v3);
+    mpz_mul(d, d, t);
+    mpz_mul_ui(u, u, 3);
+    mpz_add(u, u, v);
+    mpz_mul(d, d, u);
+    mpz_mod(d, d, n);
+    to_limbs(a24, d, m.nl);
+    mpz_clears(u, v, u3, v3, d, t, NULL);
 
     switch (m.nl) {
         case 1:

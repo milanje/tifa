@@ -159,6 +159,27 @@ static inline void FN(xadd)(FN(pt_t)* const r, const FN(pt_t)* const p,
 }
 
 //
+// xadd with a difference (xd : 1): one multiplication less.
+//
+static inline void FN(xadd_norm)(FN(pt_t)* const r, const FN(pt_t)* const p,
+                                 const FN(pt_t)* const q,
+                                 const uint64_t* const xd,
+                                 const mod_t* const m) {
+    uint64_t a[NL], b[NL], u[NL], v[NL], s[NL], d[NL];
+    FN(sub)(a, p->x, p->z, m);
+    FN(add)(b, q->x, q->z, m);
+    FN(mul)(u, a, b, m);
+    FN(add)(a, p->x, p->z, m);
+    FN(sub)(b, q->x, q->z, m);
+    FN(mul)(v, a, b, m);
+    FN(add)(s, u, v, m);
+    FN(sub)(d, u, v, m);
+    FN(mul)(r->x, s, s, m);
+    FN(mul)(d, d, d, m);
+    FN(mul)(r->z, xd, d, m);
+}
+
+//
 // r = k.p (k >= 1). r may alias p.
 //
 static void FN(ladder)(FN(pt_t)* const r, const FN(pt_t)* const p,
@@ -186,26 +207,42 @@ static void FN(ladder)(FN(pt_t)* const r, const FN(pt_t)* const p,
 //------------------------------------------------------------------------------
 
 //
-// p <- k.p for the product k of the prime powers up to the stage 1 bound.
+// p <- E.(x0 : 1), E the product of the prime powers up to the stage 1
+// bound: a ladder over the bits of E, whose difference stays (x0 : 1).
 //
-static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const a24,
+static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const x0,
+                       const uint64_t* const a24,
                        const mont_ecm_plan_t* const plan,
                        const mod_t* const m) {
-    for (uint32_t i = 0; i < plan->nscalars; i++) {
-        FN(ladder)(p, p, plan->scalars[i], a24, m);
+    FN(pt_t) r1;
+    for (int j = 0; j < NL; j++) {
+        p->x[j] = x0[j];
+        p->z[j] = m->one[j];
+    }
+    FN(xdbl)(&r1, p, a24, m);
+    for (long b = (long) plan->ebits - 2; b >= 0; b--) {
+        if ((plan->e[b / 64] >> (b % 64)) & 1) {
+            FN(xadd_norm)(p, &r1, p, x0, m);
+            FN(xdbl)(&r1, &r1, a24, m);
+        } else {
+            FN(xadd_norm)(&r1, &r1, p, x0, m);
+            FN(xdbl)(p, p, a24, m);
+        }
     }
 }
 
 //
 // Product over the primes q = k.d +/- j of the plan of
-// x(k.d.P).z(j.P) - x(j.P).z(k.d.P), which vanishes mod a prime factor p of
-// n when q.P is the point at infinity mod p. One product covers both
-// k.d - j and k.d + j.
+// x(k.d.P) - x(j.P).z(k.d.P), with the baby steps j.P normalized to z = 1
+// (one inversion for all), which vanishes mod a prime factor p of n when
+// q.P is the point at infinity mod p. One product covers both k.d - j and
+// k.d + j. Returns false, with g the gcd of the baby step z with n, if they
+// are not invertible.
 //
-static void FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
+static bool FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
                        const uint64_t* const a24,
                        const mont_ecm_plan_t* const plan,
-                       const mod_t* const m) {
+                       const mod_t* const m, mpz_t g, const mpz_t n) {
     //
     // Baby steps: j.P for the odd j < d/2 coprime to d, by the chain
     // (j + 2).P = j.P + 2.P (difference (j - 2).P).
@@ -232,6 +269,40 @@ static void FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
         cur  = next;
     }
     //
+    // xs[i] = x / z of baby[i], by a batch inversion.
+    //
+    uint64_t (*const xs)[NL] = malloc(plan->nbaby * sizeof(*xs));
+    for (uint32_t i = 0; i < plan->nbaby; i++) {
+        if (i == 0) {
+            for (int j = 0; j < NL; j++) {
+                xs[0][j] = baby[0].z[j];
+            }
+        } else {
+            FN(mul)(xs[i], xs[i - 1], baby[i].z, m);
+        }
+    }
+    mpz_import(g, NL, -1, sizeof(uint64_t), 0, 0, xs[plan->nbaby - 1]);
+    if (!mpz_invert(g, g, n)) {
+        mpz_import(g, NL, -1, sizeof(uint64_t), 0, 0, xs[plan->nbaby - 1]);
+        mpz_gcd(g, g, n);
+        free(xs);
+        free(baby);
+        return false;
+    }
+    uint64_t inv[NL];
+    for (int j = 0; j < NL; j++) {
+        inv[j] = (uint64_t) mpz_getlimbn(g, j);
+    }
+    FN(mul)(inv, inv, m->r3, m);
+    for (uint32_t i = plan->nbaby - 1; i > 0; i--) {
+        uint64_t iz[NL];
+        FN(mul)(iz, inv, xs[i - 1], m);
+        FN(mul)(inv, inv, baby[i].z, m);
+        FN(mul)(xs[i], baby[i].x, iz, m);
+    }
+    FN(mul)(xs[0], baby[0].x, inv, m);
+    free(baby);
+    //
     // cur = (d/2).P, so d.P = 2.cur. Giant steps G_k = k.d.P from
     // k = plan->m_first on, by G_{k+1} = G_k + d.P (difference G_{k-1}).
     //
@@ -245,7 +316,7 @@ static void FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
         FN(ladder)(&gprev, &dp, plan->m_first - 1, a24, m);
         FN(ladder)(&gcur, &dp, plan->m_first, a24, m);
     }
-    uint64_t t[NL], u[NL];
+    uint64_t t[NL];
     for (int j = 0; j < NL; j++) {
         acc[j] = m->one[j];
     }
@@ -260,12 +331,11 @@ static void FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
             }
         }
         for (uint32_t i = plan->offsets[k]; i < plan->offsets[k + 1]; i++) {
-            const FN(pt_t)* const b = &baby[plan->pairs[i]];
-            FN(mul)(t, gcur.x, b->z, m);
-            FN(mul)(u, b->x, gcur.z, m);
-            FN(sub)(t, t, u, m);
+            FN(mul)(t, xs[plan->pairs[i]], gcur.z, m);
+            FN(sub)(t, gcur.x, t, m);
             FN(mul)(acc, acc, t, m);
         }
     }
-    free(baby);
+    free(xs);
+    return true;
 }
