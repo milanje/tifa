@@ -664,7 +664,10 @@ unsigned long int modinv_ui(unsigned long int num, unsigned long int p) {
     unsigned long int cv = 0;
     long int exp_cu = 1;
     long int exp_cv = 1;
-    unsigned long int n  = most_significant_bit(p) + 1;
+    unsigned long int n  = 0;
+    for (unsigned long int t = p; t != 0; t >>= 1) {
+        n++;
+    }
     //
     // If n is the number of bits of p, compute masks to be used by the
     // previously defined macros, to:

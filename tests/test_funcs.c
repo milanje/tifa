@@ -3,6 +3,7 @@
 // The modinv_ui cases with ~2^31 and ~2^32 prime moduli are regression tests
 // for the int-shift bug (funcs.c: `1 << n` with n == 31/32).
 
+#include <limits.h>
 #include <stdbool.h>
 
 #include "tifa_test.h"
@@ -68,6 +69,30 @@ int main(void) {
             CHECK_EQ_UI((a * inv) % p, 1UL, "modinv_ui: n*inv == 1 mod p");
         }
     }
+
+#if ULONG_MAX > 4294967295UL
+    // modinv_ui with moduli above 2^32 (all wrong when the bit length of p
+    // was taken on 32 bits), up to the largest prime below 2^63.
+    {
+        const char* const primes[] = {
+            "4294967311", "1099511627689", "2305843009213693951",
+            "9223372036854775783"
+        };
+        const unsigned long ns[] = { 2UL, 3UL, 1234567891011UL, ULONG_MAX };
+        mpz_t p, n, inv;
+        mpz_inits(p, n, inv, NULL);
+        for (size_t i = 0; i < sizeof(primes) / sizeof(primes[0]); i++) {
+            mpz_set_str(p, primes[i], 10);
+            for (size_t j = 0; j < sizeof(ns) / sizeof(ns[0]); j++) {
+                mpz_set_ui(n, ns[j]);
+                mpz_invert(inv, n, p);
+                CHECK_EQ_UI(modinv_ui(ns[j], mpz_get_ui(p)), mpz_get_ui(inv),
+                            "modinv_ui above 2^32 matches mpz_invert");
+            }
+        }
+        mpz_clears(p, n, inv, NULL);
+    }
+#endif
 
     TIFA_TEST_END();
 }
