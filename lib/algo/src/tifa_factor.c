@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #include "tifa_config.h"
 #include "macros.h"
@@ -36,6 +37,7 @@
 #include "p_minus_1.h"
 #include "p_plus_1.h"
 #include "tifa_factor.h"
+#include "ecm_schedule.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -83,6 +85,11 @@
 // one. It catches a prime p when p+1 (rather than p-1) is smooth.
 //
 #define TFACTOR_PP1_B1 2000
+//
+// Fraction of the expected SIQS time the ECM pre-pass may take (balanced
+// semiprimes pay it in vain).
+//
+#define TFACTOR_ECM_BUDGET 0.05
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -120,6 +127,63 @@ static ecode_t add_cofactor(mpz_array_t* const factors,
 }
 //-----------------------------------------------------------------------------
 //
+// Appends the factors of n built from those found (a proper factor and its
+// cofactor, or the like), processed as the factoring mode requires.
+//
+static ecode_t add_found(mpz_array_t* const factors,
+                         uint32_array_t* const multis,
+                         mpz_array_t* const found, const mpz_t n,
+                         const factoring_mode_t mode) {
+    uint32_array_t* fmultis = alloc_uint32_array(4);
+
+    ecode_t ecode = process_found_factors(found, fmultis, n, mode, tifa_factor);
+
+    append_mpz_array(factors, found);
+    if (mode == FIND_COMPLETE_FACTORIZATION) {
+        append_uint32_array(multis, fmultis);
+    }
+    free_uint32_array(fmultis);
+
+    return ecode;
+}
+//-----------------------------------------------------------------------------
+#if TIFA_HAVE_MONT_ECM
+static ecm_schedule_t* ecm_schedule      = NULL;
+static pthread_once_t  ecm_schedule_once = PTHREAD_ONCE_INIT;
+
+static void build_ecm_schedule(void) {
+    ecm_schedule = alloc_ecm_schedule(60);
+}
+//
+// Searches n for a factor with ECM, for a fraction of the time SIQS would
+// take: a factor found early leaves a remainder much faster to factor (most
+// often below 64 bits) than n by SIQS.
+//
+static ecode_t run_ecm_prepass(mpz_array_t* const factors,
+                               uint32_array_t* const multis,
+                               const mpz_t n, const factoring_mode_t mode) {
+    pthread_once(&ecm_schedule_once, build_ecm_schedule);
+
+    ecode_t ecode = NO_FACTOR_FOUND;
+    mpz_t g;
+    mpz_init(g);
+    if (ecm_schedule_split(g, n, ecm_schedule, 0,
+                           (double) mpz_sizeinbase(n, 2) / 2,
+                           TFACTOR_ECM_BUDGET)) {
+        mpz_array_t* found = alloc_mpz_array(4);
+        append_mpz_to_array(found, g);
+        mpz_divexact(g, n, g);
+        append_mpz_to_array(found, g);
+        ecode = add_found(factors, multis, found, n, mode);
+        free_mpz_array(found);
+    }
+    mpz_clear(g);
+
+    return ecode;
+}
+#endif
+//-----------------------------------------------------------------------------
+//
 // Single runs of p-1 and p+1. Without SINGLE_RUN, the factoring machine would
 // retry each of them with growing bounds (and p+1 with several seeds), at
 // many times the cost of the SIQS run they are meant to shortcut.
@@ -146,15 +210,7 @@ static ecode_t run_prestages(mpz_array_t* const factors,
         ecode = p_plus_1(found, NULL, n, &pp1_params, SINGLE_RUN);
     }
     if (ecode == SOME_FACTORS_FOUND) {
-        uint32_array_t* fmultis = alloc_uint32_array(4);
-
-        ecode = process_found_factors(found, fmultis, n, mode, tifa_factor);
-
-        append_mpz_array(factors, found);
-        if (mode == FIND_COMPLETE_FACTORIZATION) {
-            append_uint32_array(multis, fmultis);
-        }
-        free_uint32_array(fmultis);
+        ecode = add_found(factors, multis, found, n, mode);
     } else {
         ecode = NO_FACTOR_FOUND;
     }
@@ -223,6 +279,14 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         set_squfof_params_to_default(&params);
         return squfof(factors, multis, n, &params, mode);
     }
+#if TIFA_HAVE_MONT_ECM
+    if (mont_ecm_handles(n)) {
+        ecode_t ecode = run_ecm_prepass(factors, multis, n, mode);
+        if (ecode != NO_FACTOR_FOUND) {
+            return ecode;
+        }
+    }
+#endif
     if (sizen >= TFACTOR_PRESTAGE_THRESH) {
         ecode_t ecode = run_prestages(factors, multis, n, mode);
         if (ecode != NO_FACTOR_FOUND) {

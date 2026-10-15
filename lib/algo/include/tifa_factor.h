@@ -57,7 +57,8 @@ extern "C" {
     * machine-word arithmetic where the compiler supports it (see
     * factor_u64.h). Otherwise, prime factors below 1000 (below 8192 for
     * numbers of at most 26 bits) are found by trial division before any
-    * other algorithm runs.
+    * other algorithm runs, then a short ECM search (see ecm_schedule.h)
+    * looks for a medium factor before SIQS.
     *
     * \note If the factoring mode used is different from
     * \c FIND_COMPLETE_FACTORIZATION, \c multis is allowed to be a NULL
