@@ -19,13 +19,14 @@
 /**
  * \file    mont_ecm.h
  *
- * \brief ECM curves in fixed-size Montgomery arithmetic, for moduli of one
- *        to four 64-bit limbs.
+ * \brief ECM curves, p-1 and p+1 in fixed-size Montgomery arithmetic, for
+ *        moduli of one to four 64-bit limbs.
  *
- * Stage 1 is a Montgomery ladder over the prime powers up to B1; stage 2 is
+ * Stage 1 raises to the product E of the prime powers up to B1 (Montgomery
+ * ladder for ECM, binary powering for p-1, Lucas ladder for p+1); stage 2 is
  * the standard continuation with baby steps and giant steps. The work that
- * depends only on the bounds (prime powers, stage 2 schedule) is done once
- * in a plan shared by all the curves.
+ * depends only on the bounds (E, stage 2 schedule) is done once in a plan
+ * shared by all the runs.
  */
 
 #if !defined(_TIFA_MONT_ECM_H_)
@@ -95,6 +96,37 @@ bool mont_ecm_handles(const mpz_t n);
     */
 bool mont_ecm_curve(mpz_t factor, const mpz_t n, uint32_t sigma,
                     const mont_ecm_plan_t* plan);
+
+   /**
+    * \brief Runs Pollard's p-1 on \c n.
+    *
+    * Stage 1 computes a = base^E; stage 2 looks for a prime q of the plan
+    * with a^q = 1 modulo a prime factor of \c n.
+    *
+    * \param[out] factor A proper factor of \c n, if one is found.
+    * \param[in]  n The number to factor (see \c mont_ecm_handles).
+    * \param[in]  base The base, smaller than \c n.
+    * \param[in]  plan The bounds and precomputations.
+    * \return 1 if a proper factor was found, -1 if a gcd was \c n (all the
+    *         prime factors were caught at once), 0 otherwise.
+    */
+int mont_pm1(mpz_t factor, const mpz_t n, uint32_t base,
+             const mont_ecm_plan_t* plan);
+
+   /**
+    * \brief Runs Williams's p+1 on \c n.
+    *
+    * Stage 1 computes the Lucas sequence term V_E(seed); stage 2 works as
+    * for \c mont_pm1.
+    *
+    * \param[out] factor A proper factor of \c n, if one is found.
+    * \param[in]  n The number to factor (see \c mont_ecm_handles).
+    * \param[in]  seed The seed P of V_n(P, 1), smaller than \c n.
+    * \param[in]  plan The bounds and precomputations.
+    * \return As for \c mont_pm1.
+    */
+int mont_pp1(mpz_t factor, const mpz_t n, uint32_t seed,
+             const mont_ecm_plan_t* plan);
 
 #endif
 

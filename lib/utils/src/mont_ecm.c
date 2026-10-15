@@ -42,6 +42,12 @@ struct struct_mont_ecm_plan_t {
     uint32_t  nscalars;
     uint64_t* scalars;
     //
+    // Their product E (least significant limb first), for p-1 and p+1.
+    //
+    uint64_t* e;
+    size_t    ne;
+    size_t    ebits;
+    //
     // Stage 2 (d = 0 if none): the primes in (b1, b2] as k.d +/- j for the
     // odd j < d/2 coprime to d. jslot[j] is the index of j among them
     // (UINT16_MAX if j is not coprime to d). For the k-th giant step,
@@ -76,15 +82,19 @@ typedef struct {
 
 #define NL 1
 #include "mont_ecm_impl.h"
+#include "mont_pm1_impl.h"
 #undef NL
 #define NL 2
 #include "mont_ecm_impl.h"
+#include "mont_pm1_impl.h"
 #undef NL
 #define NL 3
 #include "mont_ecm_impl.h"
+#include "mont_pm1_impl.h"
 #undef NL
 #define NL 4
 #include "mont_ecm_impl.h"
+#include "mont_pm1_impl.h"
 #undef NL
 
 //------------------------------------------------------------------------------
@@ -233,6 +243,23 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
     free(sb.needed);
 }
 
+//
+// e <- scalars[lo] * ... * scalars[hi - 1], as a balanced product tree.
+//
+static void product_of_scalars(mpz_t e, const uint64_t* const scalars,
+                               const uint32_t lo, const uint32_t hi) {
+    if (hi - lo == 1) {
+        mpz_import(e, 1, -1, sizeof(uint64_t), 0, 0, &scalars[lo]);
+        return;
+    }
+    mpz_t right;
+    mpz_init(right);
+    product_of_scalars(e, scalars, lo, lo + (hi - lo) / 2);
+    product_of_scalars(right, scalars, lo + (hi - lo) / 2, hi);
+    mpz_mul(e, e, right);
+    mpz_clear(right);
+}
+
 mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
     mont_ecm_plan_t* const plan = calloc(1, sizeof(mont_ecm_plan_t));
 
@@ -276,6 +303,14 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
     plan->scalars  = scalars.data;
     plan->nscalars = scalars.length;
 
+    mpz_t e;
+    mpz_init(e);
+    product_of_scalars(e, plan->scalars, 0, plan->nscalars);
+    plan->ebits = mpz_sizeinbase(e, 2);
+    plan->e     = malloc((plan->ebits / 64 + 1) * sizeof(uint64_t));
+    mpz_export(plan->e, &plan->ne, -1, sizeof(uint64_t), 0, 0, e);
+    mpz_clear(e);
+
     if (d != 0) {
         build_stage2(plan);
     }
@@ -285,6 +320,7 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
 void free_mont_ecm_plan(mont_ecm_plan_t* const plan) {
     if (plan != NULL) {
         free(plan->scalars);
+        free(plan->e);
         free(plan->jslot);
         free(plan->offsets);
         free(plan->pairs);
@@ -430,6 +466,134 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
             break;
     }
     return found > 0;
+}
+
+//------------------------------------------------------------------------------
+//                              p-1 and p+1
+//------------------------------------------------------------------------------
+
+//
+// Montgomery form of the small integer v (v < n).
+//
+#define TO_MONT_UI(NLIMBS, r, v)                                              \
+    do {                                                                      \
+        uint64_t v_[NLIMBS] = { 0 };                                          \
+        v_[0] = (v);                                                          \
+        FN_(mul, NLIMBS)(r, v_, m.r2, &m);                                    \
+    } while (0)
+
+//
+// Montgomery form of the integer z in [0, n).
+//
+#define TO_MONT_MPZ(NLIMBS, r, z)                                             \
+    do {                                                                      \
+        uint64_t z_[NLIMBS];                                                  \
+        to_limbs(z_, z, NLIMBS);                                              \
+        FN_(mul, NLIMBS)(r, z_, m.r2, &m);                                    \
+    } while (0)
+
+#define FROM_MONT_MPZ(NLIMBS, z, r)                                           \
+    do {                                                                      \
+        uint64_t one_[NLIMBS] = { 0 };                                        \
+        uint64_t r_[NLIMBS];                                                  \
+        one_[0] = 1;                                                          \
+        FN_(mul, NLIMBS)(r_, r, one_, &m);                                    \
+        mpz_import(z, NLIMBS, -1, sizeof(uint64_t), 0, 0, r_);                \
+    } while (0)
+
+#define RUN_PM1(NLIMBS)                                                       \
+    do {                                                                      \
+        uint64_t b[NLIMBS], x[NLIMBS], t[NLIMBS];                             \
+        TO_MONT_UI(NLIMBS, b, base);                                          \
+        FN_(pm1_stage1, NLIMBS)(x, b, base == 2, plan, &m);                   \
+        FN_(sub, NLIMBS)(t, x, m.one, &m);                                    \
+        found = limbs_gcd(factor, t, NLIMBS, n);                              \
+        if ((found != 0) || (plan->d == 0)) {                                 \
+            break;                                                            \
+        }                                                                     \
+        mpz_t a, ainv;                                                        \
+        mpz_init(a);                                                          \
+        mpz_init(ainv);                                                       \
+        FROM_MONT_MPZ(NLIMBS, a, x);                                          \
+        if (mpz_invert(ainv, a, n) == 0) {                                    \
+            mpz_gcd(factor, a, n);                                            \
+            found = (mpz_cmp(factor, n) < 0) ? 1 : -1;                        \
+        } else {                                                              \
+            uint64_t q[NLIMBS];                                               \
+            mpz_add(a, a, ainv);                                              \
+            mpz_mod(a, a, n);                                                 \
+            TO_MONT_MPZ(NLIMBS, q, a);                                        \
+            FN_(lucas_stage2, NLIMBS)(t, q, plan, &m);                        \
+            found = limbs_gcd(factor, t, NLIMBS, n);                          \
+        }                                                                     \
+        mpz_clear(a);                                                         \
+        mpz_clear(ainv);                                                      \
+    } while (0)
+
+int mont_pm1(mpz_t factor, const mpz_t n, const uint32_t base,
+             const mont_ecm_plan_t* const plan) {
+    if (!mont_ecm_handles(n) || (mpz_cmp_ui(n, base) <= 0)) {
+        return 0;
+    }
+    mod_t m;
+    mod_init(&m, n);
+
+    int found = 0;
+    switch (m.nl) {
+        case 1:
+            RUN_PM1(1);
+            break;
+        case 2:
+            RUN_PM1(2);
+            break;
+        case 3:
+            RUN_PM1(3);
+            break;
+        default:
+            RUN_PM1(4);
+            break;
+    }
+    return found;
+}
+
+#define RUN_PP1(NLIMBS)                                                       \
+    do {                                                                      \
+        uint64_t p[NLIMBS], v[NLIMBS], two[NLIMBS], t[NLIMBS];               \
+        TO_MONT_UI(NLIMBS, p, seed);                                          \
+        FN_(pp1_stage1, NLIMBS)(v, p, plan, &m);                              \
+        FN_(add, NLIMBS)(two, m.one, m.one, &m);                              \
+        FN_(sub, NLIMBS)(t, v, two, &m);                                      \
+        found = limbs_gcd(factor, t, NLIMBS, n);                              \
+        if ((found == 0) && (plan->d != 0)) {                                 \
+            FN_(lucas_stage2, NLIMBS)(t, v, plan, &m);                        \
+            found = limbs_gcd(factor, t, NLIMBS, n);                          \
+        }                                                                     \
+    } while (0)
+
+int mont_pp1(mpz_t factor, const mpz_t n, const uint32_t seed,
+             const mont_ecm_plan_t* const plan) {
+    if (!mont_ecm_handles(n) || (mpz_cmp_ui(n, seed) <= 0)) {
+        return 0;
+    }
+    mod_t m;
+    mod_init(&m, n);
+
+    int found = 0;
+    switch (m.nl) {
+        case 1:
+            RUN_PP1(1);
+            break;
+        case 2:
+            RUN_PP1(2);
+            break;
+        case 3:
+            RUN_PP1(3);
+            break;
+        default:
+            RUN_PP1(4);
+            break;
+    }
+    return found;
 }
 
 #endif
