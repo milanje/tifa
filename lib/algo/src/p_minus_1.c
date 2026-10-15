@@ -33,6 +33,7 @@
 #include "p_minus_1.h"
 #include "tifa_factor.h"
 #include "tuning.h"
+#include "mont_ecm.h"
 
 #define __PREFIX__      "p-1: "
 #define __VERBOSE__     TIFA_VERBOSE_PM1
@@ -95,6 +96,15 @@ struct struct_p_minus_1_context_t {
     mpz_t a;
     mpz_t g;
     mpz_t aq;
+#if TIFA_HAVE_MONT_ECM
+    //
+    // Plan of the fixed-limb Montgomery implementation for the bounds
+    // (mplan_b1, mplan_b2), used when n has at most MONT_ECM_MAX_LIMBS limbs.
+    //
+    mont_ecm_plan_t* mplan;
+    uint32_t         mplan_b1;
+    uint32_t         mplan_b2;
+#endif
 };
 typedef struct struct_p_minus_1_context_t p_minus_1_context_t;
 
@@ -220,6 +230,11 @@ static ecode_t init_p_minus_1_context(factoring_machine_t* const machine) {
 
     context->params   = (p_minus_1_params_t*) machine->params;
     context->nupdates = 0;
+#if TIFA_HAVE_MONT_ECM
+    context->mplan    = NULL;
+    context->mplan_b1 = 0;
+    context->mplan_b2 = 0;
+#endif
 
     STOP_TIMER;
     PRINT_TIMING;
@@ -235,6 +250,9 @@ static ecode_t clear_p_minus_1_context(factoring_machine_t* const machine) {
     p_minus_1_context_t* context = (p_minus_1_context_t*) machine->context;
 
     if (context != NULL) {
+#if TIFA_HAVE_MONT_ECM
+        free_mont_ecm_plan(context->mplan);
+#endif
         mpz_clear(context->n);
         mpz_clear(context->a);
         mpz_clear(context->g);
@@ -348,6 +366,35 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
         PRINT_TIMING;
         return SOME_FACTORS_FOUND;
     }
+
+#if TIFA_HAVE_MONT_ECM
+    //
+    // Fixed-limb Montgomery arithmetic when n has at most 4 limbs. When a
+    // gcd is n, the code below redoes the run and backtracks.
+    //
+    if (mont_ecm_handles(n) && (mpz_cmp_ui(n, params->base) > 0)) {
+        if (   (context->mplan == NULL)
+            || (context->mplan_b1 != params->b1)
+            || (context->mplan_b2 != params->b2)) {
+            free_mont_ecm_plan(context->mplan);
+            context->mplan    = alloc_mont_ecm_plan(params->b1, params->b2);
+            context->mplan_b1 = params->b1;
+            context->mplan_b2 = params->b2;
+        }
+        const int found = mont_pm1(g, n, params->base, context->mplan);
+        if (found != -1) {
+            if (found == 1) {
+                append_mpz_to_array(machine->factors, g);
+                mpz_divexact(g, n, g);
+                append_mpz_to_array(machine->factors, g);
+                ecode = SOME_FACTORS_FOUND;
+            }
+            STOP_TIMER;
+            PRINT_TIMING;
+            return ecode;
+        }
+    }
+#endif
 
     //
     // Stage 1: compute a <- base^E mod n, where
