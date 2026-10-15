@@ -671,16 +671,99 @@ static void build_ecm_plans(void) {
 #define ECM_LANES 3
 
 //
-// The curves of Suyama's family with parameters sigma, sigma + 1...,
-// normalized to a base point (x0 : 1) with a single inversion. Returns a
-// proper factor of n, or 0.
+// Curves with torsion Z/2 x Z/8 over Q, so that 16 divides their order mod
+// every prime (12 for Suyama's curves): 1-6% fewer curves. They come from
+// Edwards curves x^2 + y^2 = 1 + d.x^2.y^2 with a point (x8, x8) of order 8,
+// d = (2.x8^2 - 1)/x8^4, x8 = (k^2 - 2k + 2)/(k^2 - 2) for rational k (d
+// square), on which a search found a point (x0, y0) of infinite order with
+// small coordinates (tools/z2z8 regenerates and checks this table). In
+// Montgomery form: a24 = 1/(1 - d) and starting point u0 = (1 + y0)/(1 - y0).
+// Rows: d (numerator, denominator), y0 (idem).
 //
-static uint64_t ecm_curves(const mont_t* const m, const uint64_t r3,
-                           const uint64_t sigma, const ecm_plan_t* const pl) {
+static const uint64_t z2z8_curves[][4] = {
+    { 25921ULL, 83521ULL, 289ULL, 49ULL },
+    { 1681ULL, 707281ULL, 2523ULL, 122ULL },
+    { 2307361ULL, 2825761ULL, 21853ULL, 43757ULL },
+    { 23804641ULL, 62742241ULL, 7921ULL, 4559ULL },
+    { 21464689ULL, 52200625ULL, 27455ULL, 14981ULL },
+    { 138133009ULL, 244140625ULL, 678125ULL, 426121ULL },
+    { 21911761ULL, 141158161ULL, 225739ULL, 81589ULL },
+    { 418079809ULL, 442050625ULL, 841ULL, 791ULL },
+    { 44182609ULL, 1766100625ULL, 1025ULL, 158ULL },
+    { 779135569ULL, 1766100625ULL, 109265ULL, 60667ULL },
+    { 857376961ULL, 3373402561ULL, 755053ULL, 318243ULL },
+    { 1003559041ULL, 6975757441ULL, 4913ULL, 377ULL },
+    { 3139697089ULL, 8653650625ULL, 3721ULL, 2055ULL },
+    { 21152502721ULL, 35152125121ULL, 187489ULL, 209521ULL },
+    { 23226064801ULL, 43617904801ULL, 2297339ULL, 547339ULL },
+    { 5149354081ULL, 236010384481ULL, 11849ULL, 13319ULL },
+    { 126879152401ULL, 241474942801ULL, 491401ULL, 348823ULL },
+    { 174188534881ULL, 236010384481ULL, 28577ULL, 282593ULL },
+    { 202571106241ULL, 225360027841ULL, 64607ULL, 60833ULL },
+    { 154542548161ULL, 1036488922561ULL, 19343539ULL, 25376461ULL },
+    { 150880195489ULL, 670801950625ULL, 819025ULL, 899167ULL },
+    { 340457079169ULL, 559840650625ULL, 748225ULL, 578863ULL },
+    { 725779613329ULL, 732094140625ULL, 171125ULL, 25441ULL },
+    { 1044727250161ULL, 1053022816561ULL, 1026169ULL, 1018073ULL },
+    { 294329035441ULL, 1998607065841ULL, 1413721ULL, 2064569ULL },
+    { 37138300369ULL, 3082219140625ULL, 351125ULL, 385247ULL },
+    { 10166959513489ULL, 12625407900625ULL, 710645ULL, 206663ULL },
+};
+#define NZ2Z8_CURVES (sizeof(z2z8_curves) / sizeof(z2z8_curves[0]))
+
+//
+// a24 and x0 of the curves first, first + 1... of z2z8_curves, with a
+// single inversion. Returns false, with *g = the gcd found, if a value was
+// not invertible.
+//
+static bool z2z8_setup(const mont_t* const m, const uint64_t r3,
+                       const uint32_t first, uint64_t* const a24,
+                       uint64_t* const x0, uint64_t* const g) {
     const uint64_t n = m->n;
-    uint64_t g;
-    uint64_t a24[ECM_LANES];
-    uint64_t x0[ECM_LANES];
+    uint64_t num[2 * ECM_LANES];
+    uint64_t den[2 * ECM_LANES];
+    uint64_t pre[2 * ECM_LANES];
+
+    for (int c = 0; c < ECM_LANES; c++) {
+        const uint64_t* const row = z2z8_curves[first + c];
+        const uint64_t dn = to_mont(row[0] % n, m);
+        const uint64_t dd = to_mont(row[1] % n, m);
+        const uint64_t yn = to_mont(row[2] % n, m);
+        const uint64_t yd = to_mont(row[3] % n, m);
+        num[2 * c]     = dd;
+        den[2 * c]     = mont_sub(dd, dn, m);
+        num[2 * c + 1] = mont_add(yd, yn, m);
+        den[2 * c + 1] = mont_sub(yd, yn, m);
+    }
+    for (int i = 0; i < 2 * ECM_LANES; i++) {
+        pre[i] = (i == 0) ? den[0] : mont_mul(pre[i - 1], den[i], m);
+    }
+    uint64_t inv = mont_inv(pre[2 * ECM_LANES - 1], r3, m, g);
+    if (inv == 0) {
+        return false;
+    }
+    for (int i = 2 * ECM_LANES - 1; i >= 0; i--) {
+        const uint64_t ii = (i == 0) ? inv : mont_mul(inv, pre[i - 1], m);
+        if (i > 0) {
+            inv = mont_mul(inv, den[i], m);
+        }
+        const uint64_t r = mont_mul(num[i], ii, m);
+        if (i % 2 == 0) {
+            a24[i / 2] = r;
+        } else {
+            x0[i / 2] = r;
+        }
+    }
+    return true;
+}
+
+//
+// As z2z8_setup, for the curves of Suyama's family with parameters sigma,
+// sigma + 1...
+//
+static bool suyama_setup(const mont_t* const m, const uint64_t r3,
+                         const uint64_t sigma, uint64_t* const a24,
+                         uint64_t* const x0, uint64_t* const g) {
     uint64_t num[ECM_LANES];
     uint64_t den[ECM_LANES];
     uint64_t u3[ECM_LANES];
@@ -709,9 +792,9 @@ static uint64_t ecm_curves(const mont_t* const m, const uint64_t r3,
         const uint64_t dv = mont_mul(den[c], v3[c], m);
         pre[c] = (c == 0) ? dv : mont_mul(pre[c - 1], dv, m);
     }
-    uint64_t inv = mont_inv(pre[ECM_LANES - 1], r3, m, &g);
+    uint64_t inv = mont_inv(pre[ECM_LANES - 1], r3, m, g);
     if (inv == 0) {
-        return ((g > 1) && (g < n)) ? g : 0;
+        return false;
     }
     for (int c = ECM_LANES - 1; c >= 0; c--) {
         const uint64_t ic = (c == 0) ? inv : mont_mul(inv, pre[c - 1], m);
@@ -721,6 +804,20 @@ static uint64_t ecm_curves(const mont_t* const m, const uint64_t r3,
         a24[c] = mont_mul(mont_mul(num[c], v3[c], m), ic, m);
         x0[c]  = mont_mul(mont_mul(u3[c], den[c], m), ic, m);
     }
+    return true;
+}
+
+//
+// ECM_LANES curves with starting points (x0 : 1). Returns a proper factor
+// of n, or 0.
+//
+static uint64_t ecm_curves(const mont_t* const m, const uint64_t r3,
+                           const uint64_t* const a24,
+                           const uint64_t* const x0,
+                           const ecm_plan_t* const pl) {
+    const uint64_t n = m->n;
+    uint64_t g;
+    uint64_t inv;
     //
     // Stage 1: Montgomery ladder over the bits of E.
     //
@@ -853,8 +950,25 @@ static uint64_t ecm_u64(const uint64_t n, const uint32_t bits) {
     mont_init(&m, n);
     const uint64_t r3 = mont_mul(m.r2, m.r2, &m);
 
+    uint64_t a24[ECM_LANES];
+    uint64_t x0[ECM_LANES];
+    uint64_t g = 0;
+    for (uint32_t c = 0; c + ECM_LANES <= NZ2Z8_CURVES; c += ECM_LANES) {
+        if (z2z8_setup(&m, r3, c, a24, x0, &g)) {
+            g = ecm_curves(&m, r3, a24, x0, &ecm_plans[i]);
+        } else if ((g == 1) || (g == n)) {
+            g = 0;
+        }
+        if (g != 0) {
+            return g;
+        }
+    }
     for (uint64_t sigma = 7; sigma < 7 + 300; sigma += ECM_LANES) {
-        const uint64_t g = ecm_curves(&m, r3, sigma, &ecm_plans[i]);
+        if (suyama_setup(&m, r3, sigma, a24, x0, &g)) {
+            g = ecm_curves(&m, r3, a24, x0, &ecm_plans[i]);
+        } else if ((g == 1) || (g == n)) {
+            g = 0;
+        }
         if (g != 0) {
             return g;
         }
