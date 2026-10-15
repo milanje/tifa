@@ -445,19 +445,9 @@ static ecode_t complete_factorization(
         return exit_code;
     }
     
-    if (are_all_prime(factors)) {
-        //
-        // The found factors stored in factors are all prime!
-        // This means that we have found the complete factorization of
-        // n.
-        //
-        return COMPLETE_FACTORIZATION_FOUND;
-    }
-    
     //
     // We have a coprime base together with the multiplicity of each of its
-    // element. However, some of these factors are not prime so we should
-    // factorize them.
+    // element. Factor those which are not prime (each is tested once).
     //
     uint32_t alloced = 2 * factors->length;
     
