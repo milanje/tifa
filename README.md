@@ -89,6 +89,29 @@ built-in defaults always as the final fallback:
 3. **The built-in defaults** — used whenever neither of the above applies, so an
    untouched build behaves exactly as before this feature existed.
 
+## Cofactorization
+
+For the cofactors left by the sieve of the number field sieve,
+`tifa_cofactor()` (`cofactor.h`) answers whether every prime factor is below
+2^lpb, and stops as soon as the answer is known instead of factoring
+completely. The bounds go into a strategy built once, which threads may share:
+
+```c
+cofactor_params_t params = {
+    .lpb              = 31,         // accept prime factors below 2^31
+    .fb_bound         = 1UL << 22,  // the cofactors have no smaller factor
+    .max_large_primes = 3,
+    .max_siqs_bits    = 64,         // above 64 bits, ECM only: give up rather
+                                    // than run SIQS (0: always exact)
+};
+cofactor_strategy_t* strategy = alloc_cofactor_strategy(&params);
+
+if (tifa_cofactor(factors, multis, n, strategy) == COFACTOR_SMOOTH) {
+    // factors and multis hold the prime factorization of n
+}
+free_cofactor_strategy(strategy);
+```
+
 ## Generating tuning files
 
 ```sh

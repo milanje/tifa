@@ -6,6 +6,7 @@
 set(TIFA_SOURCES
     # Algorithms
     algo/src/cfrac.c
+    algo/src/cofactor.c
     algo/src/ecm.c
     algo/src/fermat.c
     algo/src/siqs.c
@@ -106,6 +107,7 @@ add_library(Tifa::tifa_static ALIAS tifa_static)
 set(TIFA_PUBLIC_HEADERS
     # Algorithms
     algo/include/cfrac.h
+    algo/include/cofactor.h
     algo/include/ecm.h
     algo/include/fermat.h
     algo/include/siqs.h

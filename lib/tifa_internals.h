@@ -71,6 +71,7 @@
 #include "p_plus_1.h"
 #include "tdiv.h"
 #include "tifa_factor.h"
+#include "cofactor.h"
 //
 // Includes from lib/data
 //
