@@ -37,6 +37,7 @@
 #include "macros.h"
 #include "factoring_machine.h"
 #include "ecm.h"
+#include "mont_ecm.h"
 #include "tifa_factor.h"
 #include "tuning.h"
 
@@ -164,6 +165,16 @@ struct struct_ecm_context_t {
     // How many times did we update the context to try larger bounds?
     //
     unsigned int nupdated_larger_bounds;
+#if TIFA_HAVE_MONT_ECM
+    //
+    // Fixed-limb Montgomery curves for n of at most MONT_ECM_MAX_LIMBS limbs,
+    // with their plan for the bounds (mplan_b1, mplan_b2).
+    //
+    bool             use_mont;
+    mont_ecm_plan_t* mplan;
+    uint32_t         mplan_b1;
+    uint32_t         mplan_b2;
+#endif
 };
 //------------------------------------------------------------------------------
 typedef struct struct_ecm_context_t ecm_context_t;
@@ -490,6 +501,85 @@ void set_ecm_params_to_default(const mpz_t n MAYBE_UNUSED,
     return;
 }
 //------------------------------------------------------------------------------
+static void set_stage1_bound(ecm_context_t* const context,
+                             ecm_params_t* const params) {
+    if (params->b1 > LARGEST_PRIME) {
+        //
+        // Stage 1 takes its primes from the precomputed table; stage 2 then
+        // starts right after it.
+        //
+        params->b1 = LARGEST_PRIME;
+    }
+#if TIFA_HAVE_MONT_ECM
+    if (context->use_mont) {
+        //
+        // The Montgomery curves get their prime powers from their plan.
+        //
+        return;
+    }
+#endif
+    //
+    // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
+    // tree...
+    //
+    unsigned int ip    = 0;
+    unsigned int power = 0;
+    double       logb1 = log(params->b1);
+
+    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
+        ip++;
+    }
+    context->first_lp_index = ip;
+
+    uint32_array_t* ppowers = alloc_uint32_array(ip);
+
+    for (uint32_t i = 0; i < ip; i++) {
+        power = (unsigned int) (logb1 / log(first_primes[i]));
+        ppowers->data[i] = pow(first_primes[i], power);
+    }
+    ppowers->length = ip;
+
+    mpz_tree_t* ptree = prod_tree_ui(ppowers);
+
+    mpz_set(context->k, ptree->data[0]);
+
+    free_mpz_tree(ptree);
+    free_uint32_array(ppowers);
+}
+#if TIFA_HAVE_MONT_ECM
+//------------------------------------------------------------------------------
+static ecode_t mont_curve(factoring_machine_t* const machine) {
+    ecm_context_t* const context = (ecm_context_t*) machine->context;
+    ecm_params_t*  const params  = (ecm_params_t*)  machine->params;
+
+    if (   (context->mplan == NULL)
+        || (context->mplan_b1 != params->b1)
+        || (context->mplan_b2 != params->b2)) {
+        free_mont_ecm_plan(context->mplan);
+        context->mplan    = alloc_mont_ecm_plan(params->b1, params->b2);
+        context->mplan_b1 = params->b1;
+        context->mplan_b2 = params->b2;
+    }
+    context->sigma  = (tifa_rand() & 16777215) + 6;
+    context->sigma += context->nupdated_more_curves;
+
+    ecode_t ecode = NO_FACTOR_FOUND;
+
+    mpz_t g;
+    mpz_init(g);
+    if (mont_ecm_curve(g, context->n, (uint32_t) context->sigma,
+                       context->mplan)) {
+        append_mpz_to_array(machine->factors, g);
+        mpz_divexact(g, context->n, g);
+        append_mpz_to_array(machine->factors, g);
+        ecode = SOME_FACTORS_FOUND;
+    }
+    mpz_clear(g);
+
+    return ecode;
+}
+#endif
+//------------------------------------------------------------------------------
 static ecode_t init_ecm_context(factoring_machine_t* const machine) {
 
     PRINT_INIT_MSG;
@@ -534,40 +624,14 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
     context->nupdated_more_curves   = 0;
     context->nupdated_larger_bounds = 0;
 
-    //
-    // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
-    // tree...
-    //
-    if (params->b1 > LARGEST_PRIME) {
-        //
-        // Stage 1 takes its primes from the precomputed table; stage 2 then
-        // starts right after it.
-        //
-        params->b1 = LARGEST_PRIME;
-    }
-    unsigned int ip    = 0;
-    unsigned int power = 0;
-    double       logb1 = log(params->b1);
+#if TIFA_HAVE_MONT_ECM
+    context->use_mont = mont_ecm_handles(context->n);
+    context->mplan    = NULL;
+    context->mplan_b1 = 0;
+    context->mplan_b2 = 0;
+#endif
 
-    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
-        ip++;
-    }
-    context->first_lp_index = ip;
-
-    uint32_array_t* ppowers = alloc_uint32_array(ip);
-
-    for (uint32_t i = 0; i < ip; i++) {
-        power = (unsigned int) (logb1 / log(first_primes[i]));
-        ppowers->data[i] = pow(first_primes[i], power);
-    }
-    ppowers->length = ip;
-
-    mpz_tree_t* ptree = prod_tree_ui(ppowers);
-
-    mpz_set(context->k, ptree->data[0]);
-
-    free_mpz_tree(ptree);
-    free_uint32_array(ppowers);
+    set_stage1_bound(context, params);
 
     STOP_TIMER;
     PRINT_TIMING;
@@ -636,6 +700,9 @@ static ecode_t clear_ecm_context(factoring_machine_t* const machine) {
 #endif
 
     }
+#if TIFA_HAVE_MONT_ECM
+    free_mont_ecm_plan(context->mplan);
+#endif
     free(context);
 
     STOP_TIMER;
@@ -738,40 +805,7 @@ static ecode_t switch_to_larger_bounds(factoring_machine_t* const machine) {
     }
     context->precomputations_done = false;
 
-    //
-    // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
-    // tree...
-    //
-    if (params->b1 > LARGEST_PRIME) {
-        //
-        // Stage 1 takes its primes from the precomputed table; stage 2 then
-        // starts right after it.
-        //
-        params->b1 = LARGEST_PRIME;
-    }
-    unsigned int ip    = 0;
-    unsigned int power = 0;
-    double       logb1 = log(params->b1);
-
-    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
-        ip++;
-    }
-    context->first_lp_index = ip;
-
-    uint32_array_t* ppowers = alloc_uint32_array(ip);
-
-    for (uint32_t i = 0; i < ip; i++) {
-        power = (unsigned int) (logb1 / log(first_primes[i]));
-        ppowers->data[i] = pow(first_primes[i], power);
-    }
-    ppowers->length = ip;
-
-    mpz_tree_t* ptree = prod_tree_ui(ppowers);
-
-    mpz_set(context->k, ptree->data[0]);
-
-    free_mpz_tree(ptree);
-    free_uint32_array(ppowers);
+    set_stage1_bound(context, params);
 
     return SUCCESS;
 }
@@ -795,6 +829,16 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
     while (ncurves < params->ncurves) {
 
         ncurves++;
+
+#if TIFA_HAVE_MONT_ECM
+        if (context->use_mont) {
+            exit_code = mont_curve(machine);
+            if (exit_code == SOME_FACTORS_FOUND) {
+                break;
+            }
+            continue;
+        }
+#endif
         //
         // Choose a random curve using Suyama's parametrization...
         //
