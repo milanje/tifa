@@ -30,6 +30,7 @@
 
 #include "tifa_config.h"
 #include "first_primes.h"
+#include "z2z8_curves.h"
 #include "array.h"
 #include "funcs.h"
 #include "x_tree.h"
@@ -100,6 +101,11 @@ struct struct_ecm_context_t {
     // State of the generator choosing the curves (xorshift64*).
     //
     uint64_t rng;
+    //
+    // Curves run so far on fixed-limb arithmetic: the first ones come from
+    // the Z/2 x Z/8 table (see mont_ecm_nth_curve).
+    //
+    uint32_t nmont_curves;
     //
     // Index of first "large prime" i.e. smallest prime greater than B1
     //
@@ -187,10 +193,10 @@ typedef struct struct_ecm_context_t ecm_context_t;
 //
 // Bounds by size of the smallest factor sought (fbits): the B1 minimizing
 // the expected time to find such a factor (mean curves times time per
-// curve, measured on this implementation with B2 = ECM_B2_RATIO.B1) and
-// the mean number of curves that takes. B1 cannot exceed the largest
-// tabulated prime (stage 1 takes its primes from the table), so the last
-// levels only grow the number of curves (extrapolated above 70 bits).
+// curve, measured with mont_ecm_nth_curve on 120-bit numbers and B2 =
+// ECM_B2_RATIO.B1) and the mean number of curves that takes. B1 cannot
+// exceed the largest tabulated prime (stage 1 takes its primes from the
+// table); above 60 bits, the bounds and curve counts are extrapolated.
 //
 typedef struct {
     uint32_t fbits;
@@ -199,20 +205,21 @@ typedef struct {
 } ecm_level_t;
 
 static const ecm_level_t ecm_levels[] = {
-    { 20,    100,  2 },
-    { 25,    200,  3 },
-    { 30,    400,  4 },
-    { 35,    800,  7 },
-    { 40,   1600,  8 },
-    { 45,   3200, 10 },
-    { 50,   6400, 15 },
-    { 55,  12800, 17 },
-    { 60,  25600, 25 },
-    { 65,  51200, 28 },
-    { 70, 102400, 32 },
-    { 75, 204800, 40 },
-    { 80, 409600, 50 },
-    { 85, 821641, 64 }
+    { 15,     50,  1 },
+    { 20,     70,  2 },
+    { 25,    100,  3 },
+    { 30,    200,  5 },
+    { 35,    560,  6 },
+    { 40,    800, 13 },
+    { 45,   1600, 16 },
+    { 50,   4480, 15 },
+    { 55,   8960, 20 },
+    { 60,  17920, 18 },
+    { 65,  36000, 28 },
+    { 70,  72000, 32 },
+    { 75, 144000, 40 },
+    { 80, 288000, 50 },
+    { 85, 576000, 64 }
 };
 #define NLEVELS (sizeof(ecm_levels) / sizeof(ecm_levels[0]))
 
@@ -430,8 +437,14 @@ static ecode_t mont_curve(factoring_machine_t* const machine) {
 
     mpz_t g;
     mpz_init(g);
-    if (mont_ecm_curve(g, context->n, (uint32_t) context->sigma,
-                       context->mplan)) {
+    const bool found
+        = (context->nmont_curves < NZ2Z8_CURVES)
+          ? mont_ecm_nth_curve(g, context->n, context->nmont_curves,
+                               context->mplan)
+          : mont_ecm_curve(g, context->n, (uint32_t) context->sigma,
+                           context->mplan);
+    context->nmont_curves++;
+    if (found) {
         append_mpz_to_array(machine->factors, g);
         mpz_divexact(g, context->n, g);
         append_mpz_to_array(machine->factors, g);
@@ -472,6 +485,7 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
                         ? params->seed
                         : mpz_fdiv_ui(context->n, 4294967291UL);
     context->rng = (seed << 1) | 1;
+    context->nmont_curves = 0;
 
     mpz_init(context->tmp_add_1);
     mpz_init(context->tmp_add_2);

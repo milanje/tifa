@@ -89,7 +89,8 @@ struct struct_ecm_params_t {
         /**
          * Seed of the curve choice: two runs on the same number with the
          * same nonzero seed use the same curves. 0 derives the seed from the
-         * number to factor.
+         * number to factor. On numbers of up to 256 bits, the first curves
+         * are always those of z2z8_curves.h, and the seed chooses the next.
          */
     uint32_t seed;
 };
