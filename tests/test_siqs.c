@@ -1,6 +1,7 @@
 // SIQS reliability: complete factorizations of semiprimes in the range where
 // SIQS used to give up, plus inputs that exercise its retry and large-prime
-// edge cases. SIQS is deterministic for a given n, so failures reproduce.
+// edge cases, and parameters that used to make it run forever. SIQS is
+// deterministic for a given n, so failures reproduce.
 
 #include "tifa_test.h"
 
@@ -19,6 +20,27 @@ static int siqs_factors(const mpz_t n) {
     free_mpz_array(f);
     free_uint32_array(m);
     return ok;
+}
+
+// SIQS with explicit factor base size, threshold and sieve half-width.
+static ecode_t siqs_with(const mpz_t n, uint32_t fb, uint32_t th, uint32_t hw,
+                         int* valid) {
+    mpz_array_t*    f = alloc_mpz_array(8);
+    uint32_array_t* m = alloc_uint32_array(8);
+    siqs_params_t params;
+    set_siqs_params_to_default(n, &params);
+    params.nprimes_in_base  = fb;
+    params.nprimes_tdiv     = fb;
+    params.threshold        = th;
+    params.sieve_half_width = hw;
+
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    *valid = (rc != COMPLETE_FACTORIZATION_FOUND)
+             || tifa_is_complete_factorization(n, f, m);
+
+    free_mpz_array(f);
+    free_uint32_array(m);
+    return rc;
 }
 
 static void check_siqs(const char* label, const char* decimal) {
@@ -76,6 +98,27 @@ int main(void) {
     mpz_clear(p);
     mpz_clear(q);
     gmp_randclear(state);
+
+    // Parameters that used to make SIQS run forever. A factor base of 46
+    // primes gives too few distinct polynomials for this number: once its
+    // duplicate relations are dropped, new ones are all duplicates too.
+    // SIQS now notices and retries with a wider factor base and sieve.
+    {
+        mpz_t n;
+        mpz_init_set_str(n, "387266287363586789317", 10);
+        int valid;
+        ecode_t rc = siqs_with(n, 46, 29, 9440, &valid);
+        CHECK(rc == COMPLETE_FACTORIZATION_FOUND && valid,
+              "stalling factor base: widened and factored");
+        //
+        // A threshold no sieve value reaches yields no candidate at all:
+        // SIQS must give up rather than sieve forever.
+        //
+        rc = siqs_with(n, 78, 90, 11800, &valid);
+        CHECK(valid && (rc == COMPLETE_FACTORIZATION_FOUND || rc == GIVING_UP),
+              "threshold out of reach: returns");
+        mpz_clear(n);
+    }
 
     TIFA_TEST_END();
 }

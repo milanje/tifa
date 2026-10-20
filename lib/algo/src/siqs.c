@@ -71,6 +71,20 @@
 //
 #define MIN_BATCH_SIZE      256
 //
+// A run has stalled after this many batches of candidates in a row without
+// a new relation, or this many sieve fills in a row without a candidate
+// (healthy runs with the default parameters: none, and at most 6, from 40 to
+// 200 bits). It typically happens with a factor base too small to provide
+// enough distinct 'a' coefficients: the polynomials repeat and only bring
+// duplicate relations.
+//
+#define MAX_IDLE_BATCHES    16
+#define MAX_IDLE_FILLS      4096
+//
+// Attempts with ever larger factor base and sieve before giving up.
+//
+#define MAX_ATTEMPTS        3
+//
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
@@ -235,6 +249,10 @@ struct struct_siqs_context_t {
     //
     bool drop_duplicates;
     //
+    // Set when relation collection stalls (see MAX_IDLE_BATCHES).
+    //
+    bool stalled;
+    //
     // Open-addressing set of the relations kept so far (index in u plus one,
     // zero for an empty slot), used to drop duplicate relations.
     //
@@ -384,7 +402,31 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
     machine.factors             = factors;
     machine.multis              = multis;
 
-    ecode = run_machine(&machine);
+    const uint32_t nfactors = factors->length;
+    const uint32_t nmultis  = (multis != NULL) ? multis->length : 0;
+
+    for (uint32_t attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        ecode = run_machine(&machine);
+        if (ecode != GIVING_UP) {
+            break;
+        }
+        //
+        // Stalled, or only trivial dependencies even without duplicates:
+        // more primes give more relations and more distinct polynomials.
+        //
+        factors->length = nfactors;
+        if (multis != NULL) {
+            multis->length = nmultis;
+        }
+        own_params.nprimes_in_base = MIN(own_params.nprimes_in_base * 3 / 2,
+                                         NFIRST_PRIMES / 4);
+        own_params.nprimes_tdiv    = MIN(own_params.nprimes_tdiv * 3 / 2,
+                                         own_params.nprimes_in_base);
+        own_params.sieve_half_width = own_params.sieve_half_width * 3 / 2;
+        if (own_params.threshold > 10) {
+            own_params.threshold -= 2;
+        }
+    }
 
     mpz_clear(machine.n);
 
@@ -546,6 +588,7 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     context->u                  = alloc_mpz_array(context->matrix_nrows);
 
     context->drop_duplicates = false;
+    context->stalled         = false;
     context->relset          = NULL;
     context->relset_mask     = 0;
 
@@ -640,7 +683,7 @@ static ecode_t update_siqs_context(factoring_machine_t* const machine) {
     //
     siqs_context_t* const context = (siqs_context_t*) machine->context;
 
-    if (context->drop_duplicates) {
+    if (context->drop_duplicates || context->stalled) {
         return GIVING_UP;
     }
     context->drop_duplicates = true;
@@ -1017,8 +1060,10 @@ static ecode_t collect_relations(siqs_context_t* const context) {
     // of course the 'core' of the SIQS algorithm...
     //
 
-    uint32_t nrels_to_go = context->smooth_redgx->alloced;
-    uint32_t max_to_go   = nrels_to_go;
+    uint32_t nrels_to_go  = context->smooth_redgx->alloced;
+    uint32_t max_to_go    = nrels_to_go;
+    uint32_t idle_batches = 0;
+    uint32_t idle_fills   = 0;
 
     //
     // Collect relations that will ultimately lead to congruences of squares,
@@ -1031,11 +1076,20 @@ static ecode_t collect_relations(siqs_context_t* const context) {
         // needed before attempting a batch smoothness test a la Bernstein.
         //
         while (context->xpool->length != context->to_collect) {
+            const uint32_t ncands = context->xpool->length;
+
             fill_sieve(context->sieve);
             scan_sieve(context->sieve, context->xpool, context->to_collect);
 
             compute_reduced_polynomial_values(context);
+
+            idle_fills = (context->xpool->length == ncands) ? idle_fills + 1 : 0;
+            if (idle_fills == MAX_IDLE_FILLS) {
+                context->stalled = true;
+                return GIVING_UP;
+            }
         }
+        const uint32_t nrels = context->smooth_redgx->length;
         //
         // After computing the "reduced" g_{a,b}(xi)/a, keep the ones that are
         // smooth in the smooth_redgx array together with the associated
@@ -1043,6 +1097,12 @@ static ecode_t collect_relations(siqs_context_t* const context) {
         //
         keep_relations_with_smooth_gx(context);
 
+        idle_batches = (context->smooth_redgx->length == nrels)
+                       ? idle_batches + 1 : 0;
+        if (idle_batches == MAX_IDLE_BATCHES) {
+            context->stalled = true;
+            return GIVING_UP;
+        }
         context->xpool->length        = 0;
         context->cand_redgx->length   = 0;
         context->cand_u->length       = 0;
