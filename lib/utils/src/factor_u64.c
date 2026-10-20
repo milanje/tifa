@@ -31,6 +31,7 @@
 #if TIFA_HAVE_FACTOR_U64
 
 #include "first_primes.h"
+#include "z2z8_curves.h"
 
 typedef unsigned __int128 u128;
 
@@ -670,46 +671,6 @@ static void build_ecm_plans(void) {
 //
 #define ECM_LANES 3
 
-//
-// Curves with torsion Z/2 x Z/8 over Q, so that 16 divides their order mod
-// every prime (12 for Suyama's curves): 1-6% fewer curves. They come from
-// Edwards curves x^2 + y^2 = 1 + d.x^2.y^2 with a point (x8, x8) of order 8,
-// d = (2.x8^2 - 1)/x8^4, x8 = (k^2 - 2k + 2)/(k^2 - 2) for rational k (d
-// square), on which a search found a point (x0, y0) of infinite order with
-// small coordinates (tools/z2z8 regenerates and checks this table). In
-// Montgomery form: a24 = 1/(1 - d) and starting point u0 = (1 + y0)/(1 - y0).
-// Rows: d (numerator, denominator), y0 (idem).
-//
-static const uint64_t z2z8_curves[][4] = {
-    { 25921ULL, 83521ULL, 289ULL, 49ULL },
-    { 1681ULL, 707281ULL, 2523ULL, 122ULL },
-    { 2307361ULL, 2825761ULL, 21853ULL, 43757ULL },
-    { 23804641ULL, 62742241ULL, 7921ULL, 4559ULL },
-    { 21464689ULL, 52200625ULL, 27455ULL, 14981ULL },
-    { 138133009ULL, 244140625ULL, 678125ULL, 426121ULL },
-    { 21911761ULL, 141158161ULL, 225739ULL, 81589ULL },
-    { 418079809ULL, 442050625ULL, 841ULL, 791ULL },
-    { 44182609ULL, 1766100625ULL, 1025ULL, 158ULL },
-    { 779135569ULL, 1766100625ULL, 109265ULL, 60667ULL },
-    { 857376961ULL, 3373402561ULL, 755053ULL, 318243ULL },
-    { 1003559041ULL, 6975757441ULL, 4913ULL, 377ULL },
-    { 3139697089ULL, 8653650625ULL, 3721ULL, 2055ULL },
-    { 21152502721ULL, 35152125121ULL, 187489ULL, 209521ULL },
-    { 23226064801ULL, 43617904801ULL, 2297339ULL, 547339ULL },
-    { 5149354081ULL, 236010384481ULL, 11849ULL, 13319ULL },
-    { 126879152401ULL, 241474942801ULL, 491401ULL, 348823ULL },
-    { 174188534881ULL, 236010384481ULL, 28577ULL, 282593ULL },
-    { 202571106241ULL, 225360027841ULL, 64607ULL, 60833ULL },
-    { 154542548161ULL, 1036488922561ULL, 19343539ULL, 25376461ULL },
-    { 150880195489ULL, 670801950625ULL, 819025ULL, 899167ULL },
-    { 340457079169ULL, 559840650625ULL, 748225ULL, 578863ULL },
-    { 725779613329ULL, 732094140625ULL, 171125ULL, 25441ULL },
-    { 1044727250161ULL, 1053022816561ULL, 1026169ULL, 1018073ULL },
-    { 294329035441ULL, 1998607065841ULL, 1413721ULL, 2064569ULL },
-    { 37138300369ULL, 3082219140625ULL, 351125ULL, 385247ULL },
-    { 10166959513489ULL, 12625407900625ULL, 710645ULL, 206663ULL },
-};
-#define NZ2Z8_CURVES (sizeof(z2z8_curves) / sizeof(z2z8_curves[0]))
 
 //
 // a24 and x0 of the curves first, first + 1... of z2z8_curves, with a

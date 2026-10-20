@@ -31,6 +31,7 @@
 #if TIFA_HAVE_MONT_ECM
 
 #include "first_primes.h"
+#include "z2z8_curves.h"
 
 typedef unsigned __int128 u128;
 
@@ -399,18 +400,17 @@ static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
         }                                                                     \
     } while (0)
 
-bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
-                    const mont_ecm_plan_t* const plan) {
-    if (!mont_ecm_handles(n)) {
-        return false;
-    }
-    //
-    // Suyama's parametrization: u = sigma^2 - 5, v = 4.sigma, starting
-    // point (u^3 : v^3) = (u^3/v^3 : 1) on the curve with (A + 2)/4 =
-    // (v - u)^3 (3u + v) / (16 u^3 v): both from the inverse of 16 u^3 v^4.
-    //
-    mpz_t u, v, u3, v3, d, t;
-    mpz_inits(u, v, u3, v3, d, t, NULL);
+//
+// Sets x0 and a24 for Suyama's curve of parameter sigma: u = sigma^2 - 5,
+// v = 4.sigma, starting point (u^3 : v^3) = (u^3/v^3 : 1) on the curve with
+// (A + 2)/4 = (v - u)^3 (3u + v) / (16 u^3 v), both from the inverse of
+// 16 u^3 v^4. Returns false, with factor = the gcd of that value with n, if
+// it is not invertible.
+//
+static bool suyama_curve(mpz_t x0, mpz_t a24, mpz_t factor, const mpz_t n,
+                         const uint32_t sigma) {
+    mpz_t u, v, u3, v3, t;
+    mpz_inits(u, v, u3, v3, t, NULL);
 
     mpz_set_ui(u, sigma);
     mpz_mul(u, u, u);
@@ -421,41 +421,83 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
     mpz_mod(v, v, n);
     mpz_powm_ui(u3, u, 3, n);
     mpz_powm_ui(v3, v, 3, n);
-    mpz_mul(d, u3, v);
-    mpz_mul_ui(d, d, 16);
-    mpz_mod(d, d, n);
-    mpz_mul(t, d, v3);
+    mpz_mul(x0, u3, v);
+    mpz_mul_ui(x0, x0, 16);
+    mpz_mod(x0, x0, n);
+    mpz_mul(t, x0, v3);
     mpz_mod(t, t, n);
 
-    int found = 0;
-    if (mpz_invert(t, t, n) == 0) {
-        mpz_mul(t, d, v3);
+    const bool ok = (mpz_invert(factor, t, n) != 0);
+    if (!ok) {
         mpz_gcd(factor, t, n);
-        found = ((mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0));
-        mpz_clears(u, v, u3, v3, d, t, NULL);
-        return found;
+    } else {
+        mpz_set(t, factor);
+        mpz_mul(x0, x0, u3);
+        mpz_mul(x0, x0, t);
+        mpz_mod(x0, x0, n);
+
+        mpz_sub(a24, v, u);
+        mpz_powm_ui(a24, a24, 3, n);
+        mpz_mul(a24, a24, v3);
+        mpz_mul(a24, a24, t);
+        mpz_mul_ui(u, u, 3);
+        mpz_add(u, u, v);
+        mpz_mul(a24, a24, u);
+        mpz_mod(a24, a24, n);
     }
+    mpz_clears(u, v, u3, v3, t, NULL);
+    return ok;
+}
+
+//
+// As suyama_curve, for row i of z2z8_curves: a24 = 1/(1 - d) and
+// x0 = (1 + y0)/(1 - y0), from the inverse of (dd - dn)(yd - yn).
+//
+static bool z2z8_curve(mpz_t x0, mpz_t a24, mpz_t factor, const mpz_t n,
+                       const uint32_t i) {
+    mpz_t dn, dd, yn, yd, t;
+    mpz_inits(dn, dd, yn, yd, t, NULL);
+    mpz_import(dn, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][0]);
+    mpz_import(dd, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][1]);
+    mpz_import(yn, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][2]);
+    mpz_import(yd, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][3]);
+
+    mpz_sub(a24, dd, dn);
+    mpz_sub(x0, yd, yn);
+    mpz_mul(t, a24, x0);
+    mpz_mod(t, t, n);
+
+    const bool ok = (mpz_invert(factor, t, n) != 0);
+    if (!ok) {
+        mpz_gcd(factor, t, n);
+    } else {
+        mpz_mul(t, factor, x0);
+        mpz_mul(t, t, dd);
+        mpz_mod(t, t, n);
+        mpz_mul(dd, factor, a24);
+        mpz_add(yd, yd, yn);
+        mpz_mul(dd, dd, yd);
+        mpz_mod(x0, dd, n);
+        mpz_set(a24, t);
+    }
+    mpz_clears(dn, dd, yn, yd, t, NULL);
+    return ok;
+}
+
+//
+// One curve, from its starting point (x0z : 1) and a24 (residues mod n).
+//
+static bool run_curve(mpz_t factor, const mpz_t n, const mpz_t x0z,
+                      const mpz_t a24z, const mont_ecm_plan_t* const plan) {
     mod_t m;
     mod_init(&m, n);
 
     uint64_t x0[MONT_ECM_MAX_LIMBS];
     uint64_t a24[MONT_ECM_MAX_LIMBS];
-    mpz_mul(d, d, u3);
-    mpz_mul(d, d, t);
-    mpz_mod(d, d, n);
-    to_limbs(x0, d, m.nl);
+    to_limbs(x0, x0z, m.nl);
+    to_limbs(a24, a24z, m.nl);
 
-    mpz_sub(d, v, u);
-    mpz_powm_ui(d, d, 3, n);
-    mpz_mul(d, d, v3);
-    mpz_mul(d, d, t);
-    mpz_mul_ui(u, u, 3);
-    mpz_add(u, u, v);
-    mpz_mul(d, d, u);
-    mpz_mod(d, d, n);
-    to_limbs(a24, d, m.nl);
-    mpz_clears(u, v, u3, v3, d, t, NULL);
-
+    int found = 0;
     switch (m.nl) {
         case 1:
             RUN_CURVE(1);
@@ -471,6 +513,45 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
             break;
     }
     return found > 0;
+}
+
+//
+// Sets up a curve with setup (then runs it), or reports the gcd found if
+// setup could not invert.
+//
+static bool setup_and_run(mpz_t factor, const mpz_t n, const uint32_t k,
+                          const mont_ecm_plan_t* const plan,
+                          bool (*setup)(mpz_t, mpz_t, mpz_t, const mpz_t,
+                                        uint32_t)) {
+    mpz_t x0, a24;
+    mpz_inits(x0, a24, NULL);
+    bool found;
+    if (setup(x0, a24, factor, n, k)) {
+        found = run_curve(factor, n, x0, a24, plan);
+    } else {
+        found = (mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0);
+    }
+    mpz_clears(x0, a24, NULL);
+    return found;
+}
+
+bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
+                    const mont_ecm_plan_t* const plan) {
+    if (!mont_ecm_handles(n)) {
+        return false;
+    }
+    return setup_and_run(factor, n, sigma, plan, suyama_curve);
+}
+
+bool mont_ecm_nth_curve(mpz_t factor, const mpz_t n, const uint32_t k,
+                        const mont_ecm_plan_t* const plan) {
+    if (!mont_ecm_handles(n)) {
+        return false;
+    }
+    if (k < NZ2Z8_CURVES) {
+        return setup_and_run(factor, n, k, plan, z2z8_curve);
+    }
+    return setup_and_run(factor, n, 6 + k - NZ2Z8_CURVES, plan, suyama_curve);
 }
 
 //------------------------------------------------------------------------------

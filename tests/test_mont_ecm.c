@@ -7,6 +7,7 @@
 #include "tifa_test.h"
 #include "first_primes.h"
 #include "mont_ecm.h"
+#include "z2z8_curves.h"
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -147,6 +148,53 @@ done:
     return found;
 }
 
+// Stage 1 of the curve with starting point (x0 : 1) and a24 (residues), to
+// b1: 1 if gcd(z, n) is a proper factor (in g).
+static int ref_stage1(mpz_t g, const mpz_t n, const mpz_t x0, const mpz_t a24,
+                      uint32_t b1) {
+    ref_pt_t p;
+    mpz_init_set(p.x, x0);
+    mpz_init_set_ui(p.z, 1);
+    mpz_t k;
+    mpz_init_set_ui(k, 1);
+    for (uint32_t i = 0; first_primes[i] <= b1; i++) {
+        unsigned long q = first_primes[i];
+        while (q <= b1 / first_primes[i]) {
+            q *= first_primes[i];
+        }
+        mpz_mul_ui(k, k, q);
+    }
+    ref_ladder(&p, &p, k, a24, n);
+    const int found = proper_gcd(g, p.z, n);
+    mpz_clears(p.x, p.z, k, NULL);
+    return found;
+}
+
+// a24 = 1/(1 - d), x0 = (1 + y0)/(1 - y0) for row i of z2z8_curves; 0 if
+// not invertible mod n.
+static int z2z8_ref(mpz_t x0, mpz_t a24, const mpz_t n, uint32_t i) {
+    mpz_t d, y, t;
+    mpz_inits(d, y, t, NULL);
+    mpz_set_ui(d, 0);
+    mpz_import(t, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][1]);
+    mpz_import(d, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][0]);
+    int ok = mpz_invert(t, t, n);
+    mpz_mul(d, d, t);
+    mpz_import(t, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][3]);
+    mpz_import(y, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][2]);
+    ok = ok && mpz_invert(t, t, n);
+    mpz_mul(y, y, t);
+    mpz_ui_sub(t, 1, d);
+    ok = ok && mpz_invert(a24, t, n);
+    mpz_ui_sub(t, 1, y);
+    ok = ok && mpz_invert(t, t, n);
+    mpz_add_ui(x0, y, 1);
+    mpz_mul(x0, x0, t);
+    mpz_mod(x0, x0, n);
+    mpz_clears(d, y, t, NULL);
+    return ok;
+}
+
 static void random_prime(mpz_t p, gmp_randstate_t state, unsigned long bits) {
     do {
         mpz_urandomb(p, state, bits);
@@ -219,6 +267,46 @@ int main(void) {
         CHECK_EQ_UI(bad_factor, 0, msg);
         snprintf(msg, sizeof(msg), "%u limb(s): stage 2 finds more", nl);
         CHECK(found2 > found1 * 40 / 120, msg);
+    }
+
+    // The curve sequence of mont_ecm_nth_curve: the Z/2 x Z/8 curves match
+    // the reference in stage 1, then come Suyama's curves.
+    {
+        mpz_t x0, a24;
+        mpz_inits(x0, a24, NULL);
+        for (uint32_t nl = 1; nl <= 4; nl++) {
+            random_prime(p, state, 20);
+            do {
+                random_prime(q, state, 64 * nl - 20 - (nl == 1 ? 1 : 5));
+                mpz_mul(n, p, q);
+            } while (mpz_size(n) != nl);
+            uint32_t mismatches = 0;
+            uint32_t found = 0;
+            for (uint32_t k = 0; k < NZ2Z8_CURVES; k++) {
+                const int mine = mont_ecm_nth_curve(g, n, k, plan1);
+                const int ref  = z2z8_ref(x0, a24, n, k)
+                                 && ref_stage1(gref, n, x0, a24, 300);
+                mismatches += (mine != ref) || (mine && mpz_cmp(g, gref));
+                found += mine;
+            }
+            snprintf(msg, sizeof(msg), "%u limb(s): Z/2xZ/8 curves match "
+                     "the reference", nl);
+            CHECK_EQ_UI(mismatches, 0, msg);
+            snprintf(msg, sizeof(msg), "%u limb(s): Z/2xZ/8 curves find "
+                     "some", nl);
+            CHECK(found > 0, msg);
+            mismatches = 0;
+            for (uint32_t k = NZ2Z8_CURVES; k < NZ2Z8_CURVES + 30; k++) {
+                const int mine = mont_ecm_nth_curve(g, n, k, plan1);
+                const int ref  = mont_ecm_curve(gref, n, 6 + k - NZ2Z8_CURVES,
+                                                plan1);
+                mismatches += (mine != ref) || (mine && mpz_cmp(g, gref));
+            }
+            snprintf(msg, sizeof(msg), "%u limb(s): then Suyama's curves",
+                     nl);
+            CHECK_EQ_UI(mismatches, 0, msg);
+        }
+        mpz_clears(x0, a24, NULL);
     }
 
     // A stage 2 reaching past the prime table (segmented sieve): a 36-bit

@@ -98,6 +98,21 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, uint32_t sigma,
                     const mont_ecm_plan_t* plan);
 
    /**
+    * \brief Runs the k-th curve of TIFA's sequence on \c n.
+    *
+    * The curves with torsion Z/2 x Z/8 of z2z8_curves.h first (orders
+    * divisible by 16), then Suyama's curves from sigma = 6.
+    *
+    * \param[out] factor A proper factor of \c n, if one is found.
+    * \param[in]  n The number to factor (see \c mont_ecm_handles).
+    * \param[in]  k The index of the curve in the sequence.
+    * \param[in]  plan The bounds and precomputations.
+    * \return true if a proper factor was found.
+    */
+bool mont_ecm_nth_curve(mpz_t factor, const mpz_t n, uint32_t k,
+                        const mont_ecm_plan_t* plan);
+
+   /**
     * \brief Runs Pollard's p-1 on \c n.
     *
     * Stage 1 computes a = base^E; stage 2 looks for a prime q of the plan

@@ -1,4 +1,4 @@
-"""Builds z2z8_curves (lib/utils/src/factor_u64.c) from search.c's output.
+"""Builds z2z8_curves (lib/data/src/z2z8_curves.c) from search.c's output.
 
 Keeps, for each curve, the first point of infinite order with the fewest
 bits in its coordinates; checks that 16 divides the group order modulo 40

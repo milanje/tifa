@@ -1,4 +1,4 @@
-// Candidate curves and points for z2z8_curves in lib/utils/src/factor_u64.c.
+// Candidate curves and points for z2z8_curves in lib/data/src/z2z8_curves.c.
 //
 // Edwards curves x^2 + y^2 = 1 + d.x^2.y^2 with torsion Z/2 x Z/8: a point
 // (x8, x8) of order 8 needs d = (2.x8^2 - 1)/x8^4, and d is a square (full

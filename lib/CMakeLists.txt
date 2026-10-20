@@ -19,6 +19,7 @@ set(TIFA_SOURCES
     algo/src/tuning.c
     # Precomputed data (generated prime table)
     data/src/first_primes.c
+    data/src/z2z8_curves.c
     # Structures, utilities, etc.
     utils/src/approx.c
     utils/src/array.c
@@ -122,6 +123,7 @@ set(TIFA_PUBLIC_HEADERS
     algo/include/tuning_baked.h
     # Data
     data/include/first_primes.h
+    data/include/z2z8_curves.h
     # Structures, utilities, etc.
     utils/include/approx.h
     utils/include/array.h
