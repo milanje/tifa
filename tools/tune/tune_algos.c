@@ -61,11 +61,13 @@ static const double R3_B2[]  = { 5.0, 10.0, 20.0 };
 // -- without the wasted high point the earlier exploratory grid carried.
 #define TUNE_B1_CENTER_MULT 200.0
 static const double R_B1[] = { 0.25, 0.5, 1.0, 2.0, 4.0 };
-// Upward-only ratios for the sieve methods' factor base / sieve width: never
-// shrink below the (known-good) default, since too small a base (or interval)
-// starves relation collection and makes CFRAC/SIQS churn indefinitely on some
-// inputs. The default is included, so the tuner can still keep it.
+// Upward-only ratios for CFRAC's factor base: too small a base starves
+// relation collection and CFRAC, which has no stall guard, churns indefinitely
+// on some inputs.
 static const double R_UP[] = { 1.0, 1.5, 2.0 };
+// Both ways for SIQS, which gives up on a stalled collection and retries wider.
+// The default comes first, so the tuner prunes against it and keeps it on ties.
+static const double R_SIQS[] = { 1.0, 0.5, 0.7, 1.4, 2.0 };
 // Boolean axis (off, then on): "off" first so it wins exact ties, i.e. the
 // large-prime variation is only preferred when it is strictly better.
 static const uint32_t BOOL01[] = { 0, 1 };
@@ -303,11 +305,8 @@ static void build_grid_siqs(uint32_t bitsize, grid_t* g) {
     set_siqs_params_to_default(n, &d);
     mpz_clear(n);
 
-    // Sweep the factor base and sieve width UPWARD only: shrinking either below
-    // the (known-good) default starves relation collection and makes SIQS churn
-    // polynomials indefinitely.
-    grid_add_axis_mul(g, (double) d.nprimes_in_base,  R_UP, 3, 32, NFIRST_PRIMES); // nprimes_in_base
-    grid_add_axis_mul(g, (double) d.sieve_half_width, R_UP, 3, 1000, 2000000);     // sieve_half_width
+    grid_add_axis_mul(g, (double) d.nprimes_in_base,  R_SIQS, 5, 32, NFIRST_PRIMES); // nprimes_in_base
+    grid_add_axis_mul(g, (double) d.sieve_half_width, R_SIQS, 5, 1000, 2000000);     // sieve_half_width
     grid_add_axis_fixed(g, d.threshold);                                           // threshold
     grid_add_axis_fixed(g, d.nprimes_tdiv);                                         // nprimes_tdiv
     grid_add_axis_fixed(g, d.nrelations);                                           // nrelations

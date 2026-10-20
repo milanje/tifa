@@ -683,23 +683,47 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
             uint32_t cols[TIFA_TUNING_MAX_COLS];
             grid_point(&grid, g, cols);
 
+            // Once a point has spent more than the qualified best's total, its
+            // score cannot beat it: stop timing it, and cut a run off before
+            // it alone would. The slack keeps fork and wall-clock jitter from
+            // cutting short runs.
+            const double bound = best_qualified ? best_score * (double) setlen
+                                                : INFINITY;
             double   sum_cpu = 0.0;
             unsigned succ    = 0;
+            bool     pruned  = false;
             for (unsigned int t = 0; t < setlen; t++) {
+                double budget = opt->timeout_s;
+                bool   cut    = false;
+                if ((budget > 0.0) && isfinite(bound)) {
+                    const double left = 2.0 * (bound - sum_cpu) + 0.1;
+                    if (left < budget) {
+                        budget = left;
+                        cut    = true;
+                    }
+                }
                 double secs = 0.0;
                 run_outcome_t oc = RUN_OK;
                 bool ok = run_watched(desc, nset[t], pset[t], cols,
-                                      opt->timeout_s, &secs, &oc);
+                                      budget, &secs, &oc);
                 sum_cpu += secs;
                 if (ok) {
                     succ++;
                 }
-                if (oc == RUN_TIMEOUT) {
+                if ((oc == RUN_TIMEOUT) && !cut) {
                     timeouts++;
                 } else if (oc == RUN_CRASH) {
                     crashes++;
                 }
                 progress_tick(&pr);
+                if (sum_cpu > bound) {
+                    pr.done += setlen - t - 1;
+                    pruned   = true;
+                    break;
+                }
+            }
+            if (pruned) {
+                continue;
             }
             double p_success = (double) succ / (double) setlen;
             double mean_cpu  = sum_cpu / (double) setlen;
