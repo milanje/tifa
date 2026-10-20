@@ -103,7 +103,7 @@ struct struct_siqs_params_t {
    uint32_t threshold;
        /**
         * Number of the first primes to use in the trial division
-        * of the residues.
+        * of the residues (at most \c nprimes_in_base are used).
         *
         * \warning \c nprimes_tdiv should be greater than or equal
         * to 1.

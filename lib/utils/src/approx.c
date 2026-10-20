@@ -132,7 +132,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
 
     uint32_t mid = 0;
     uint32_t min = 0;
-    uint32_t max = aximer->facpool->length;
+    uint32_t max = aximer->facpool->length - 1;
     uint32_t i;
 
     uint32_t* fdata = aximer->facpool->data;

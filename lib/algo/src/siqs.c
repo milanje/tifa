@@ -388,6 +388,8 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     siqs_params_t own_params = *params;
+    own_params.nprimes_tdiv = MIN(own_params.nprimes_tdiv,
+                                  own_params.nprimes_in_base);
 
     factoring_machine_t machine;
 
