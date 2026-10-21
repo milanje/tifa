@@ -348,7 +348,7 @@ const tune_algo_desc_t TUNE_ALGOS[] = {
     { "cfrac",     TIFA_TUNING_NCOLS_CFRAC,     TIFA_TUNING_COLS_CFRAC,
       false, 56, 140, 2, 0, build_grid_cfrac,     run_cfrac, 3 },
     { "siqs",      TIFA_TUNING_NCOLS_SIQS,      TIFA_TUNING_COLS_SIQS,
-      false, 80, 200, 2, 0, build_grid_siqs,      run_siqs, 5 },
+      false, 65, 200, 2, 0, build_grid_siqs,      run_siqs, 5 },
 };
 
 const unsigned int TUNE_NALGOS = sizeof(TUNE_ALGOS) / sizeof(TUNE_ALGOS[0]);

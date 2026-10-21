@@ -258,7 +258,8 @@ static void usage(FILE* out, const char* prog) {
         "                      (default: all)\n"
         "  --min <bits>        Smallest composite bit-size (default: 40)\n"
         "  --max <bits>        Largest composite bit-size (default: 200)\n"
-        "  --step <bits>       Bit-size increment (default: 16)\n"
+        "  --step <bits>       Bit-size increment; --max is always tuned\n"
+        "                      (default: 16)\n"
         "  --trials <n>        Test composites per bit-size & factor-count (25)\n"
         "  --threshold <p>     Min success rate for sieve algos (default: 0.90)\n"
         "  --min-success <p>   Min success rate for probabilistic algos (0.05)\n"
@@ -621,8 +622,11 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
     unsigned sticky_wins   = 0;
     bool     sticky_locked = false;
 
+    // The last step stops at hi, so the table covers the whole range: past
+    // its last row, the library keeps using that row.
     for (unsigned int bits = lo; bits <= hi && nrows < TUNE_MAX_ROWS;
-         bits += opt->step) {
+         bits = ((bits < hi) && (bits + opt->step > hi)) ? hi
+                                                          : bits + opt->step) {
 
         // Use more test composites for small (cheap) numbers to beat down
         // timing noise.

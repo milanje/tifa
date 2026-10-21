@@ -123,7 +123,7 @@ cmake --build build --target tifa_tune
 parameter grid for each bit-size, times each run, and writes the combination
 minimizing the expected time to find a factor. Useful options (`--help` lists
 all): `--algo <names|all>` (a comma-separated list of algorithm names, or `all`;
-`--help` lists the valid names), `--min`/`--max`/`--step` (bit-size range), `--trials`,
+`--help` lists the valid names), `--min`/`--max`/`--step` (bit-size range; `--max` is always tuned), `--trials`,
 `--seed` (reproducible composites), `--timeout <sec>` (per-run wall-clock budget;
 a run that exceeds it is killed in its child process and scored as a failure, so
 a pathological parameter/input combination can never stall the tune — default
