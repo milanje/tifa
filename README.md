@@ -2,21 +2,52 @@
 
 `IDDN.FR.001.220019.000.S.A.2011.000.31235`
 
-`TIFA` (_Tools for Integer FActorization_), is a small
-C library that implements utilities and algorithms to perform integer
-factorizations, with an emphasis on small to medium-size composites,
-say from 40 to 200 bits.
+`TIFA` (_Tools for Integer FActorization_) is a small C library that implements
+utilities and algorithms to perform integer factorizations, with an emphasis on
+small to medium-size composites, say from 40 to 200 bits. It can be used on its
+own, or inside a larger program such as a number field sieve, to factor its
+cofactors one per thread.
 
 This library was written around 2010 when I was working at
 [LIX](https://www.lix.polytechnique.fr), the Computer Science Laboratory
-of [Ecole Polytechnique](https://www.polytechnique.edu/en). It has been
-mostly abandoned during the past few years and is probably not competitive
-anymore.
+of [Ecole Polytechnique](https://www.polytechnique.edu/en). The source code was
+uploaded "as is" to [GitHub](https://github.com) in April 2020. It was
+originally built with [SCons](https://scons.org); the build system has since
+been migrated to [CMake](https://cmake.org).
 
-The source code was uploaded "as is" to [GitHub](https://github.com) in
-April 2020. It was originally built with [SCons](https://scons.org); the build
-system has since been migrated to [CMake](https://cmake.org) (the old SCons
-files have been removed).
+## What's new
+
+In October 2026, most of the library was reworked for speed, correctness and
+thread safety. Against the code before, on one thread of an Apple M5 Pro:
+
+- `tifa_factor` is 6x to 100x faster from 32 to 110 bits, and 1.4x to 8x from
+  128 to 200 bits. It now always returns complete factorizations, which it often
+  failed to do above 64 bits.
+- The new `tifa_cofactor` answers whether a sieve's cofactor splits into small
+  enough primes 35x to 120x faster than with `tifa_factor` before.
+- ECM is 14x to 20x faster, p-1 and p+1 4x to 6x, SIQS 1.4x to 1.9x, and the
+  primality tests are thousands of times faster.
+- The factorization functions can be called from several threads at once.
+
+[readme/news.md](./readme/news.md) has all the measurements and the list of
+changes.
+
+## What's in there
+
+- `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
+  method by size: trial division, machine-word arithmetic below 2^64, then an
+  ECM pre-pass, p-1 and p+1 from 90 bits, and SIQS.
+- `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
+  below a bound, as the cofactorization step of a sieve asks (see
+  [Cofactorization](#cofactorization) below).
+- The algorithms themselves, each with its own header and parameters: SIQS
+  (`siqs.h`), CFRAC (`cfrac.h`), ECM (`ecm.h`), Pollard's p-1 (`p_minus_1.h`),
+  Williams' p+1 (`p_plus_1.h`), Pollard's rho (`rho.h`), SQUFOF (`squfof.h`),
+  McKee's variant of Fermat's method (`fermat.h`) and trial division
+  (`tdiv.h`).
+- Below 2^64, deterministic primality testing and factorization in machine
+  words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
+  four words, up to 256 bits (`mont_ecm.h`).
 
 The [readme.txt](./readme/readme.txt) file in the `readme` directory has more
 detail on the algorithms, the source layout and the Perl tooling; its build and
@@ -27,7 +58,8 @@ installation steps use CMake as well, matching the instructions below.
 Requirements:
 
 - a C99 compiler,
-- [GMP](https://gmplib.org) (>= 4.2), the sole external dependency,
+- [GMP](https://gmplib.org) (>= 6.0), the sole external dependency,
+- POSIX threads,
 - [CMake](https://cmake.org) >= 3.20.
 
 Optional: [Doxygen](https://www.doxygen.nl) (+ LaTeX for the PDF) for the API
@@ -37,8 +69,13 @@ for the benchmarking scripts.
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
+ctest --test-dir build           # the test suite
 cmake --install build            # honors -DCMAKE_INSTALL_PREFIX=...
 ```
+
+The machine-word code (below 2^64) and the Montgomery ECM, p-1 and p+1 need a
+compiler with 128-bit integers (GCC and Clang have them on 64-bit platforms);
+without them, the library falls back on its GMP code.
 
 If GMP lives in a non-standard location, pass `-DGMP_INCDIR=<dir>` and
 `-DGMP_LIBDIR=<dir>`. Build options mirror the old `BuildOptions.py` and are set
@@ -68,27 +105,6 @@ available) and `cpack --config build/CPackSourceConfig.cmake` (source tarball).
 A [very crude documentation](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/doc/tifa_user.pdf) is available as a PDF on the
 [project's LIX webpage](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/tifa.xhtml).
 
-# Parameter tuning
-
-Each algorithm depends on numeric parameters (smoothness bounds `b1`/`b2`, curve
-counts, sieve widths, factor-base sizes, ...) whose best values depend on the
-bit-size of the number being factored. `set_<algo>_params_to_default(n, params)`
-fills these; by default it uses built-in, size-indexed values. The `tifa_tune`
-tool lets you measure better values on your own machine and feed them back to
-the library.
-
-There are three ways parameters reach the library, tried in order, with the
-built-in defaults always as the final fallback:
-
-1. **A runtime tuning file** — `<dir>/<algo>.tuning`, where `<dir>` is set via
-   the `TIFA_TUNING_DIR` environment variable (or, for embedders,
-   `tifa_tuning_set_dir()`). Nothing is baked into the binary; you can swap files
-   without recompiling.
-2. **Compiled-in ("baked") tables** — enabled with `-DTIFA_USE_BAKED_TUNING=ON`;
-   consulted when no runtime file is found (see below).
-3. **The built-in defaults** — used whenever neither of the above applies, so an
-   untouched build behaves exactly as before this feature existed.
-
 ## Cofactorization
 
 For the cofactors left by the sieve of the number field sieve,
@@ -112,7 +128,36 @@ if (tifa_cofactor(factors, multis, n, strategy) == COFACTOR_SMOOTH) {
 free_cofactor_strategy(strategy);
 ```
 
-## Generating tuning files
+Above `max_siqs_bits`, a composite that ECM does not split within the time SIQS
+would take is given up (`COFACTOR_GAVE_UP`): with three large primes, that
+takes about half the time of exact answers and misses about 0.3% of the smooth
+cofactors.
+
+## Parameter tuning
+
+Each algorithm depends on numeric parameters (smoothness bounds `b1`/`b2`, curve
+counts, sieve widths, factor-base sizes, ...) whose best values depend on the
+bit-size of the number being factored. `set_<algo>_params_to_default(n, params)`
+fills these; by default it uses built-in, size-indexed values. The `tifa_tune`
+tool lets you measure better values on your own machine and feed them back to
+the library.
+
+There are three ways parameters reach the library, tried in order, with the
+built-in defaults always as the final fallback:
+
+1. **A runtime tuning file** — `<dir>/<algo>.tuning`, where `<dir>` is set via
+   the `TIFA_TUNING_DIR` environment variable (or, for embedders,
+   `tifa_tuning_set_dir()`). Nothing is baked into the binary; you can swap files
+   without recompiling.
+2. **Compiled-in ("baked") tables** — enabled with `-DTIFA_USE_BAKED_TUNING=ON`;
+   consulted when no runtime file is found (see below).
+3. **The built-in defaults** — used whenever neither of the above applies, so an
+   untouched build behaves exactly as before this feature existed.
+
+A tuning file lists rows of parameters for increasing bit-sizes; between two
+rows, the numeric parameters are interpolated.
+
+### Generating tuning files
 
 ```sh
 cmake --build build --target tifa_tune
@@ -144,7 +189,7 @@ Point the library at the generated files at runtime:
 TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/siqs <number_to_factor>
 ```
 
-## Baking tuned values into the library
+### Baking tuned values into the library
 
 To compile the tuned tables in (so no runtime file or environment variable is
 needed), regenerate the committed baked tables and enable them:
@@ -168,7 +213,7 @@ the shipped baseline is intentionally empty.
 > remain available for ad-hoc benchmarking and gnuplot visualization; `tifa_tune`
 > is the self-contained, dependency-free path for parameter selection.
 
-# Licence
+## Licence
 
 The TIFA library is Copyright(C) 2011 CNRS, Ecole Polytechnique and INRIA.
 
