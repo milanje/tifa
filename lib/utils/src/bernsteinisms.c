@@ -1088,7 +1088,7 @@ uint32_t bern_21_pairs_lp(const mpz_t n,
 #define BERN_SIQS_DIRECT_MAX_LIMBS 40
 #endif
 
-#if GMP_LIMB_BITS == 64
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
 //
 // For y = 2^t.yo of one limb, yo odd, and r = z mod y: r^(2^e) mod yo up to
 // a unit, by Montgomery squarings of r left unconverted (each multiplies the
@@ -1188,7 +1188,7 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
                         mpz_t yk, mpz_t nsp) {
     const uint32_t msb = mpz_sizeinbase(y, 2) - 1;
     const uint32_t e   = most_significant_bit(msb) + 1;
-#if GMP_LIMB_BITS == 64
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
     if (mpz_size(y) == 1) {
         const uint64_t ya = mpz_getlimbn(y, 0);
         const uint64_t r  = (rleaf != NULL)

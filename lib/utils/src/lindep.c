@@ -88,7 +88,7 @@ void fill_matrix_trial_div(binary_matrix_t* const matrix,
     matrix->nrows = nrows;
 }
 //-----------------------------------------------------------------------------
-#if GMP_LIMB_BITS == 64
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
 //
 // The trial divisions of fill_trial_div_decomp on the limbs of the residue,
 // least significant first, for residues of at most TDIV_MAX_LIMBS limbs.
@@ -161,7 +161,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
     if ((nrows_to_add + nrows) > matrix->nrows_alloced) {
         nrows_to_add = matrix->nrows_alloced - nrows;
     }
-#if GMP_LIMB_BITS == 64
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
     uint64_t* const pinv = malloc(factor_base->length * sizeof(uint64_t));
     uint64_t* const plim = malloc(factor_base->length * sizeof(uint64_t));
     for (uint32_t j = 0; j < factor_base->length; j++) {
@@ -183,7 +183,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
             flip_matrix_bit(nrows, 0, matrix);
             mpz_neg(v, v);
         }
-#if GMP_LIMB_BITS == 64
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
         size_t n = mpz_size(v);
         if ((n != 0) && (n <= TDIV_MAX_LIMBS)) {
             uint64_t l[TDIV_MAX_LIMBS];
@@ -238,7 +238,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
         }
         nrows++;
     }
-#if GMP_LIMB_BITS == 64
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
     free(pinv);
     free(plim);
 #endif
