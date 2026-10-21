@@ -24,6 +24,7 @@
  */
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <limits.h>
@@ -87,6 +88,62 @@ void fill_matrix_trial_div(binary_matrix_t* const matrix,
     matrix->nrows = nrows;
 }
 //-----------------------------------------------------------------------------
+#if GMP_LIMB_BITS == 64
+//
+// The trial divisions of fill_trial_div_decomp on the limbs of the residue,
+// least significant first, for residues of at most TDIV_MAX_LIMBS limbs.
+// The odd primes are tested and divided out as by GMP's divexact, with
+// pinv = 1/p mod 2^64 computed once per prime: from the least significant
+// limb, each quotient limb is (limb - c).pinv and leaves a borrow c, and p
+// divides x iff it divides (top limb - c).
+//
+#define TDIV_MAX_LIMBS 16
+
+static inline bool divisible_odd(const uint64_t* const l, const size_t n,
+                                 const uint64_t p, const uint64_t pinv,
+                                 const uint64_t plim) {
+    uint64_t c = 0;
+    for (size_t i = 0; i + 1 < n; i++) {
+        const uint64_t borrow = (l[i] < c);
+        const uint64_t q      = (l[i] - c) * pinv;
+        c = (uint64_t) (((unsigned __int128) q * p) >> 64) + borrow;
+    }
+    const uint64_t d = (l[n - 1] >= c) ? (l[n - 1] - c) : (c - l[n - 1]);
+    return d * pinv <= plim;
+}
+
+static inline void divexact_odd(uint64_t* const l, size_t* const n,
+                                const uint64_t p, const uint64_t pinv) {
+    uint64_t c = 0;
+    for (size_t i = 0; i < *n; i++) {
+        const uint64_t borrow = (l[i] < c);
+        const uint64_t q      = (l[i] - c) * pinv;
+        l[i] = q;
+        c = (uint64_t) (((unsigned __int128) q * p) >> 64) + borrow;
+    }
+    while ((*n > 1) && (l[*n - 1] == 0)) {
+        (*n)--;
+    }
+}
+
+static inline uint32_t remove_twos(uint64_t* const l, size_t* const n) {
+    size_t z = 0;
+    while (l[z] == 0) {
+        z++;
+    }
+    const uint32_t b = (uint32_t) __builtin_ctzll(l[z]);
+    for (size_t i = 0; i + z < *n; i++) {
+        const uint64_t hi = (i + z + 1 < *n) ? l[i + z + 1] : 0;
+        l[i] = (b == 0) ? l[i + z] : ((l[i + z] >> b) | (hi << (64 - b)));
+    }
+    *n -= z;
+    while ((*n > 1) && (l[*n - 1] == 0)) {
+        (*n)--;
+    }
+    return (uint32_t) (64 * z) + b;
+}
+#endif
+//-----------------------------------------------------------------------------
 void fill_trial_div_decomp(binary_matrix_t* const matrix,
                            byte_matrix_t* const decomp_matrix,
                            mpz_array_t* const partially_factored,
@@ -104,27 +161,74 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
     if ((nrows_to_add + nrows) > matrix->nrows_alloced) {
         nrows_to_add = matrix->nrows_alloced - nrows;
     }
-
+#if GMP_LIMB_BITS == 64
+    uint64_t* const pinv = malloc(factor_base->length * sizeof(uint64_t));
+    uint64_t* const plim = malloc(factor_base->length * sizeof(uint64_t));
+    for (uint32_t j = 0; j < factor_base->length; j++) {
+        const uint64_t p = factor_base->data[j];
+        uint64_t inv = p;
+        for (int k = 0; k < 5; k++) {
+            inv *= 2 - p * inv;
+        }
+        pinv[j] = inv;
+        plim[j] = UINT64_MAX / p;
+    }
+#endif
     for (uint32_t i = 0; i < nrows_to_add; i++) {
 
-        mpz_set(partially_factored->data[i], to_factor->data[i]);
+        mpz_ptr const v = partially_factored->data[i];
+        mpz_set(v, to_factor->data[i]);
 
-        if (mpz_sgn(partially_factored->data[i]) == -1) {
+        if (mpz_sgn(v) == -1) {
             flip_matrix_bit(nrows, 0, matrix);
-            mpz_neg(partially_factored->data[i], partially_factored->data[i]);
+            mpz_neg(v, v);
         }
+#if GMP_LIMB_BITS == 64
+        size_t n = mpz_size(v);
+        if ((n != 0) && (n <= TDIV_MAX_LIMBS)) {
+            uint64_t l[TDIV_MAX_LIMBS];
+            const mp_limb_t* const vl = mpz_limbs_read(v);
+            for (size_t k = 0; k < n; k++) {
+                l[k] = vl[k];
+            }
+            //
+            // Once the residue is 1, the primes left cannot divide it.
+            //
+            for (uint32_t j = 0; j < factor_base->length; j++) {
+                const uint64_t p = factor_base->data[j];
+                if (p == 2) {
+                    const uint32_t e = remove_twos(l, &n);
+                    decomp_data[i][j] += (unsigned char) e;
+                    flip_bit = (e & 1);
+                } else {
+                    while (divisible_odd(l, n, p, pinv[j], plim[j])) {
+                        divexact_odd(l, &n, p, pinv[j]);
+                        decomp_data[i][j]++;
+                        flip_bit = !flip_bit;
+                    }
+                }
+                if (flip_bit) {
+                    flip_matrix_bit(nrows, j + 1, matrix);
+                    flip_bit = false;
+                }
+                if ((n == 1) && (l[0] == 1)) {
+                    break;
+                }
+            }
+            mp_limb_t* const wl = mpz_limbs_write(v, (mp_size_t) n);
+            for (size_t k = 0; k < n; k++) {
+                wl[k] = l[k];
+            }
+            mpz_limbs_finish(v, (mp_size_t) n);
+            nrows++;
+            continue;
+        }
+#endif
         for (uint32_t j = 0; j < factor_base->length; j++) {
 
-            while (0 != mpz_divisible_ui_p(partially_factored->data[i],
-                                           factor_base->data[j]) ) {
-
-                mpz_divexact_ui(
-                    partially_factored->data[i],
-                    partially_factored->data[i],
-                    factor_base->data[j]
-                );
+            while (0 != mpz_divisible_ui_p(v, factor_base->data[j])) {
+                mpz_divexact_ui(v, v, factor_base->data[j]);
                 decomp_data[i][j]++;
-
                 flip_bit = !flip_bit;
             }
             if (flip_bit) {
@@ -134,6 +238,10 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
         }
         nrows++;
     }
+#if GMP_LIMB_BITS == 64
+    free(pinv);
+    free(plim);
+#endif
     partially_factored->length = to_factor->length;
     matrix->nrows = nrows;
 }
