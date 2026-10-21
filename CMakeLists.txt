@@ -98,7 +98,7 @@ option(TIFA_REGEN_TUNING "Add a 'regen-tuning' target that rebuilds baked tables
 #------------------------------------------------------------------------------
 # Dependencies
 #------------------------------------------------------------------------------
-find_package(GMP REQUIRED)
+find_package(GMP 6.0 REQUIRED)  # mpz_limbs_read and mpz_limbs_write
 find_package(Threads REQUIRED)   # the tuning cache is shared between threads
 find_library(TIFA_M_LIBRARY m)   # libm; may be absent (folded into libc) on some platforms
 

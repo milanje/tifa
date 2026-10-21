@@ -89,7 +89,7 @@
 ------------------------------------------------------------------------------
 
   First of all, this software relies on the GNU Multi Precision library (GMP)
-  version 4.2 or (preferably) higher, which is downloadable from:
+  version 6.0 or higher, which is downloadable from:
 
       http://gmplib.org
 

@@ -8,7 +8,8 @@
 #   GMP_LIBDIR - directory containing the GMP library
 #
 # On success it defines the imported target GMP::GMP as well as the variables
-# GMP_FOUND, GMP_INCLUDE_DIRS and GMP_LIBRARIES.
+# GMP_FOUND, GMP_INCLUDE_DIRS, GMP_LIBRARIES and GMP_VERSION (read from gmp.h,
+# and checked against the version asked for, if any).
 
 if(TARGET GMP::GMP)
     set(GMP_FOUND TRUE)
@@ -45,9 +46,24 @@ find_library(GMP_LIBRARY
         /usr/lib
 )
 
+if(GMP_INCLUDE_DIR AND EXISTS "${GMP_INCLUDE_DIR}/gmp.h")
+    file(STRINGS "${GMP_INCLUDE_DIR}/gmp.h" _gmp_version_lines
+         REGEX "^#define[ \t]+__GNU_MP_VERSION(_MINOR|_PATCHLEVEL)?[ \t]+[0-9]+")
+    foreach(_part "" "_MINOR" "_PATCHLEVEL")
+        string(REGEX MATCH "__GNU_MP_VERSION${_part}[ \t]+([0-9]+)" _m
+               "${_gmp_version_lines}")
+        set(_gmp_v${_part} "${CMAKE_MATCH_1}")
+    endforeach()
+    if(NOT _gmp_v STREQUAL "")
+        set(GMP_VERSION "${_gmp_v}.${_gmp_v_MINOR}.${_gmp_v_PATCHLEVEL}")
+    endif()
+    unset(_gmp_version_lines)
+endif()
+
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(GMP
     REQUIRED_VARS GMP_LIBRARY GMP_INCLUDE_DIR
+    VERSION_VAR   GMP_VERSION
 )
 
 if(GMP_FOUND)
