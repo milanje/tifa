@@ -73,11 +73,6 @@ static const struct {
 #define NSIQS_COSTS (sizeof(siqs_costs) / sizeof(siqs_costs[0]))
 
 #define PM1_B1 315
-//
-// Rounds of curves at the last level without a budget: finds a factor of
-// the size sought 86% of the time.
-//
-#define ROUNDS_AT_TOP 2
 
 struct struct_ecm_schedule_t {
     mont_ecm_plan_t* pm1_plan;
@@ -147,13 +142,10 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
             break;
         }
         spent += levels[i].ncurves * levels[i].cost * lfac;
-        if ((budget > 0) && (spent > limit)) {
+        if (spent > limit) {
             break;
         }
-        const uint32_t ncurves = ((budget <= 0) && (hi >= target_bits))
-                               ? ROUNDS_AT_TOP * levels[i].ncurves
-                               : levels[i].ncurves;
-        for (uint32_t j = 0; j < ncurves; j++) {
+        for (uint32_t j = 0; j < levels[i].ncurves; j++) {
             if (mont_ecm_curve(g, n, sigma++, schedule->plans[i])) {
                 return true;
             }

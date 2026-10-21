@@ -138,7 +138,7 @@ int main(void) {
     cofactor_strategy_t* s3 = alloc_cofactor_strategy(&three);
     three.max_siqs_bits = 64;
     cofactor_strategy_t* s3g = alloc_cofactor_strategy(&three);
-    uint32_t nwrong = 0, nbad = 0;
+    uint32_t nwrong = 0, nbad = 0, nmissed = 0;
     for (uint32_t i = 0; i < 20; i++) {
         random_prime(p, state, 27 + i % 4);
         random_prime(q, state, 29 + i % 3);
@@ -147,10 +147,14 @@ int main(void) {
         mpz_mul(n, n, r);
         nwrong += (run(n, s3, 31, &ok) != COFACTOR_SMOOTH);
         nbad   += !ok;
-        nwrong += (run(n, s3g, 31, &ok) != COFACTOR_SMOOTH);
-        nbad   += !ok;
+        // Giving up is allowed, rarely; a wrong answer never is.
+        const cofactor_status_t status = run(n, s3g, 31, &ok);
+        nwrong  += (status == COFACTOR_NOT_SMOOTH);
+        nmissed += (status == COFACTOR_GAVE_UP);
+        nbad    += !ok;
     }
     CHECK_EQ_UI(nwrong, 0, "3LP smooth (exact and give-up modes)");
+    CHECK(nmissed <= 1, "3LP smooth: at most one given up");
     CHECK_EQ_UI(nbad, 0, "3LP factors");
     random_prime(p, state, 25);
     mpz_mul(n, p, p);

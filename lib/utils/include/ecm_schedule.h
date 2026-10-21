@@ -67,10 +67,9 @@ void free_ecm_schedule(ecm_schedule_t* schedule);
     *
     * Runs p-1, then ECM curves level by level (by 5 bits of factor size),
     * skipping the levels below \c min_bits (\c n has no prime factor below
-    * 2^min_bits) and stopping after the one that holds \c target_bits. With
-    * \c budget > 0, stops before the curves' estimated time exceeds
-    * \c budget times that of SIQS on \c n; with \c budget <= 0, runs every
-    * level and the last one twice.
+    * 2^min_bits) and stopping after the one that holds \c target_bits, or
+    * before the curves' estimated time exceeds \c budget times that of SIQS
+    * on \c n.
     *
     * \param[out] g A proper factor of \c n, if one is found.
     * \param[in]  n The odd composite to search (see \c mont_ecm_handles).
