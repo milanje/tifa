@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <limits.h>
 
 #include "tifa_config.h"
 #include <gmp.h>
@@ -351,14 +352,10 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
 
     mpz_t x;
     mpz_t y;
-    mpz_t ppow;
-    mpz_t prime;
     mpz_t gcd;
 
     mpz_init(x);
     mpz_init(y);
-    mpz_init(ppow);
-    mpz_init(prime);
     mpz_init(gcd);
 
     uint32_t irow = 0;
@@ -401,22 +398,27 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
         //
         // Compute y = sqrt(product(yi))
         //
+        //
+        // The exponents are small: multiply by the prime powers that fit in
+        // a word, and reduce only once y outgrows n.
+        //
         for (uint32_t i = 0; i < yi_decomp_matrix->ncols; i++) {
-            //
-            // _NOTE_: According to my non-exhaustive tests, reducing mod n
-            //         at each step is faster than a standard product tree
-            //         followed by one reduction. Now a product tree with
-            //         a reduction at each node may even be better...
-            //
-            mpz_set_ui(prime, base_data[i]);
-            mpz_powm_ui(ppow, prime, decomp[i] / 2, n);
-            //
-            // Or: mpz_ui_pow_ui(ppow, base_data[i], decomp[i] / 2);
-            // which is maybe a tiny bit faster for small numbers...
-            //
-            mpz_mul(y, y, ppow);
-            mpz_mod(y, y, n);
+            const unsigned long int p = base_data[i];
+            uint32_t k = decomp[i] / 2;
+            while (k > 0) {
+                unsigned long int pk = p;
+                k--;
+                while ((k > 0) && (pk <= ULONG_MAX / p)) {
+                    pk *= p;
+                    k--;
+                }
+                mpz_mul_ui(y, y, pk);
+                if (mpz_size(y) > mpz_size(n)) {
+                    mpz_mod(y, y, n);
+                }
+            }
         }
+        mpz_mod(y, y, n);
         mpz_sub(x, x, y);
         mpz_gcd(gcd, x, n);
 
@@ -447,8 +449,6 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
     mpz_clear(x);
     mpz_clear(y);
     mpz_clear(gcd);
-    mpz_clear(ppow);
-    mpz_clear(prime);
 
     return ecode;
 }

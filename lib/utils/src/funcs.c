@@ -27,6 +27,7 @@
 #include <string.h>
 #include <strings.h>
 #include <math.h>
+#include <pthread.h>
 
 #include "first_primes.h"
 
@@ -810,6 +811,86 @@ unsigned long int sqrtm_p2(uint32_t n, uint32_t p) {
 //-----------------------------------------------------------------------------
 #define KS_NPRIMES 300
 #define KS_ANY_RESIDUE_BITSIZE 100
+//
+// The candidate multipliers: the odd squarefree k up to LARGEST_MULTIPLIER.
+//
+#define KS_MAX_MULTS ((LARGEST_MULTIPLIER + 1) / 2)
+//
+// What does not depend on n, computed once: for each candidate k, the
+// product of the (q/p) over the primes q dividing k (0 if p divides k), and
+// log(p)/(p-1), for the first KS_NPRIMES primes p.
+//
+static uint32_t       ks_mults[KS_MAX_MULTS];
+static uint32_t       ks_nmults;
+static int8_t         ks_legendre[KS_MAX_MULTS][KS_NPRIMES];
+static double         ks_logp[KS_NPRIMES];
+static double         ks_logp2[KS_NPRIMES];
+static pthread_once_t ks_once = PTHREAD_ONCE_INIT;
+
+static void ks_init(void) {
+    //
+    // (q/p) for q <= LARGEST_MULTIPLIER, from quadratic reciprocity and the
+    // squares mod q.
+    //
+    uint32_t nq = 0;
+    while (first_primes[nq] <= LARGEST_MULTIPLIER) {
+        nq++;
+    }
+    int8_t (*legendre_q)[KS_NPRIMES] = malloc(nq * sizeof(*legendre_q));
+    uint8_t isqr[LARGEST_MULTIPLIER + 1];
+
+    for (uint32_t j = 0; j < nq; j++) {
+        const uint32_t q = first_primes[j];
+
+        if (q > 2) {
+            memset(isqr, 0, q);
+            for (uint32_t x = 1; x < q; x++) {
+                isqr[(x * x) % q] = 1;
+            }
+        }
+        for (uint32_t i = 1; i < KS_NPRIMES; i++) {
+            const uint32_t p = first_primes[i];
+            int8_t l;
+
+            if (p == q) {
+                l = 0;
+            } else if (q == 2) {
+                l = (((p & 7) == 1) || ((p & 7) == 7)) ? 1 : -1;
+            } else {
+                l = isqr[p % q] ? 1 : -1;
+                if (((p & 3) == 3) && ((q & 3) == 3)) {
+                    l = -l;
+                }
+            }
+            legendre_q[j][i] = l;
+        }
+    }
+    for (uint32_t i = 1; i < KS_NPRIMES; i++) {
+        const uint32_t p = first_primes[i];
+        ks_logp[i]  = log((double) p) / (p - 1);
+        ks_logp2[i] = 2.0 * ks_logp[i];
+    }
+    ks_nmults = 0;
+    for (uint32_t k = 1; k <= LARGEST_MULTIPLIER; k += 2) {
+        if ((k % 9 == 0) || (k % 25 == 0) || (k % 49 == 0)) {
+            continue;
+        }
+        int8_t* const row = ks_legendre[ks_nmults];
+        for (uint32_t i = 1; i < KS_NPRIMES; i++) {
+            row[i] = 1;
+        }
+        for (uint32_t j = 0; j < nq; j++) {
+            if (k % first_primes[j] == 0) {
+                for (uint32_t i = 1; i < KS_NPRIMES; i++) {
+                    row[i] *= legendre_q[j][i];
+                }
+            }
+        }
+        ks_mults[ks_nmults++] = k;
+    }
+    free(legendre_q);
+}
+
 uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
     //
     // Knuth-Schroeppel function, as in msieve and YAFU: for each odd
@@ -825,122 +906,89 @@ uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
     // Primes beyond the first few hundred change the score very little, so
     // the sum stops at KS_NPRIMES primes (fewer for small factor bases).
     //
+    pthread_once(&ks_once, ks_init);
+
     const uint32_t nprimes = MIN(2 * size_base + 1, KS_NPRIMES);
     const bool     any_residue
         = (mpz_sizeinbase(n, 2) >= KS_ANY_RESIDUE_BITSIZE);
 
-    uint32_t nq = 0;
-    while (first_primes[nq] <= LARGEST_MULTIPLIER) {
-        nq++;
-    }
-    //
-    // (kn/p) = (n/p) times the product of (q/p) over the primes q dividing k.
-    // The (q/p) for q <= LARGEST_MULTIPLIER come from quadratic reciprocity
-    // and small tables of residues mod q, so only the (n/p) need a symbol
-    // computation.
-    //
-    int8_t* legendre_q = malloc(nq * nprimes * sizeof(int8_t));
-    int8_t* legendre_n = malloc(nprimes * sizeof(int8_t));
-    double* logp       = malloc(nprimes * sizeof(double));
-    uint8_t isqr[LARGEST_MULTIPLIER + 1];
-
-    for (uint32_t j = 0; j < nq; j++) {
-        const uint32_t q = first_primes[j];
-
-        if (q > 2) {
-            memset(isqr, 0, q);
-            for (uint32_t x = 1; x < q; x++) {
-                isqr[(x * x) % q] = 1;
-            }
-        }
-        for (uint32_t i = 1; i < nprimes; i++) {
-            const uint32_t p = first_primes[i];
-            int8_t l;
-
-            if (p == q) {
-                l = 0;
-            } else if (q == 2) {
-                l = (((p & 7) == 1) || ((p & 7) == 7)) ? 1 : -1;
-            } else {
-                l = isqr[p % q] ? 1 : -1;
-                if (((p & 3) == 3) && ((q & 3) == 3)) {
-                    l = -l;
-                }
-            }
-            legendre_q[j * nprimes + i] = l;
-        }
-    }
+    int8_t legendre_n[KS_NPRIMES];
     for (uint32_t i = 1; i < nprimes; i++) {
         const uint32_t p = first_primes[i];
         legendre_n[i] = kronecker_ui(mpz_fdiv_ui(n, p), p);
-        logp[i]       = log((double) p) / (p - 1);
     }
     const uint32_t nmod8 = mpz_fdiv_ui(n, 8);
     const double   log2  = log(2.0);
 
-    uint32_t mult      = 1;
-    double   bestscore = 0.0;
-    bool     scored    = false;
-
-    for (uint32_t k = 1; k <= LARGEST_MULTIPLIER; k += 2) {
-        if ((k % 9 == 0) || (k % 25 == 0) || (k % 49 == 0)) {
-            continue;
-        }
+    //
+    // The candidates are scored four at a time: one sum is bound by the
+    // latency of its additions, four independent ones overlap. Each still
+    // adds its terms in the same order.
+    //
+    uint32_t cand[KS_MAX_MULTS + 3];
+    double   score[KS_MAX_MULTS + 3];
+    uint32_t ncand = 0;
+    for (uint32_t c = 0; c < ks_nmults; c++) {
+        const uint32_t k = ks_mults[c];
         if (!any_residue && (((k * nmod8) & 7) != 1)) {
             continue;
         }
-        double score = -0.5 * log((double) k);
+        double sc = -0.5 * log((double) k);
 
         switch ((k * nmod8) & 7) {
             case 1:
-                score += 2.0 * log2;
+                sc += 2.0 * log2;
                 break;
             case 5:
-                score += log2;
+                sc += log2;
                 break;
             case 3:
             case 7:
-                score += 0.5 * log2;
+                sc += 0.5 * log2;
                 break;
             default:
                 break;
         }
-        //
-        // Odd squarefree k <= 97 has at most three prime factors.
-        //
-        const int8_t* kq[3];
-        uint32_t      nkq = 0;
-        for (uint32_t j = 0; j < nq; j++) {
-            if (k % first_primes[j] == 0) {
-                kq[nkq++] = &legendre_q[j * nprimes];
-            }
-        }
+        cand[ncand]  = c;
+        score[ncand] = sc;
+        ncand++;
+    }
+    const uint32_t nblocks = (ncand + 3) / 4;
+    for (uint32_t c = ncand; c < 4 * nblocks; c++) {
+        cand[c]  = cand[0];
+        score[c] = 0.0;
+    }
+    for (uint32_t b = 0; b < nblocks; b++) {
+        const int8_t* const r0 = ks_legendre[cand[4 * b]];
+        const int8_t* const r1 = ks_legendre[cand[4 * b + 1]];
+        const int8_t* const r2 = ks_legendre[cand[4 * b + 2]];
+        const int8_t* const r3 = ks_legendre[cand[4 * b + 3]];
+        double s0 = score[4 * b];
+        double s1 = score[4 * b + 1];
+        double s2 = score[4 * b + 2];
+        double s3 = score[4 * b + 3];
         for (uint32_t i = 1; i < nprimes; i++) {
-            int8_t l       = legendre_n[i];
-            bool   divides = false;
-
-            for (uint32_t t = 0; t < nkq; t++) {
-                if (kq[t][i] == 0) {
-                    divides = true;
-                }
-                l *= kq[t][i];
-            }
-            if (divides) {
-                score += logp[i];
-            } else if (l == 1) {
-                score += 2.0 * logp[i];
-            }
+            const int8_t  ln = legendre_n[i];
+            const double  w1 = ks_logp[i];
+            const double  w2 = ks_logp2[i];
+            s0 += (r0[i] == 0) ? w1 : ((r0[i] * ln == 1) ? w2 : 0.0);
+            s1 += (r1[i] == 0) ? w1 : ((r1[i] * ln == 1) ? w2 : 0.0);
+            s2 += (r2[i] == 0) ? w1 : ((r2[i] * ln == 1) ? w2 : 0.0);
+            s3 += (r3[i] == 0) ? w1 : ((r3[i] * ln == 1) ? w2 : 0.0);
         }
-        if (!scored || (score > bestscore)) {
-            bestscore = score;
-            mult      = k;
-            scored    = true;
+        score[4 * b]     = s0;
+        score[4 * b + 1] = s1;
+        score[4 * b + 2] = s2;
+        score[4 * b + 3] = s3;
+    }
+    uint32_t mult      = 1;
+    double   bestscore = 0.0;
+    for (uint32_t c = 0; c < ncand; c++) {
+        if ((c == 0) || (score[c] > bestscore)) {
+            bestscore = score[c];
+            mult      = ks_mults[cand[c]];
         }
     }
-    free(legendre_q);
-    free(legendre_n);
-    free(logp);
-
     return mult;
 }
 //-----------------------------------------------------------------------------

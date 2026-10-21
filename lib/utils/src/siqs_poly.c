@@ -88,10 +88,11 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     poly->sol2   = alloc_int32_array(poly->factor_base->length);
     poly->Bl     = alloc_mpz_array(poly->nprimes_in_a);
     poly->Bainv2 = malloc(poly->factor_base->length * sizeof(uint32_t*));
-    
-    for (uint32_t i = 0; i < poly->factor_base->length; i++) {
-        poly->Bainv2[i] = malloc(poly->nprimes_in_a * sizeof(uint32_t));
-    }    
+    poly->Bainv2[0] = malloc(  poly->factor_base->length
+                             * poly->nprimes_in_a * sizeof(uint32_t));
+    for (uint32_t i = 1; i < poly->factor_base->length; i++) {
+        poly->Bainv2[i] = poly->Bainv2[0] + i * poly->nprimes_in_a;
+    }
     choose_a(poly);
     
     full_poly_init(poly);
@@ -105,9 +106,7 @@ free_siqs_poly(siqs_poly_t* poly)
     if (poly != NULL) {
         free_mpz_array(poly->Bl);
         
-        for (uint32_t i = 0; i < poly->factor_base->length; i++) {
-            free(poly->Bainv2[i]);
-        }
+        free(poly->Bainv2[0]);
         free(poly->Bainv2);
                 
         mpz_clear(poly->a);
@@ -201,6 +200,119 @@ choose_a(siqs_poly_t* const poly)
     }
 }
 //-----------------------------------------------------------------------------
+//
+// The inverse of a (0 < a < p) modulo the prime p, by the extended Euclidean
+// algorithm: several times faster here than mpz_invert.
+//
+static inline uint32_t inverse_mod(const uint32_t a, const uint32_t p) {
+    uint32_t r0 = p;
+    uint32_t r1 = a;
+    int64_t  t0 = 0;
+    int64_t  t1 = 1;
+    while (r1 != 0) {
+        const uint32_t q = r0 / r1;
+        const uint32_t r = r0 - q * r1;
+        r0 = r1;
+        r1 = r;
+        const int64_t t = t0 - (int64_t) q * t1;
+        t0 = t1;
+        t1 = t;
+    }
+    return (uint32_t) ((t0 < 0) ? t0 + p : t0);
+}
+//
+// a, b and the Bl when they fit in 64 bits (n up to about 140 bits): their
+// residues modulo the primes of the base then need no GMP call.
+//
+#define MAX_NPRIMES_IN_A_U64 8
+typedef struct {
+    bool     fit;
+    uint64_t a;
+    uint64_t b;
+    uint64_t Bl[MAX_NPRIMES_IN_A_U64];
+} poly_u64_t;
+//
+// For the i-th prime p of the base, not dividing a: the 2.Bj.inv(a) mod p of
+// Bainv2[i], and the two solutions to g_{a,b}(x) = 0 mod p.
+//
+static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
+                          const uint32_t curprime, const poly_u64_t* const w,
+                          mpz_t inv, mpz_t mpzp) {
+    const uint32_t nprimes_in_a = poly->nprimes_in_a;
+    uint32_t* const bainv2 = poly->Bainv2[i];
+
+    unsigned long int ainv;
+    unsigned long int bmodp;
+    uint64_t gamma;
+
+    if (w->fit) {
+        const uint32_t amodp = (uint32_t) (w->a % curprime);
+        if (amodp == 0) {
+            PRINTF_STDERR("\n");
+            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", poly->a,
+                        curprime);
+            PRINT_ERROR("This should not happen - Factorization aborted!\n");
+            return FATAL_INTERNAL_ERROR;
+        }
+        ainv  = inverse_mod(amodp, curprime);
+        bmodp = (unsigned long int) (w->b % curprime);
+        for (uint32_t j = 0; j < nprimes_in_a; j++) {
+            gamma  = 2 * (w->Bl[j] % curprime);
+            gamma *= ainv;
+            gamma %= curprime;
+            bainv2[j] = (uint32_t) gamma;
+        }
+    } else {
+        mpz_set_ui(mpzp, curprime);
+        if (0 == mpz_invert(inv, poly->a, mpzp)) {
+            PRINTF_STDERR("\n");
+            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", poly->a,
+                        curprime);
+            PRINT_ERROR("This should not happen - Factorization aborted!\n");
+            return FATAL_INTERNAL_ERROR;
+        }
+        ainv  = mpz_get_ui(inv);
+        bmodp = mpz_fdiv_ui(poly->b, curprime);
+        for (uint32_t j = 0; j < nprimes_in_a; j++) {
+            gamma  = 2 * mpz_fdiv_ui(poly->Bl->data[j], curprime);
+            gamma *= ainv;
+            gamma %= curprime;
+            bainv2[j] = (uint32_t) gamma;
+        }
+    }
+    //
+    // The two solutions to the g_{a,b}(x) = 0 mod p congruence.
+    //
+    int64_t tmp64;
+
+    tmp64  = (int64_t)(poly->sqrtm_pi->data[i]);
+    tmp64 -= (int64_t)bmodp;
+#if SAFE_MODULO
+    tmp64 %= curprime;
+#endif
+    tmp64 *= ainv;
+    tmp64 %= curprime;
+    if (tmp64 < 0) {
+        tmp64 += curprime;
+    }
+    poly->sol1->data[i] = (int32_t) tmp64;
+
+    tmp64  = 0;
+    tmp64 -= (int64_t)(poly->sqrtm_pi->data[i]);
+    tmp64 -= (int64_t)bmodp;
+#if SAFE_MODULO
+    tmp64 %= curprime;
+#endif
+    tmp64 *= ainv;
+    tmp64 %= curprime;
+    if (tmp64 < 0) {
+        tmp64 += curprime;
+    }
+    poly->sol2->data[i] = (int32_t) tmp64;
+
+    return SUCCESS;
+}
+//-----------------------------------------------------------------------------
 ecode_t
 full_poly_init(siqs_poly_t* const poly)
 {
@@ -228,8 +340,6 @@ full_poly_init(siqs_poly_t* const poly)
     int32_array_t* const sol1 = poly->sol1;
     int32_array_t* const sol2 = poly->sol2;
 
-    uint32_t** Bainv2 = poly->Bainv2;
-
     ecode_t ecode = SUCCESS;
 
     mpz_t inv;
@@ -238,7 +348,6 @@ full_poly_init(siqs_poly_t* const poly)
     mpz_init(mpzp);
 
     uint64_t gamma    = 0;
-    int64_t  tmp64    = 0;
     uint32_t curprime = 0;
     
     mpz_set_ui(b, 0);
@@ -303,59 +412,24 @@ full_poly_init(siqs_poly_t* const poly)
     
     avoid++;
     
+    poly_u64_t w;
+    w.fit = (sizeof(unsigned long int) >= 8)
+            && (nprimes_in_a <= MAX_NPRIMES_IN_A_U64)
+            && (mpz_sizeinbase(a, 2) <= 62) && (mpz_sizeinbase(b, 2) <= 64);
+    if (w.fit) {
+        w.a = mpz_get_ui(a);
+        w.b = mpz_get_ui(b);
+        for (uint32_t j = 0; j < nprimes_in_a; j++) {
+            w.Bl[j] = mpz_get_ui(Bl->data[j]);
+        }
+    }
     const uint32_t* fbptr = &(fb[0]);
     
     for (uint32_t i = 0; i < rimin; i++) {
-        curprime = *fbptr;
-        
-        mpz_set_ui(mpzp, curprime);
-    
-        if (0 == mpz_invert(inv, a, mpzp)) {
-            PRINTF_STDERR("\n");
-            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", a, curprime);
-            PRINT_ERROR("This should not happen - Factorization aborted!\n");
-    
-            ecode = FATAL_INTERNAL_ERROR;
+        ecode = init_prime(poly, i, *fbptr, &w, inv, mpzp);
+        if (ecode != SUCCESS) {
             goto clean_and_return;
-        };
-        for (uint32_t j = 0; j < nprimes_in_a; j++) {
-            gamma  = 2 * mpz_fdiv_ui(Bl->data[j], curprime);
-            gamma *= mpz_get_ui(inv);
-            gamma %= curprime;
-            Bainv2[i][j] = (uint32_t) gamma;
         }
-        //
-        // Computes the first solution to the g_{a,b}(x) = 0 mod p congruence
-        //
-        tmp64  = 0;
-        tmp64  = (int64_t)(sqrtm_pi->data[i]);
-        tmp64 -= (int64_t)(mpz_fdiv_ui(b, curprime));        
-#if SAFE_MODULO        
-        tmp64 %= curprime;
-#endif
-        tmp64 *= mpz_get_ui(inv);
-        tmp64 %= curprime;
-        if (tmp64 < 0) {
-            tmp64 += curprime;
-        }
-        sol1->data[i] = (int32_t) tmp64;
-        
-        //
-        // Computes the second solution to the g_{a,b}(x) = 0 mod p congruence
-        //
-        tmp64  = 0;
-        tmp64 -= (int64_t)(sqrtm_pi->data[i]);
-        tmp64 -= (int64_t)(mpz_fdiv_ui(b, curprime));
-#if SAFE_MODULO        
-        tmp64 %= curprime;
-#endif
-        tmp64 *= mpz_get_ui(inv);
-        tmp64 %= curprime;
-        if (tmp64 < 0) {
-            tmp64 += curprime;
-        }
-        sol2->data[i] = (int32_t)tmp64;
-        
         fbptr++;
     }
     fbptr++;
@@ -366,98 +440,19 @@ full_poly_init(siqs_poly_t* const poly)
            fbptr++;
            continue;
         }
-        curprime = *fbptr;
-        mpz_set_ui(mpzp, curprime);
-    
-        if (0 == mpz_invert(inv, a, mpzp)) {
-            PRINTF_STDERR("\n");
-            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", a, curprime);
-            PRINT_ERROR("This should not happen - Factorization aborted!\n");
-    
-            ecode = FATAL_INTERNAL_ERROR;
+        ecode = init_prime(poly, i, *fbptr, &w, inv, mpzp);
+        if (ecode != SUCCESS) {
             goto clean_and_return;
-        };
-        for (uint32_t j = 0; j < nprimes_in_a; j++) {
-            gamma  = 2 * mpz_fdiv_ui(Bl->data[j], curprime);
-            gamma *= mpz_get_ui(inv);
-            gamma %= curprime;
-            Bainv2[i][j] = (uint32_t) gamma;
         }
-        tmp64  = 0;
-        tmp64  = (int64_t)(sqrtm_pi->data[i]);
-        tmp64 -= (int64_t)(mpz_fdiv_ui(b, curprime));
-#if SAFE_MODULO        
-        tmp64 %= curprime;
-#endif
-        tmp64 *= mpz_get_ui(inv);
-        tmp64 %= curprime;
-        if (tmp64 < 0) {
-            tmp64 += curprime;
-        }
-        sol1->data[i] = (int32_t) tmp64;
-        
-        tmp64  = 0;
-        tmp64 -= (int64_t)(sqrtm_pi->data[i]);
-        tmp64 -= (int64_t)(mpz_fdiv_ui(b, curprime));
-#if SAFE_MODULO        
-        tmp64 %= curprime;
-#endif
-        tmp64 *= mpz_get_ui(inv);
-        tmp64 %= curprime;
-        if (tmp64 < 0) {
-            tmp64 += curprime;
-        }
-        sol2->data[i] = (int32_t)tmp64;
-        
         fbptr++;
     }
     fbptr++;
     
     for (uint32_t i = rimax + 1; i < fb_length; i++) {
-        curprime = *fbptr;
-        mpz_set_ui(mpzp, curprime);
-    
-        if (0 == mpz_invert(inv, a, mpzp)) {
-            PRINTF_STDERR("\n");
-            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", a, curprime);
-            PRINT_ERROR("This should not happen - Factorization aborted!\n");
-    
-            ecode = FATAL_INTERNAL_ERROR;
+        ecode = init_prime(poly, i, *fbptr, &w, inv, mpzp);
+        if (ecode != SUCCESS) {
             goto clean_and_return;
-        };
-                
-        for (uint32_t j = 0; j < nprimes_in_a; j++) {
-            gamma  = 2 * mpz_fdiv_ui(Bl->data[j], curprime);
-            gamma *= mpz_get_ui(inv);
-            gamma %= curprime;
-            Bainv2[i][j] = (uint32_t) gamma;
         }
-        tmp64  = 0;
-        tmp64  = (int64_t)(sqrtm_pi->data[i]);
-        tmp64 -= (int64_t)(mpz_fdiv_ui(b, curprime));
-#if SAFE_MODULO        
-        tmp64 %= curprime;
-#endif
-        tmp64 *= mpz_get_ui(inv);
-        tmp64 %= curprime;
-        if (tmp64 < 0) {
-            tmp64 += curprime;
-        }
-        sol1->data[i] = (int32_t) tmp64;
-        
-        tmp64  = 0;
-        tmp64 -= (int64_t)(sqrtm_pi->data[i]);
-        tmp64 -= (int64_t)(mpz_fdiv_ui(b, curprime));
-#if SAFE_MODULO        
-        tmp64 %= curprime;
-#endif
-        tmp64 *= mpz_get_ui(inv);
-        tmp64 %= curprime;
-        if (tmp64 < 0) {
-            tmp64 += curprime;
-        }
-        sol2->data[i] = (int32_t)tmp64;
-        
         fbptr++;
     }
     sol1->length = sol1->alloced;
