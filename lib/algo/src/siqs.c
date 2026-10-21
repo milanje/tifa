@@ -88,7 +88,7 @@
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
-#define NRANGES             32
+#define NRANGES             33
 //
 // Set to non zero to perform additional timing measurements. Has no effect
 // if __TIMING__ if set to 0.
@@ -306,13 +306,14 @@ static const u32triplet_t best_params[NRANGES] = {
     //
     {.size_n =   0, .size_base =   10, .hwidth =   1000, .thres =  1},
     {.size_n =  50, .size_base =   50, .hwidth =  10000, .thres = 23},
-    {.size_n =  60, .size_base =   60, .hwidth =  10000, .thres = 28},
-    {.size_n =  70, .size_base =   92, .hwidth =  24000, .thres = 28},
+    {.size_n =  60, .size_base =   60, .hwidth =  10000, .thres = 26},
+    {.size_n =  70, .size_base =   92, .hwidth =  16800, .thres = 26},
     {.size_n =  80, .size_base =  126, .hwidth =  24000, .thres = 30},
     {.size_n =  90, .size_base =  163, .hwidth =  15000, .thres = 33},
-    {.size_n = 100, .size_base =  200, .hwidth =  15000, .thres = 36},
+    {.size_n = 100, .size_base =  200, .hwidth =  10500, .thres = 35},
+    {.size_n = 105, .size_base =  244, .hwidth =  18000, .thres = 38},
     {.size_n = 110, .size_base =  288, .hwidth =  21000, .thres = 40},
-    {.size_n = 120, .size_base =  400, .hwidth =  30000, .thres = 43},
+    {.size_n = 120, .size_base =  400, .hwidth =  30000, .thres = 44},
     {.size_n = 130, .size_base =  400, .hwidth =  30000, .thres = 44},
     {.size_n = 140, .size_base =  700, .hwidth =  49152, .thres = 48},
     {.size_n = 150, .size_base =  800, .hwidth =  49152, .thres = 51},

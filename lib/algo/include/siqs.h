@@ -77,7 +77,7 @@ extern "C" {
     * \def SIQS_DFLT_LARGE_PRIMES_MIN_BITS
     * Use the large prime variation by default from this many bits.
     */
-#define SIQS_DFLT_LARGE_PRIMES_MIN_BITS 96
+#define SIQS_DFLT_LARGE_PRIMES_MIN_BITS 103
 
    /**
     * \struct struct_siqs_params_t siqs.h lib/algo/include/siqs.h
