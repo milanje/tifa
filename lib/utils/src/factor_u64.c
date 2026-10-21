@@ -359,34 +359,48 @@ static const tdiv_entry_t tdiv_table[] = {
 //                                 Primality
 //------------------------------------------------------------------------------
 
-static bool sprp_u64(const uint64_t a, const mont_t* const m) {
+#define SPRP_MAX_BASES 7
+
+//
+// Whether n is a strong probable prime to every base. The exponentiations
+// run in lockstep: one is bound by the latency of its chain of products,
+// so several cost little more than one.
+//
+static inline bool sprp_u64(const uint64_t* const bases,
+                            const uint32_t nbases, const mont_t* const m) {
     const uint64_t n = m->n;
     uint64_t d = n - 1;
     const int s = __builtin_ctzll(d);
     d >>= s;
 
-    const uint64_t am = to_mont(a, m);
-    if (am == 0) {
-        return true;
+    uint64_t am[SPRP_MAX_BASES];
+    uint64_t x[SPRP_MAX_BASES];
+    for (uint32_t j = 0; j < nbases; j++) {
+        am[j] = to_mont(bases[j], m);
+        x[j]  = am[j];
+    }
+    for (int b = 62 - __builtin_clzll(d); b >= 0; b--) {
+        for (uint32_t j = 0; j < nbases; j++) {
+            x[j] = mont_mul(x[j], x[j], m);
+        }
+        if ((d >> b) & 1) {
+            for (uint32_t j = 0; j < nbases; j++) {
+                x[j] = mont_mul(x[j], am[j], m);
+            }
+        }
     }
     const uint64_t mone = n - m->one;
-    uint64_t x = m->one;
-    for (int b = 63 - __builtin_clzll(d); b >= 0; b--) {
-        x = mont_mul(x, x, m);
-        if ((d >> b) & 1) {
-            x = mont_mul(x, am, m);
+    for (uint32_t j = 0; j < nbases; j++) {
+        bool pass = (am[j] == 0) || (x[j] == m->one) || (x[j] == mone);
+        for (int i = 1; !pass && (i < s); i++) {
+            x[j] = mont_mul(x[j], x[j], m);
+            pass = (x[j] == mone);
+        }
+        if (!pass) {
+            return false;
         }
     }
-    if ((x == m->one) || (x == mone)) {
-        return true;
-    }
-    for (int i = 1; i < s; i++) {
-        x = mont_mul(x, x, m);
-        if (x == mone) {
-            return true;
-        }
-    }
-    return false;
+    return true;
 }
 
 bool is_prime_u64(const uint64_t n) {
@@ -416,18 +430,10 @@ bool is_prime_u64(const uint64_t n) {
     static const uint64_t bases64[] = {
         2, 325, 9375, 28178, 450775, 9780504, 1795265022
     };
-    const bool      small  = (n < (1ULL << 32));
-    const uint64_t* bases  = small ? bases32 : bases64;
-    const uint32_t  nbases = small ? 3 : 7;
-
     mont_t m;
     mont_init(&m, n);
-    for (uint32_t i = 0; i < nbases; i++) {
-        if (!sprp_u64(bases[i], &m)) {
-            return false;
-        }
-    }
-    return true;
+    return (n < (1ULL << 32)) ? sprp_u64(bases32, 3, &m)
+                              : sprp_u64(bases64, 7, &m);
 }
 
 //------------------------------------------------------------------------------
@@ -582,7 +588,7 @@ static const struct {
     uint32_t d;
 } ecm_bounds[] = {
     { 46,  40,  800, 30 },
-    { 50,  70, 2100, 90 },
+    { 50,  70, 1050, 30 },
     { 54,  85, 2550, 90 },
     { 58, 100, 3000, 90 },
     { 62, 150, 3000, 90 },
@@ -1002,6 +1008,14 @@ static uint64_t find_factor_u64(const uint64_t n) {
         g = rho_u64(n, c);
     }
     return g;
+}
+
+uint64_t split_u64(const uint64_t n) {
+    uint64_t r;
+    if ((n & 1) == 0) {
+        return 2;
+    }
+    return is_square_u64(n, &r) ? r : find_factor_u64(n);
 }
 
 static void add_prime(const uint64_t p, const uint32_t multi,

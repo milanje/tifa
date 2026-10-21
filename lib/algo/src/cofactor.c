@@ -143,14 +143,15 @@ static uint32_t max_nprimes(const cofactor_run_t* const run, const mpz_t c) {
 //------------------------------------------------------------------------------
 //
 // Whether the large primes found, plus the fewest the pending composites
-// can hold, exceed the limit.
+// can hold, plus extra, exceed the limit.
 //
-static bool too_many_large_primes(const cofactor_run_t* const run) {
+static bool too_many_large_primes(const cofactor_run_t* const run,
+                                  uint32_t extra) {
     const uint32_t limit = run->strategy->max_large_primes;
     if (limit == 0) {
         return false;
     }
-    uint32_t total = run->nlarge;
+    uint32_t total = run->nlarge + extra;
     for (uint32_t i = 0; i < run->npending; i++) {
         total += run->pmultis[i] * min_nprimes(run, run->pending[i], true);
     }
@@ -173,7 +174,7 @@ static cofactor_status_t add_prime(cofactor_run_t* const run, const mpz_t p,
     }
     if (mpz_cmp(p, s->fb_bound) >= 0) {
         run->nlarge += e;
-        if (too_many_large_primes(run)) {
+        if (too_many_large_primes(run, 0)) {
             return COFACTOR_NOT_SMOOTH;
         }
     }
@@ -193,22 +194,32 @@ static cofactor_status_t add_part(cofactor_run_t* const run, const mpz_t c,
         return COFACTOR_SMOOTH;
     }
     const bool below_lpb = (mpz_sizeinbase(c, 2) <= s->lpb);
-    const bool prime     = (mpz_cmp(c, s->bound2) < 0) || is_prime_mpz(c);
-
-    if (prime) {
+    if (mpz_cmp(c, s->bound2) < 0) {
         return below_lpb ? add_prime(run, c, e) : COFACTOR_NOT_SMOOTH;
     }
-    if (min_nprimes(run, c, true) > max_nprimes(run, c)) {
+    //
+    // Test primality only if the answer depends on it: a prime too large or
+    // a composite that cannot split as allowed is not smooth either way.
+    //
+    const uint32_t m = min_nprimes(run, c, true);
+    const bool may_split = (m <= max_nprimes(run, c))
+                           && !too_many_large_primes(run, e * m);
+    if (!below_lpb && !may_split) {
+        return COFACTOR_NOT_SMOOTH;
+    }
+    if (is_prime_mpz(c)) {
+        return below_lpb ? add_prime(run, c, e) : COFACTOR_NOT_SMOOTH;
+    }
+    if (!may_split) {
         return COFACTOR_NOT_SMOOTH;
     }
     mpz_set(run->pending[run->npending], c);
     run->pmultis[run->npending] = e;
     run->npending++;
 
-    return too_many_large_primes(run) ? COFACTOR_NOT_SMOOTH : COFACTOR_SMOOTH;
+    return COFACTOR_SMOOTH;
 }
 //------------------------------------------------------------------------------
-#if TIFA_HAVE_MONT_ECM
 static cofactor_status_t add_split(cofactor_run_t* const run, const mpz_t c,
                                    const mpz_t g, uint32_t e) {
     mpz_divexact(run->tmp, c, g);
@@ -226,7 +237,6 @@ static cofactor_status_t add_split(cofactor_run_t* const run, const mpz_t c,
     mpz_clear(other);
     return status;
 }
-#endif
 
 //------------------------------------------------------------------------------
 //                              SPLITTING
@@ -272,20 +282,12 @@ static cofactor_status_t split(cofactor_run_t* const run, const mpz_t c,
 
 #if TIFA_HAVE_FACTOR_U64
     if (bits <= 64) {
-        uint64_t primes[FACTOR_U64_MAX_PRIMES];
-        uint32_t pmultis[FACTOR_U64_MAX_PRIMES];
-        const uint32_t np = factor_u64((uint64_t) mpz_get_ui(c),
-                                       primes, pmultis);
-        if (np != 0) {
-            cofactor_status_t status = COFACTOR_SMOOTH;
-            mpz_t p;
-            mpz_init(p);
-            for (uint32_t i = 0; (i < np) && (status == COFACTOR_SMOOTH);
-                 i++) {
-                mpz_set_ui(p, (unsigned long int) primes[i]);
-                status = add_prime(run, p, e * pmultis[i]);
-            }
-            mpz_clear(p);
+        const uint64_t g = split_u64((uint64_t) mpz_get_ui(c));
+        if (g != 0) {
+            mpz_t gz;
+            mpz_init_set_ui(gz, (unsigned long int) g);
+            const cofactor_status_t status = add_split(run, c, gz, e);
+            mpz_clear(gz);
             return status;
         }
     }

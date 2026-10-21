@@ -67,6 +67,14 @@ extern "C" {
 bool is_prime_u64(uint64_t n);
 
    /**
+    * \brief A proper factor of a composite 64-bit integer.
+    *
+    * \param[in] n A composite.
+    * \return A proper factor of \c n, or 0 if none was found.
+    */
+uint64_t split_u64(uint64_t n);
+
+   /**
     * \brief Complete factorization of a 64-bit integer.
     *
     * Stores the distinct prime factors of \c n in increasing order in
