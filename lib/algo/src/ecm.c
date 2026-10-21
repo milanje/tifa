@@ -340,7 +340,7 @@ void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params) {
     tuning_row_t row;
     if (tifa_tuning_get_row(
         "ecm", TIFA_TUNING_NCOLS_ECM, (uint32_t) sizen,
-        &row)) {
+        TIFA_TUNING_INTERP_ECM, &row)) {
         params->b1      = row.cols[0];
         params->b2      = row.cols[1];
         params->ncurves = row.cols[2];

@@ -29,11 +29,10 @@ extern "C" {
 
 #include "tuning.h"
 
-// Returns the compiled-in tuning row for an algorithm and bit-size, or
-// NULL if none applies. Used as a fallback by tifa_tuning_row_for().
-const tuning_row_t* tifa_tuning_baked_row_for(const char* algo,
-                                              uint32_t expect_ncols,
-                                              uint32_t bitsize);
+// Returns the compiled-in tuning table for an algorithm, or NULL if there
+// is none. Used as a fallback when no runtime tuning file is found.
+const tuning_table_t* tifa_tuning_baked_table(const char* algo,
+                                              uint32_t expect_ncols);
 
 #ifdef __cplusplus
 }

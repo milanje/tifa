@@ -497,7 +497,7 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     tuning_row_t row;
     if (tifa_tuning_get_row(
         "siqs", TIFA_TUNING_NCOLS_SIQS, (uint32_t) mpz_sizeinbase(n, 2),
-        &row)) {
+        TIFA_TUNING_INTERP_SIQS, &row)) {
         params->nprimes_in_base  = row.cols[0];
         params->sieve_half_width = row.cols[1];
         params->threshold        = row.cols[2];

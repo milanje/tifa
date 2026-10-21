@@ -37,6 +37,7 @@ typedef struct {
     unsigned int           index;
     const shared_params_t* shared;
     uint32_t               pm1_b1;
+    uint32_t               pm1_bits;
     uint32_t               nrun;
     uint32_t               nfailed;
 } worker_t;
@@ -107,7 +108,8 @@ static void* worker(void* arg) {
     mpz_mul(n, p, q);
     p_minus_1_params_t pm1;
     set_p_minus_1_params_to_default(n, &pm1);
-    w->pm1_b1 = pm1.b1;
+    w->pm1_b1   = pm1.b1;
+    w->pm1_bits = (uint32_t) mpz_sizeinbase(n, 2);
 
     static const unsigned long sizes[] = { 40, 64, 80, 100, 120, 140 };
     for (uint32_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
@@ -239,7 +241,9 @@ int main(void) {
         CHECK_EQ_UI(workers[i].nfailed, 0, msg);
         snprintf(msg, sizeof(msg), "phase 1, thread %u: p-1 b1 from the "
                  "fixture tuning file", i);
-        CHECK_EQ_UI(workers[i].pm1_b1, 12000, msg);
+        // b1 = 12000 at 56 bits, 60000 at 72, interpolated in between.
+        CHECK_EQ_UI(workers[i].pm1_b1,
+                    12000 + 3000 * (workers[i].pm1_bits - 56), msg);
     }
 
     run_workers(&shared, workers, true);

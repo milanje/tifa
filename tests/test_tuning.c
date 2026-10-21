@@ -89,6 +89,24 @@ int main(void) {
             CHECK_EQ_UI(r->min_bitsize, 72, "lookup(100) clamps to last row");
             CHECK_EQ_UI(r->cols[2], 2, "lookup(100) base");
         }
+
+        // --- Interpolation between rows. --------------------------------
+        tuning_row_t row;
+        CHECK(tifa_tuning_interpolate(table, 60, TIFA_TUNING_INTERP_P_MINUS_1,
+                                      &row), "interpolate(60) found");
+        CHECK_EQ_UI(row.cols[0], 24000, "interpolate(60) b1, a quarter on");
+        CHECK_EQ_UI(row.cols[1], 480000, "interpolate(60) b2");
+        CHECK_EQ_UI(row.cols[2], 2, "interpolate(60) base");
+
+        tifa_tuning_interpolate(table, 60, 0, &row);
+        CHECK_EQ_UI(row.cols[0], 12000, "interpolate(60) without a mask");
+
+        tifa_tuning_interpolate(table, 30, TIFA_TUNING_INTERP_P_MINUS_1, &row);
+        CHECK_EQ_UI(row.cols[0], 2000, "interpolate(30) clamps to first row");
+        tifa_tuning_interpolate(table, 56, TIFA_TUNING_INTERP_P_MINUS_1, &row);
+        CHECK_EQ_UI(row.cols[0], 12000, "interpolate(56) exact");
+        tifa_tuning_interpolate(table, 100, TIFA_TUNING_INTERP_P_MINUS_1, &row);
+        CHECK_EQ_UI(row.cols[0], 60000, "interpolate(100) clamps to last row");
     }
     tifa_tuning_free(table);
 
@@ -148,12 +166,12 @@ int main(void) {
     CHECK_EQ_UI(params.base, 2, "default base when no tuning file");
 #endif
 
-    // With the fixture directory, the row for bit-size 60 (row 56) must win.
-    // A runtime tuning file takes precedence in every build mode.
+    // With the fixture directory, rows 56 and 72 interpolated at bit-size 60
+    // must win. A runtime tuning file takes precedence in every build mode.
     tifa_tuning_set_dir(TIFA_TEST_FIXTURE_DIR);
     set_p_minus_1_params_to_default(n, &params);
-    CHECK_EQ_UI(params.b1, 12000, "tuned b1 overrides default");
-    CHECK_EQ_UI(params.b2, 240000, "tuned b2 overrides default");
+    CHECK_EQ_UI(params.b1, 24000, "tuned b1 overrides default");
+    CHECK_EQ_UI(params.b2, 480000, "tuned b2 overrides default");
     CHECK_EQ_UI(params.base, 2, "tuned base");
 
     // Clearing the directory restores the default behavior.

@@ -355,7 +355,7 @@ void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params) {
     tuning_row_t row;
     if (tifa_tuning_get_row(
         "cfrac", TIFA_TUNING_NCOLS_CFRAC, size_n,
-        &row)) {
+        TIFA_TUNING_INTERP_CFRAC, &row)) {
         params->nprimes_in_base    = row.cols[0];
         params->nprimes_tdiv       = row.cols[1];
         params->nrelations         = row.cols[2];

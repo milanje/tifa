@@ -30,7 +30,7 @@
  * \c tifa_tune tool) instead of the compiled-in defaults.
  *
  * Each <tt>set_&lt;algo&gt;_params_to_default</tt> function first fills the
- * parameters with its usual defaults, then consults \c tifa_tuning_row_for. If
+ * parameters with its usual defaults, then consults \c tifa_tuning_get_row. If
  * a tuning file provides a row for the number's bit-size, the tunable fields
  * are overridden; otherwise the defaults are left untouched. When no tuning
  * file is present the library behaves exactly as if this module did not exist.
@@ -46,7 +46,8 @@
  *
  * Lookup for a bit-size \c s returns the row with the largest
  * <tt>min_bitsize &lt;= s</tt>; if \c s is below the first row, the first row
- * is used.
+ * is used. \c tifa_tuning_get_row further interpolates the numeric columns
+ * linearly between that row and the next one.
  */
 
 #if !defined(_TIFA_TUNING_H_)
@@ -77,26 +78,36 @@ extern "C" {
 // each tuning file's schema; they are shared by the loader (validation), the
 // set_<algo>_params_to_default fillers (column -> field mapping), and the
 // tifa_tune tool (grid and file output). Adding a new algorithm means adding
-// one macro pair here, one filler tail, and one tuner descriptor: the parser
-// itself never changes.
+// one macro triple here, one filler tail, and one tuner descriptor: the parser
+// itself never changes. The INTERP mask has bit i set when column i is a
+// quantity that may be interpolated between rows; the other columns (flags,
+// seeds, choices) are taken from the row below.
 //
-#define TIFA_TUNING_NCOLS_P_MINUS_1 3
-#define TIFA_TUNING_COLS_P_MINUS_1  "b1 b2 base"
+#define TIFA_TUNING_NCOLS_P_MINUS_1  3
+#define TIFA_TUNING_COLS_P_MINUS_1   "b1 b2 base"
+#define TIFA_TUNING_INTERP_P_MINUS_1 0x3
 
-#define TIFA_TUNING_NCOLS_P_PLUS_1  3
-#define TIFA_TUNING_COLS_P_PLUS_1   "b1 b2 seed"
+#define TIFA_TUNING_NCOLS_P_PLUS_1   3
+#define TIFA_TUNING_COLS_P_PLUS_1    "b1 b2 seed"
+#define TIFA_TUNING_INTERP_P_PLUS_1  0x3
 
-#define TIFA_TUNING_NCOLS_RHO       4
-#define TIFA_TUNING_COLS_RHO        "a b acc_niters max_niters"
+#define TIFA_TUNING_NCOLS_RHO        4
+#define TIFA_TUNING_COLS_RHO         "a b acc_niters max_niters"
+#define TIFA_TUNING_INTERP_RHO       0x8
 
-#define TIFA_TUNING_NCOLS_ECM       3
-#define TIFA_TUNING_COLS_ECM        "b1 b2 ncurves"
+#define TIFA_TUNING_NCOLS_ECM        3
+#define TIFA_TUNING_COLS_ECM         "b1 b2 ncurves"
+#define TIFA_TUNING_INTERP_ECM       0x7
 
-#define TIFA_TUNING_NCOLS_CFRAC     5
-#define TIFA_TUNING_COLS_CFRAC      "nprimes_in_base nprimes_tdiv nrelations use_large_primes nsteps_early_abort"
+#define TIFA_TUNING_NCOLS_CFRAC      5
+#define TIFA_TUNING_COLS_CFRAC       "nprimes_in_base nprimes_tdiv nrelations use_large_primes nsteps_early_abort"
+#define TIFA_TUNING_INTERP_CFRAC     0x7
 
-#define TIFA_TUNING_NCOLS_SIQS      6
-#define TIFA_TUNING_COLS_SIQS       "nprimes_in_base sieve_half_width threshold nprimes_tdiv nrelations use_large_primes"
+#define TIFA_TUNING_NCOLS_SIQS       6
+#define TIFA_TUNING_COLS_SIQS        "nprimes_in_base sieve_half_width threshold nprimes_tdiv nrelations use_large_primes"
+// Not sieve_half_width: the sieve's cost jumps past each multiple of its
+// cache-sized chunk, so a width between two good ones can be much worse.
+#define TIFA_TUNING_INTERP_SIQS      0x1D
 
    /**
     * \struct struct_tuning_row_t tuning.h lib/algo/include/tuning.h
@@ -195,6 +206,23 @@ const tuning_row_t* tifa_tuning_lookup(const tuning_table_t* table,
                                        uint32_t bitsize);
 
    /**
+    * \brief Interpolates a row of a table for a given bit-size.
+    *
+    * Copies the row \c tifa_tuning_lookup returns into \c out, then, if
+    * \c bitsize lies between that row and the next one, replaces each column
+    * selected by \c interp_cols by the linear interpolation, rounded to the
+    * nearest integer, of the values of the two rows.
+    *
+    * \param[in]  table       The tuning table.
+    * \param[in]  bitsize     The bit-size to look up.
+    * \param[in]  interp_cols Bit \c i set: column \c i is interpolated.
+    * \param[out] out         The row for \c bitsize.
+    * \return false if \c table is NULL or empty (\c out is then untouched).
+    */
+bool tifa_tuning_interpolate(const tuning_table_t* table, uint32_t bitsize,
+                             uint32_t interp_cols, tuning_row_t* out);
+
+   /**
     * \brief Sets the directory searched for tuning files.
     *
     * Overrides, for the rest of the process, the directory in which
@@ -237,17 +265,20 @@ const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
     * \brief Copies the tuning row for an algorithm and bit-size, if any.
     *
     * Same as \c tifa_tuning_row_for, but copies the row into \c out, so the
-    * result stays valid whatever other threads do. The tuning functions may
-    * be called from several threads at once.
+    * result stays valid whatever other threads do, and interpolates the
+    * columns selected by \c interp_cols as \c tifa_tuning_interpolate does.
+    * The tuning functions may be called from several threads at once.
     *
     * \param[in]  algo         The algorithm name (matches the file base name).
     * \param[in]  expect_ncols The expected number of parameter columns.
     * \param[in]  bitsize      The bit-size of the number to factor.
+    * \param[in]  interp_cols  The algorithm's \c TIFA_TUNING_INTERP_* mask.
     * \param[out] out          The applicable tuning row, if any.
     * \return true if a tuning row applies (and was copied into \c out).
     */
 bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
-                         uint32_t bitsize, tuning_row_t* out);
+                         uint32_t bitsize, uint32_t interp_cols,
+                         tuning_row_t* out);
 
 #ifdef __cplusplus
 }

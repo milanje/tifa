@@ -260,6 +260,29 @@ const tuning_row_t* tifa_tuning_lookup(const tuning_table_t* table,
 }
 
 //------------------------------------------------------------------------------
+bool tifa_tuning_interpolate(const tuning_table_t* table, uint32_t bitsize,
+                             uint32_t interp_cols, tuning_row_t* out) {
+    const tuning_row_t* lo = tifa_tuning_lookup(table, bitsize);
+    if (lo == NULL) {
+        return false;
+    }
+    *out = *lo;
+    const tuning_row_t* hi = lo + 1;
+    if ((bitsize <= lo->min_bitsize) || (hi == table->rows + table->nrows)) {
+        return true;
+    }
+    const double r = (double) (bitsize - lo->min_bitsize)
+                   / (double) (hi->min_bitsize - lo->min_bitsize);
+    for (uint32_t c = 0; c < table->ncols; c++) {
+        if (interp_cols & (1U << c)) {
+            out->cols[c] = (uint32_t) (lo->cols[c]
+                         + r * ((double) hi->cols[c] - lo->cols[c]) + 0.5);
+        }
+    }
+    return true;
+}
+
+//------------------------------------------------------------------------------
 //                     DIRECTORY-BASED LAZY RESOLVER
 //------------------------------------------------------------------------------
 
@@ -363,10 +386,11 @@ void tifa_tuning_set_dir(const char* dir) {
 
 //------------------------------------------------------------------------------
 //
-// tifa_tuning_row_for without the lock (the caller holds it).
+// The table for algo: its runtime file, else its baked table, else NULL. The
+// caller holds the lock.
 //
-static const tuning_row_t* row_for(const char* algo, uint32_t expect_ncols,
-                                   uint32_t bitsize) {
+static const tuning_table_t* table_for(const char* algo,
+                                       uint32_t expect_ncols) {
     tuning_cache_entry_t* entry = tuning_cache_entry(algo);
     if (entry == NULL) {
         return NULL;
@@ -385,15 +409,14 @@ static const tuning_row_t* row_for(const char* algo, uint32_t expect_ncols,
     }
 
     // Highest priority: a runtime tuning file.
-    const tuning_row_t* row = tifa_tuning_lookup(entry->table, bitsize);
-    if (row != NULL) {
-        return row;
+    if (entry->table != NULL) {
+        return entry->table;
     }
 
     // Middle priority (only when compiled in): baked tables. The caller's
     // own hardcoded defaults remain the final fallback (we return NULL).
 #if defined(TIFA_USE_BAKED_TUNING) && TIFA_USE_BAKED_TUNING
-    return tifa_tuning_baked_row_for(algo, expect_ncols, bitsize);
+    return tifa_tuning_baked_table(algo, expect_ncols);
 #else
     return NULL;
 #endif
@@ -403,19 +426,21 @@ static const tuning_row_t* row_for(const char* algo, uint32_t expect_ncols,
 const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
                                         uint32_t bitsize) {
     pthread_mutex_lock(&tuning_lock);
-    const tuning_row_t* row = row_for(algo, expect_ncols, bitsize);
+    const tuning_row_t* row =
+        tifa_tuning_lookup(table_for(algo, expect_ncols), bitsize);
     pthread_mutex_unlock(&tuning_lock);
     return row;
 }
 
 //------------------------------------------------------------------------------
 bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
-                         uint32_t bitsize, tuning_row_t* const out) {
+                         uint32_t bitsize, uint32_t interp_cols,
+                         tuning_row_t* const out) {
     pthread_mutex_lock(&tuning_lock);
-    const tuning_row_t* row = row_for(algo, expect_ncols, bitsize);
-    if (row != NULL) {
-        *out = *row;
-    }
+    const bool found = tifa_tuning_interpolate(
+                           table_for(algo, expect_ncols), bitsize,
+                           interp_cols, out
+                       );
     pthread_mutex_unlock(&tuning_lock);
-    return row != NULL;
+    return found;
 }

@@ -195,7 +195,7 @@ void set_p_minus_1_params_to_default(const mpz_t n,
     if (tifa_tuning_get_row(
         "p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1,
         (uint32_t) mpz_sizeinbase(n, 2),
-        &row)) {
+        TIFA_TUNING_INTERP_P_MINUS_1, &row)) {
         params->b1   = row.cols[0];
         params->b2   = row.cols[1];
         params->base = row.cols[2];
