@@ -24,6 +24,8 @@
  */
 
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <math.h>
 #include <time.h>
 
@@ -1076,6 +1078,188 @@ uint32_t bern_21_pairs_lp(const mpz_t n,
     return retval;
 }
 //------------------------------------------------------------------------------
+//
+// For the SIQS batches. While z has at most BERN_SIQS_DIRECT_MAX_LIMBS limbs
+// (factor bases of up to about 250 primes), z mod y for each candidate y is
+// cheaper computed directly (linear in the size of z) than through the
+// product and remainder trees.
+//
+#if !defined(BERN_SIQS_DIRECT_MAX_LIMBS)
+#define BERN_SIQS_DIRECT_MAX_LIMBS 40
+#endif
+
+#if GMP_LIMB_BITS == 64
+//
+// For y = 2^t.yo of one limb, yo odd, and r = z mod y: r^(2^e) mod yo up to
+// a unit, by Montgomery squarings of r left unconverted (each multiplies the
+// result by 2^-64). It is 0 iff y is smooth (z holds 2), and its gcd with
+// yo is the odd part of the smooth part of y.
+//
+static inline uint64_t pow2e_mod_odd(const uint64_t r, const uint64_t yo,
+                                     const uint32_t e) {
+    uint64_t ninv = yo;
+    for (int i = 0; i < 5; i++) {
+        ninv *= 2 - yo * ninv;
+    }
+    uint64_t x = r % yo;
+    for (uint32_t i = 0; i < e; i++) {
+        const unsigned __int128 t = (unsigned __int128) x * x;
+        const uint64_t lo = (uint64_t) t;
+        const uint64_t hi = (uint64_t) (t >> 64);
+        const uint64_t qn = (uint64_t) (((unsigned __int128) (lo * ninv) * yo)
+                                        >> 64);
+        x = (hi < qn) ? (hi - qn + yo) : (hi - qn);
+    }
+    return x;
+}
+
+//
+// As pow2e_mod_odd, for yo = (y0, y1) of two limbs (y1 != 0) and r < yo:
+// Montgomery squarings with 2^128 (CIOS), into x.
+//
+static inline void pow2e_mod_odd_2(uint64_t x[2], const uint64_t r[2],
+                                   const uint64_t yo[2], const uint32_t e) {
+    uint64_t ninv = yo[0];
+    for (int i = 0; i < 5; i++) {
+        ninv *= 2 - yo[0] * ninv;
+    }
+    ninv = 0 - ninv;
+    x[0] = r[0];
+    x[1] = r[1];
+    for (uint32_t k = 0; k < e; k++) {
+        uint64_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+        for (int i = 0; i < 2; i++) {
+            unsigned __int128 c = (unsigned __int128) x[0] * x[i] + t0;
+            t0 = (uint64_t) c;
+            c  = (c >> 64) + (unsigned __int128) x[1] * x[i] + t1;
+            t1 = (uint64_t) c;
+            c  = (c >> 64) + t2;
+            t2 = (uint64_t) c;
+            t3 = (uint64_t) (c >> 64);
+
+            const uint64_t m = t0 * ninv;
+            c  = ((unsigned __int128) m * yo[0] + t0) >> 64;
+            c += (unsigned __int128) m * yo[1] + t1;
+            t0 = (uint64_t) c;
+            c  = (c >> 64) + t2;
+            t1 = (uint64_t) c;
+            t2 = t3 + (uint64_t) (c >> 64);
+        }
+        //
+        // t < 2.yo: subtract yo once if needed.
+        //
+        const unsigned __int128 d0 = (unsigned __int128) t0 - yo[0];
+        const uint64_t b0 = (uint64_t) (d0 >> 64) & 1;
+        const unsigned __int128 d1 = (unsigned __int128) t1 - yo[1] - b0;
+        const uint64_t b1 = (uint64_t) (d1 >> 64) & 1;
+        const bool keep = (t2 == 0) && (b1 != 0);
+        x[0] = keep ? t0 : (uint64_t) d0;
+        x[1] = keep ? t1 : (uint64_t) d1;
+    }
+}
+
+static inline uint64_t gcd_u64(uint64_t a, uint64_t b) {
+    if (a == 0) {
+        return b;
+    }
+    if (b == 0) {
+        return a;
+    }
+    const int shift = __builtin_ctzll(a | b);
+    a >>= __builtin_ctzll(a);
+    do {
+        b >>= __builtin_ctzll(b);
+        if (a > b) {
+            const uint64_t t = a;
+            a = b;
+            b = t;
+        }
+        b -= a;
+    } while (b != 0);
+    return a << shift;
+}
+#endif
+//
+// Whether the candidate y is smooth over the primes of z, given r = z mod |y|
+// (if rleaf is NULL, it is computed from z). If not and nsp is not NULL, nsp
+// is set to |y| over its smooth part. yk is scratch.
+//
+static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
+                        mpz_t yk, mpz_t nsp) {
+    const uint32_t msb = mpz_sizeinbase(y, 2) - 1;
+    const uint32_t e   = most_significant_bit(msb) + 1;
+#if GMP_LIMB_BITS == 64
+    if (mpz_size(y) == 1) {
+        const uint64_t ya = mpz_getlimbn(y, 0);
+        const uint64_t r  = (rleaf != NULL)
+                          ? mpz_getlimbn(rleaf, 0)
+                          : mpn_mod_1(mpz_limbs_read(z), mpz_size(z), ya);
+        const uint64_t yo = ya >> __builtin_ctzll(ya);
+        const uint64_t x  = pow2e_mod_odd(r, yo, e);
+        if (x == 0) {
+            return true;
+        }
+        if (nsp != NULL) {
+            mpz_set_ui(nsp, (unsigned long int) (yo / gcd_u64(x, yo)));
+        }
+        return false;
+    }
+    if (mpz_size(y) == 2) {
+        if (rleaf != NULL) {
+            mpz_set(yk, rleaf);
+        } else {
+            mpz_tdiv_r(yk, z, y);
+            mpz_abs(yk, yk);
+        }
+        //
+        // yk = r, nsp (or the stack) = the odd part yo of |y|, r mod yo.
+        //
+        mpz_t yo;
+        mpz_init(yo);
+        mpz_abs(yo, y);
+        mpz_tdiv_q_2exp(yo, yo, mpz_scan1(yo, 0));
+        mpz_tdiv_r(yk, yk, yo);
+        uint64_t x[2];
+        if (mpz_size(yo) == 1) {
+            const uint64_t yo1 = mpz_getlimbn(yo, 0);
+            x[0] = pow2e_mod_odd(mpz_getlimbn(yk, 0), yo1, e);
+            x[1] = 0;
+        } else {
+            const uint64_t r2[2]  = { mpz_getlimbn(yk, 0), mpz_getlimbn(yk, 1) };
+            const uint64_t yo2[2] = { mpz_getlimbn(yo, 0), mpz_getlimbn(yo, 1) };
+            pow2e_mod_odd_2(x, r2, yo2, e);
+        }
+        const bool smooth = (x[0] == 0) && (x[1] == 0);
+        if (!smooth && (nsp != NULL)) {
+            mpz_import(yk, 2, -1, sizeof(uint64_t), 0, 0, x);
+            mpz_gcd(yk, yk, yo);
+            mpz_divexact(nsp, yo, yk);
+        }
+        mpz_clear(yo);
+        return smooth;
+    }
+#endif
+    if (rleaf != NULL) {
+        mpz_set(yk, rleaf);
+    } else {
+        mpz_tdiv_r(yk, z, y);
+        mpz_abs(yk, yk);
+    }
+    mpz_powm_ui(yk, yk, 1<<e, y);
+    if (0 == mpz_sgn(yk)) {
+        return true;
+    }
+    if (nsp != NULL) {
+        //
+        // The gcd is the smooth part of y.
+        //
+        mpz_gcd(nsp, yk, y);
+        mpz_divexact(nsp, y, nsp);
+        mpz_abs(nsp, nsp);
+    }
+    return false;
+}
+//------------------------------------------------------------------------------
 uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
                                mpz_array_t* const smooth_yi,
                                mpz_array_t* const a_for_smooth_gx,
@@ -1096,29 +1280,22 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
     //
     // Step 2
     //
-    mpz_tree_t* pyitree = prod_tree(cand_yi);
-    mpz_tree_t* rtree   = rem_tree(z, pyitree);
-
-    free_mpz_tree(pyitree);
+    mpz_tree_t* rtree = NULL;
+    if (mpz_size(z) > BERN_SIQS_DIRECT_MAX_LIMBS) {
+        mpz_tree_t* pyitree = prod_tree(cand_yi);
+        rtree = rem_tree(z, pyitree);
+        free_mpz_tree(pyitree);
+    }
     //
     // Step 3
     //
-    uint32_t e   = 0U;
-    uint32_t msb = 0U;
-
     mpz_t yk;
     mpz_init(yk);
 
     for (uint32_t k = 0U; k < cand_yi->length; k++) {
-        msb = mpz_sizeinbase(cand_yi->data[k], 2) - 1;
-        e   = most_significant_bit(msb) + 1;
-
-        mpz_set(yk, rtree->data[rtree->length/2 + k]);
-        mpz_powm_ui(yk, yk, 1<<e, cand_yi->data[k]);
-        //
-        // _NOTE_: cand_yi->data[k] is smooth iff (yk == 0)
-        //
-        if (0 == mpz_sgn(yk)) {
+        const mpz_srcptr rleaf = (rtree != NULL)
+                               ? rtree->data[rtree->length/2 + k] : NULL;
+        if (siqs_smooth(cand_yi->data[k], z, rleaf, yk, NULL)) {
 			//
             // We found a good pair (cand_yi->data[k], cand_xi->data[k])!
             // Add cand_yi->data[k] is the smooth_yi array and add
@@ -1139,9 +1316,10 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
         }
     }
     mpz_clear(yk);
-    
-    free_mpz_tree(rtree);
-    
+
+    if (rtree != NULL) {
+        free_mpz_tree(rtree);
+    }
     return retval;
 }
 //------------------------------------------------------------------------------
@@ -1173,21 +1351,17 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     //
     // Step 2
     //
-    mpz_tree_t* pyitree = prod_tree(cand_yi);
-    mpz_tree_t* rtree   = rem_tree(z, pyitree);
-
-    free_mpz_tree(pyitree);
+    mpz_tree_t* rtree = NULL;
+    if (mpz_size(z) > BERN_SIQS_DIRECT_MAX_LIMBS) {
+        mpz_tree_t* pyitree = prod_tree(cand_yi);
+        rtree = rem_tree(z, pyitree);
+        free_mpz_tree(pyitree);
+    }
     //
     // Step 3
     //
-    uint32_t e   = 0U;
-    uint32_t msb = 0U;
-
     mpz_t yk;
     mpz_init(yk);
-
-    mpz_t gcd;
-    mpz_init(gcd);
 
     mpz_t nsp;
     mpz_init(nsp);
@@ -1200,21 +1374,19 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     mpz_t* candidate_y = &(cand_yi->data[0]);
     mpz_t* candidate_x = &(cand_xi->data[0]);
     mpz_t* candidate_a = &(cand_a->data[0]);
-    mpz_t* rtreeptr    = &(rtree->data[rtree->length/2]);
+    mpz_t* rtreeptr    = (rtree != NULL) ? &(rtree->data[rtree->length/2])
+                                         : NULL;
     mpz_t* smooth_y    = &(smooth_yi->data[smooth_yi->length]);
     mpz_t* x           = &(xi->data[xi->length]);
     mpz_t* matching_a  = &(a_for_smooth_gx->data[a_for_smooth_gx->length]);
     
     for (uint32_t k = 0U; k < cand_yi_length; k++) {
-        msb = mpz_sizeinbase(*candidate_y, 2) - 1;
-        e   = most_significant_bit(msb) + 1;
-
-        mpz_set(yk, *rtreeptr);
-        mpz_powm_ui(yk, yk, 1<<e, *candidate_y);
         //
-        // _NOTE_: cand_yi->data[k] is smooth iff (yk == 0)
+        // _NOTE_: nsp is set to cand_yi->data[k] over its smooth part when
+        //         it is not smooth.
         //
-        if (0 == mpz_sgn(yk)) {
+        if (siqs_smooth(*candidate_y, z, (rtreeptr != NULL) ? *rtreeptr : NULL,
+                        yk, nsp)) {
 			//
             // We found a good pair (cand_yi->data[k], cand_xi->data[k])!
             // Add cand_yi->data[k] is the smooth_yi array and add
@@ -1238,16 +1410,9 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
             }
         } else {
             //
-            // Here comes the large prime variation...
+            // Here comes the large prime variation: is cand_yi->data[k] the
+            // product of its smooth part by a large prime?
             //
-            mpz_gcd(gcd, yk, *candidate_y);
-			//
-			// gcd is now the smooth part of cand_yi->data[k].
-			// Is cand_yi->data[k] the product of gcd by a large prime?
-			//
-            mpz_divexact(nsp, *candidate_y, gcd);
-            mpz_abs(nsp, nsp);
-            
             if (mpz_cmp_ui(nsp, 15000000) <= 0 ) {
                 uint32_t nsp_ui = mpz_get_ui(nsp);
                 
@@ -1345,15 +1510,17 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
         candidate_y++;
         candidate_x++;
         candidate_a++;
-        rtreeptr++;
+        if (rtreeptr != NULL) {
+            rtreeptr++;
+        }
     }
     mpz_clear(yk);
-    mpz_clear(gcd);
     mpz_clear(nsp);
     mpz_clear(nsp_inv);
 
-    free_mpz_tree(rtree);
-
+    if (rtree != NULL) {
+        free_mpz_tree(rtree);
+    }
     return retval;
 }
 //------------------------------------------------------------------------------
