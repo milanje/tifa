@@ -74,10 +74,10 @@ extern "C" {
     */
 #define SIQS_DFLT_LINALG_METHOD    SMART_GAUSS_ELIM
    /**
-    * \def SIQS_DFLT_USE_LARGE_PRIMES
-    * Use the large prime variation by default.
+    * \def SIQS_DFLT_LARGE_PRIMES_MIN_BITS
+    * Use the large prime variation by default from this many bits.
     */
-#define SIQS_DFLT_USE_LARGE_PRIMES true
+#define SIQS_DFLT_LARGE_PRIMES_MIN_BITS 96
 
    /**
     * \struct struct_siqs_params_t siqs.h lib/algo/include/siqs.h

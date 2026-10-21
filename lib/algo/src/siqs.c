@@ -307,11 +307,11 @@ static const u32triplet_t best_params[NRANGES] = {
     {.size_n =   0, .size_base =   10, .hwidth =   1000, .thres =  1},
     {.size_n =  50, .size_base =   50, .hwidth =  10000, .thres = 23},
     {.size_n =  60, .size_base =   60, .hwidth =  10000, .thres = 28},
-    {.size_n =  70, .size_base =   80, .hwidth =  12000, .thres = 30},
-    {.size_n =  80, .size_base =  110, .hwidth =  14000, .thres = 31},
-    {.size_n =  90, .size_base =  125, .hwidth =  15000, .thres = 32},
-    {.size_n = 100, .size_base =  200, .hwidth =  30000, .thres = 36},
-    {.size_n = 110, .size_base =  250, .hwidth =  30000, .thres = 38},
+    {.size_n =  70, .size_base =   92, .hwidth =  24000, .thres = 28},
+    {.size_n =  80, .size_base =  126, .hwidth =  24000, .thres = 30},
+    {.size_n =  90, .size_base =  163, .hwidth =  15000, .thres = 33},
+    {.size_n = 100, .size_base =  200, .hwidth =  15000, .thres = 36},
+    {.size_n = 110, .size_base =  288, .hwidth =  21000, .thres = 40},
     {.size_n = 120, .size_base =  400, .hwidth =  30000, .thres = 43},
     {.size_n = 130, .size_base =  400, .hwidth =  30000, .thres = 44},
     {.size_n = 140, .size_base =  700, .hwidth =  49152, .thres = 48},
@@ -470,13 +470,13 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
         float r = (size - best_params[i].size_n) / d;
 
         params->nprimes_in_base = (uint32_t) (best_params[i].size_base
-            + r * (best_params[i+1].size_base - best_params[i].size_base));
+            + r * ((float) best_params[i+1].size_base - best_params[i].size_base));
 
         params->sieve_half_width = (uint32_t) (best_params[i].hwidth
-            + r * (best_params[i+1].hwidth - best_params[i].hwidth));
+            + r * ((float) best_params[i+1].hwidth - best_params[i].hwidth));
 
         params->threshold = (uint32_t) (best_params[i].thres
-            + r * (ABS((int32_t)best_params[i+1].thres - (int32_t)best_params[i].thres)));
+            + r * ((float) best_params[i+1].thres - best_params[i].thres));
 
     } else {
         params->sieve_half_width = best_params[i].hwidth;
@@ -486,7 +486,8 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->nprimes_tdiv     = params->nprimes_in_base;
     params->nrelations       = SIQS_DFLT_NRELATIONS;
     params->linalg_method    = SIQS_DFLT_LINALG_METHOD;
-    params->use_large_primes = SIQS_DFLT_USE_LARGE_PRIMES;
+    params->use_large_primes = (mpz_sizeinbase(n, 2)
+                                >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
 
     //
     // Override the tabulated/interpolated defaults with machine-tuned values if
