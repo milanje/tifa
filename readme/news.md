@@ -1,5 +1,31 @@
 # TIFA news
 
+## 22 October 2026 &mdash; invalid inputs and parameters
+
+A review of the library and its programs for memory errors and invalid
+inputs (AddressSanitizer, UndefinedBehaviorSanitizer and ThreadSanitizer
+builds, edge-case sweeps of every public function, hostile tuning files, a
+fuzzed tuning-file parser) found and fixed:
+
+- `tifa_factor` and `tifa_cofactor` read past the table of primes on hard
+  composites from 260 bits (the SIQS factor base outgrew it).
+- The algorithms called directly crashed or looped forever on n below 2,
+  on perfect squares and on some tiny n (SIQS on 3), and wrote out of
+  bounds or hung with parameters out of their useful range (factor base
+  of 0 or beyond the table, sieve half-width of 0 or above 256 chunks,
+  stage 2 bounds near 2^32). They now bound their parameters, return
+  `NO_FACTOR_FOUND` below 2 and `FAILURE` on squares; the bounds are in
+  the headers. A tuning file can no longer crash them either.
+- Factors already in the caller's arrays were taken as divisors of n, and
+  full arrays got no factor at all from SIQS and CFRAC.
+- rho retried forever on numbers it could not split; Fermat read
+  uninitialized memory in its second pass; the GMP ECM stage 2 was wrong
+  below b1 = 105.
+- The programs crashed on an empty standard input, cut long numbers
+  silently, and looped forever on 0.
+
+`test_inputs` covers these cases. Factorizations and speed are unchanged.
+
 ## 22 October 2026 &mdash; command-line tools and documentation
 
 A `tifa_factor` program factors a number with the methods the `tifa_factor()`
