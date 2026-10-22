@@ -81,19 +81,19 @@ extern "C" {
 struct struct_cfrac_params_t {
        /**
         * Number of prime numbers composing the factor base on which to factor
-        * the residues.
+        * the residues, from 2 to a quarter of the tabulated primes (see
+        * \c NFIRST_PRIMES).
         */
     uint32_t nprimes_in_base;
        /**
         * Number of the first primes to use in the trial division
-        * of the residues known to be smooth.
-        *
-        * \warning \c nprimes_tdiv should be greater than or equal to 1.
+        * of the residues known to be smooth (at most \c nprimes_in_base).
         */
     uint32_t nprimes_tdiv;
        /**
         * Number of relations to collect beyond the size of the factor base
-        * (plus one, for the sign), before looking for linear dependences.
+        * (plus one, for the sign), before looking for linear dependences (at
+        * most 1024).
         */
     uint32_t nrelations;
        /**

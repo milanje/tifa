@@ -76,6 +76,16 @@
 //
 #define MAX_NMULT_USED 1
 //
+// Largest factor base: about half the tabulated primes p have (kn/p) != -1,
+// so a quarter is always available.
+//
+#define MAX_NPRIMES_IN_BASE (NFIRST_PRIMES / 4)
+//
+// Largest number of extra relations, far above any useful one, which keeps
+// the matrix size within bounds.
+//
+#define MAX_NRELATIONS 1024
+//
 // Number of ranges for the size of the number to factor. Each range is
 // define by the optimal value of the factor base's size to use.
 //
@@ -301,11 +311,19 @@ ecode_t cfrac(mpz_array_t* const factors, uint32_array_t* const multis,
 
     ecode_t ecode = NO_FACTOR_FOUND;
 
+    cfrac_params_t own_params = *params;
+    own_params.nprimes_in_base = MAX(own_params.nprimes_in_base, 2);
+    own_params.nprimes_in_base = MIN(own_params.nprimes_in_base,
+                                     MAX_NPRIMES_IN_BASE);
+    own_params.nprimes_tdiv    = MIN(own_params.nprimes_tdiv,
+                                     own_params.nprimes_in_base);
+    own_params.nrelations      = MIN(own_params.nrelations, MAX_NRELATIONS);
+
     factoring_machine_t machine;
 
     mpz_init_set(machine.n, n);
     machine.mode                = mode;
-    machine.params              = (void*) params;
+    machine.params              = (void*) &own_params;
     machine.init_context_func   = init_cfrac_context;
     machine.perform_algo_func   = perform_cfrac;
     machine.update_context_func = update_cfrac_context;
