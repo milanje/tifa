@@ -53,7 +53,6 @@
 #define SAFE_MODULO 0
 
 //-----------------------------------------------------------------------------
-uint32_t determine_nprimes(uint32_t bitsize);
 static void choose_a(siqs_poly_t* const poly);
 ecode_t  full_poly_init(siqs_poly_t* const poly);
 ecode_t  fast_poly_init(siqs_poly_t* const poly);
@@ -81,7 +80,11 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     mpz_init(poly->b);
     mpz_init(poly->c);
     
-    poly->npolys = 1 << (poly->nprimes_in_a - 1);
+    //
+    // 2^(k-1) values of b for a product of k primes, but 2^30 are already
+    // more than any run sieves (k exceeds 31 above about 700 bits).
+    //
+    poly->npolys = 1U << MIN(poly->nprimes_in_a - 1, 30);
     poly->polyno = 1;
     
     poly->sol1   = alloc_int32_array(poly->factor_base->length);
@@ -501,10 +504,10 @@ fast_poly_init(siqs_poly_t* const poly)
     // Compute the 'b' coefficient of the next polynomial to use
     //
     uint32_t nu = 0;
-    while ( ((2 * ipol) & (1<<nu)) == 0) {
+    while ( ((2 * ipol) & (1U << nu)) == 0) {
         nu++;
     }
-    uint32_t io2nu = (ipol / (1<<nu)) + 1;
+    uint32_t io2nu = (ipol / (1U << nu)) + 1;
 
     if (IS_EVEN(io2nu)) {
         mpz_add(b, b, Bl->data[nu-1]);

@@ -85,6 +85,21 @@
 //
 #define MAX_ATTEMPTS        3
 //
+// Largest factor base: about half the tabulated primes have kn as a square
+// modulo them, so a quarter is always available.
+//
+#define MAX_NPRIMES_IN_BASE (NFIRST_PRIMES / 4)
+//
+// Largest sieve half width, far above any useful one, so that the sieve
+// positions and the retries stay within 32-bit integers.
+//
+#define MAX_HALF_WIDTH      (1U << 26)
+//
+// Largest number of extra relations, far above any useful one, which keeps
+// the matrix size within bounds.
+//
+#define MAX_NRELATIONS      1024
+//
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
@@ -389,8 +404,23 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     siqs_params_t own_params = *params;
-    own_params.nprimes_tdiv = MIN(own_params.nprimes_tdiv,
-                                  own_params.nprimes_in_base);
+    //
+    // 'a' is the product of determine_nprimes(...) odd-indexed primes of the
+    // base, for a target below sqrt(2kn), with k <= LARGEST_MULTIPLIER < 2^7.
+    //
+    const uint32_t min_base = 2 * determine_nprimes(
+                                      (mpz_sizeinbase(n, 2) + 10) / 2
+                                  ) + 1;
+    own_params.nprimes_in_base  = MAX(own_params.nprimes_in_base, min_base);
+    own_params.nprimes_in_base  = MIN(own_params.nprimes_in_base,
+                                      MAX_NPRIMES_IN_BASE);
+    own_params.nprimes_tdiv     = MAX(own_params.nprimes_tdiv, 1);
+    own_params.nprimes_tdiv     = MIN(own_params.nprimes_tdiv,
+                                      own_params.nprimes_in_base);
+    own_params.sieve_half_width = MAX(own_params.sieve_half_width, 1);
+    own_params.sieve_half_width = MIN(own_params.sieve_half_width,
+                                      MAX_HALF_WIDTH);
+    own_params.nrelations       = MIN(own_params.nrelations, MAX_NRELATIONS);
 
     factoring_machine_t machine;
 
@@ -422,10 +452,11 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
             multis->length = nmultis;
         }
         own_params.nprimes_in_base = MIN(own_params.nprimes_in_base * 3 / 2,
-                                         NFIRST_PRIMES / 4);
+                                         MAX_NPRIMES_IN_BASE);
         own_params.nprimes_tdiv    = MIN(own_params.nprimes_tdiv * 3 / 2,
                                          own_params.nprimes_in_base);
-        own_params.sieve_half_width = own_params.sieve_half_width * 3 / 2;
+        own_params.sieve_half_width = MIN(own_params.sieve_half_width * 3 / 2,
+                                          MAX_HALF_WIDTH);
         if (own_params.threshold > 10) {
             own_params.threshold -= 2;
         }
@@ -917,13 +948,14 @@ static void init_factor_base_data(siqs_context_t* const context) {
     uint32_t* fbptr       = &(factor_base->data[ibase]);
     uint32_t* sqrtptr     = &(sqrtm_pi->data[ibase]);
     const uint32_t* prime = &(first_primes[0]);
+    const uint32_t* last  = &(first_primes[NFIRST_PRIMES - 1]);
     unsigned char* logptr = &(log_factor_base->data[ibase]);
 
     //
     // Determine the factor base and the solutions to the equations
     // t^2 = N (mod p) where the p's are the primes in the factor base
     //
-    while (ibase != fb_alloced) {
+    while ((ibase != fb_alloced) && (prime != last)) {
         prime++;
         nmodp = mpz_fdiv_ui(kn, *prime);
 

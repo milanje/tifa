@@ -214,6 +214,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
     //
     bool overflow  = (aximer->imax >= (int32_t)facpool->length);
     bool underflow = (aximer->imin < 0);
+    bool toofew    = (aximer->nodd < aximer->kodd);
 
     if (overflow) {
         aximer->imax = facpool->length - 1;
@@ -221,7 +222,15 @@ approximer_t* alloc_approximer(mpz_t                 target,
     if (underflow) {
         aximer->imin = 1;
     }
-    if (overflow || underflow) {
+    if (overflow || underflow || toofew) {
+        if ((uint32_t) (aximer->imax - aximer->imin + 1) / 2 < nfactors) {
+            //
+            // Too few odd-indexed primes to choose nfactors of them: use the
+            // whole pool (siqs makes it large enough).
+            //
+            aximer->imin = 1;
+            aximer->imax = facpool->length - 1;
+        }
         uint32_t diff = (aximer->imax - aximer->imin + 1);
 
         aximer->nodd  = diff / 2;

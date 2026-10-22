@@ -989,6 +989,19 @@ uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
             mult      = ks_mults[cand[c]];
         }
     }
+    //
+    // k is squarefree: kn is a square, which would make polynomial values
+    // vanish, only when k divides n and n/k is a square.
+    //
+    if ((mult != 1) && mpz_divisible_ui_p(n, mult)) {
+        mpz_t q;
+        mpz_init(q);
+        mpz_divexact_ui(q, n, mult);
+        if (mpz_perfect_square_p(q)) {
+            mult = 1;
+        }
+        mpz_clear(q);
+    }
     return mult;
 }
 //-----------------------------------------------------------------------------

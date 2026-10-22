@@ -72,12 +72,13 @@ extern "C" {
 struct struct_siqs_params_t {
        /**
         * Sieve's half-width, i.e. the SIQS will sieve in the interval
-        * <tt>[-sieve_half_width, sieve_half_width]</tt>.
+        * <tt>[-sieve_half_width, sieve_half_width]</tt> (from 1 to 2^26).
         */
     uint32_t sieve_half_width;
        /**
         * Number of prime numbers composing the factor base on which to factor
-        * the residues.
+        * the residues, at most a quarter of the tabulated primes (see
+        * \c NFIRST_PRIMES), and enough to choose the coefficient \c a.
         */
     uint32_t nprimes_in_base;
       /**
@@ -86,15 +87,13 @@ struct struct_siqs_params_t {
    uint32_t threshold;
        /**
         * Number of the first primes to use in the trial division
-        * of the residues (at most \c nprimes_in_base are used).
-        *
-        * \warning \c nprimes_tdiv should be greater than or equal
-        * to 1.
+        * of the residues (from 1 to \c nprimes_in_base).
         */
     uint32_t nprimes_tdiv;
        /**
         * Number of relations to collect beyond the size of the factor base
-        * (plus one, for the sign), before looking for linear dependences.
+        * (plus one, for the sign), before looking for linear dependences (at
+        * most 1024).
         */
     uint32_t nrelations;
        /**

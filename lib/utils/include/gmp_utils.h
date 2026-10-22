@@ -120,8 +120,9 @@ inline static void free_mpzpair_htable(hashtable_t* htable) {
     * a positive multi-precision integer \c n. The approximation is usually
     * valid up to the 4th decimal.
     *
-    * \param[in] n A positive multi-precision integer.
-    * \returns An approximation of log(<tt>n</tt>) in base 10.
+    * \param[in] n A multi-precision integer.
+    * \returns An approximation of log(<tt>|n|</tt>) in base 10, or 0 if
+    *          <tt>n</tt> is 0.
     */
 float mpz_log10(mpz_t n);
 

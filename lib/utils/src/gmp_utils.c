@@ -63,23 +63,27 @@ void empty_mpzpair_htable(hashtable_t* const htable) {
 }
 //-----------------------------------------------------------------------------
 float mpz_log10(mpz_t n) {
-    if (SIZ(n) == 1) {
-        return log10(MPZ_LAST_LIMB_VALUE(n));
+    const size_t size = mpz_size(n);
+    if (size == 0) {
+        return 0.0;
+    }
+    if (size == 1) {
+        return log10(mpz_getlimbn(n, 0));
     }
     //
-    // The log approximation is obtained by taking the log10 of n's most   
+    // The log approximation is obtained by taking the log10 of n's most
     // significant limb left-shifted and completed with bits from its second
     // most significant limb for a better approximation.
     //
-    mp_limb_t tmp   = MPZ_LAST_LIMB_VALUE(n);
-    uint32_t  shift = GMP_NUMB_BITS - ceil_log2_mp_limb(tmp) - 1;
-    mp_limb_t tmp2  = (PTR(n)[SIZ(n) - 2] & GMP_NUMB_MASK);
+    mp_limb_t tmp   = mpz_getlimbn(n, size - 1);
+    uint32_t  ceil  = ceil_log2_mp_limb(tmp);
+    uint32_t  shift = (ceil < GMP_NUMB_BITS) ? GMP_NUMB_BITS - ceil - 1 : 0;
 
-    tmp  <<= shift;
-    tmp2 >>= (GMP_NUMB_BITS - shift);    
-    tmp   ^= tmp2;
-    
-    float res = LOG10_GMP_NUMB_MAX * (SIZ(n) - 1);
+    if (shift != 0) {
+        tmp <<= shift;
+        tmp  ^= mpz_getlimbn(n, size - 2) >> (GMP_NUMB_BITS - shift);
+    }
+    float res = LOG10_GMP_NUMB_MAX * (size - 1);
     
     res += log10((double)(tmp));
     res -= log10((unsigned long int)1 << shift);

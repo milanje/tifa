@@ -41,21 +41,21 @@ extern "C" {
 #define GET_B(X)    ((X) & B_MASK)
 //-----------------------------------------------------------------------------
 struct struct_buckets_t {
-    uint16_t         nbins;
+    uint32_t         nbins;
     uint32_array_t** bins;
 };
 //-----------------------------------------------------------------------------
 typedef struct struct_buckets_t buckets_t;
 //-----------------------------------------------------------------------------
 static inline buckets_t*
-alloc_buckets(uint16_t balloced, uint8_t nbins) {
+alloc_buckets(uint16_t balloced, uint32_t nbins) {
     
     buckets_t* buckets = malloc(sizeof(buckets_t));
     
     buckets->nbins = nbins;
     buckets->bins  = malloc(nbins * sizeof(uint32_array_t*));
     
-    for (uint8_t i = 0; i < nbins; i++) {
+    for (uint32_t i = 0; i < nbins; i++) {
       buckets->bins[i] = alloc_uint32_array(balloced);
     }
     return buckets;
@@ -64,7 +64,7 @@ alloc_buckets(uint16_t balloced, uint8_t nbins) {
 static inline void
 free_buckets(buckets_t* const buckets) {
     if (buckets != NULL) {
-        for (uint8_t i = 0; i < buckets->nbins; i++) {
+        for (uint32_t i = 0; i < buckets->nbins; i++) {
             free_uint32_array(buckets->bins[i]);
         }
         free(buckets->bins);
@@ -74,13 +74,13 @@ free_buckets(buckets_t* const buckets) {
 //-----------------------------------------------------------------------------
 static inline void
 reset_buckets(buckets_t* const buckets) {
-    for (uint8_t i = 0; i < buckets->nbins; i++) {
+    for (uint32_t i = 0; i < buckets->nbins; i++) {
         buckets->bins[i]->length = 0;
     }
 }
 //-----------------------------------------------------------------------------
 static inline void
-add_to_buckets(const uint32_t a, const uint8_t b, const uint8_t ibin,
+add_to_buckets(const uint32_t a, const uint8_t b, const uint32_t ibin,
                buckets_t* const buckets) {
 
     uint32_array_t* bin  = buckets->bins[ibin];

@@ -146,6 +146,15 @@ struct struct_siqs_poly_t {
 typedef struct struct_siqs_poly_t siqs_poly_t;
 
    /**
+    * \brief Number of primes in the leading coefficient \c a.
+    *
+    * \param bitsize the size of the target leading coefficient, in bits.
+    *
+    * \return The number of primes whose product approximates the target.
+    */
+uint32_t determine_nprimes(uint32_t bitsize);
+
+   /**
     * \brief Allocates and returns a new <tt>siqs_poly_t</tt>.
     *
     * \param target_a    the target leading coefficient to approximate.
