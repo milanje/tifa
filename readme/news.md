@@ -1,5 +1,13 @@
 # TIFA news
 
+## 22 October 2026 &mdash; command-line tools
+
+A `tifa_factor` program factors a number with the methods the `tifa_factor()`
+function chooses. The Perl scripts of `tools/scripts` (a wrapper for the
+programs, benchmark and plotting scripts, and their modules) are removed: they
+had not worked as installed for a long time, and `tifa_tune` measures the
+algorithms' parameters instead.
+
 ## October 2026 &mdash; faster, correct, thread-safe
 
 A series of 56 commits (`aac2494..6e6deaf`) reworked most of the library for

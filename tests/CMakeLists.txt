@@ -41,3 +41,16 @@ tifa_add_test(test_threads)
 target_link_libraries(test_threads PRIVATE Threads::Threads)
 target_compile_definitions(test_threads PRIVATE
     TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+
+# The tifa_factor command-line program: a 60-bit semiprime, and
+# 2^3 . 3^2 . 1000000007^2 . 1000000009 (repeated factors, several sizes).
+add_test(NAME tifa_factor_program_semiprime
+         COMMAND tifa_factor 1000000016000000063)
+set_tests_properties(tifa_factor_program_semiprime PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "1000000007[^0-9].*1000000009[^0-9].*Factorization is complete")
+add_test(NAME tifa_factor_program_powers
+         COMMAND tifa_factor 72000001656000012600000031752)
+set_tests_properties(tifa_factor_program_powers PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "2 \\^ 3[^0-9].*3 \\^ 2[^0-9].*1000000009 \\^ 1[^0-9].*1000000007 \\^ 2[^0-9].*Factorization is complete")

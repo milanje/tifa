@@ -75,15 +75,6 @@ extern "C" {
 #define PRINT_ENTER_NUMBER_MSG() printf("> Enter the integer to factor: ")
 
    /**
-    * \def PRINT_USAGE_WARNING_MSG()
-    * Macro printing a boilerplate usage warning on the standard error.
-    */
-#define PRINT_USAGE_WARNING_MSG() do {                                        \
-    fprintf(stderr, "Please, use the perl wrapper factorize.pl instead of "); \
-    fprintf(stderr, "a direct invocation\nof this program.\n");               \
-} while (0)
-
-   /**
     * \def MAX_NDIGITS
     * Maximal number of decimal digits of the number to factor.
     */

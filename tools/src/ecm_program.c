@@ -50,7 +50,6 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s <nprimes_tdiv> <b1> <b2> <ncurves> "
             "<number_to_factor>\n\n", program->argv[0]);
 
-    PRINT_USAGE_WARNING_MSG();
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {

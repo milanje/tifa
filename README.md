@@ -50,8 +50,8 @@ changes.
   four words, up to 256 bits (`mont_ecm.h`).
 
 The [readme.txt](./readme/readme.txt) file in the `readme` directory has more
-detail on the algorithms, the source layout and the Perl tooling; its build and
-installation steps use CMake as well, matching the instructions below.
+detail on the algorithms and the source layout; its build and installation
+steps use CMake as well, matching the instructions below.
 
 ## Building
 
@@ -63,8 +63,7 @@ Requirements:
 - [CMake](https://cmake.org) >= 3.20.
 
 Optional: [Doxygen](https://www.doxygen.nl) (+ LaTeX for the PDF) for the API
-documentation, and Perl (with `pod2man`) plus [gnuplot](http://www.gnuplot.info)
-for the benchmarking scripts.
+documentation.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -83,10 +82,18 @@ with `-D<OPTION>=<value>` (run `cmake -LH build` to list them); for example
 `-DTIFA_BITSTRING_T=...`, `-DTIFA_ALLOW_VERBOSE=ON`, `-DTIFA_ALLOW_TIMING=ON`.
 
 The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
-`libtifa.dylib`) library, plus the command-line factorization programs
-(`cfrac`, `ecm`, `fermat`, `siqs`, `squfof`, `rho`, `p_minus_1`, `p_plus_1`,
-`tdiv`) and the `tifa_tune` parameter-tuning tool (see
-[Parameter tuning](#parameter-tuning) below). Installation also
+`libtifa.dylib`) library, plus the command-line factorization programs and the
+`tifa_tune` parameter-tuning tool (see [Parameter tuning](#parameter-tuning)
+below). `tifa_factor` factors a number with the methods the `tifa_factor()`
+function chooses:
+
+```sh
+./build/tools/tifa_factor 19409887069306060631113
+```
+
+The other programs run one algorithm each (`cfrac`, `ecm`, `fermat`, `siqs`,
+`squfof`, `rho`, `p_minus_1`, `p_plus_1`, `tdiv`); given only the number, they
+choose their parameters by its size. Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
 can consume TIFA with either:
 
@@ -208,10 +215,6 @@ The committed `tuning_baked.c` ships empty (the accessor returns nothing, so the
 built-in defaults are used); `regen-tuning` overwrites it with your machine's
 measured values, which you may then commit. Tuning data is machine-specific, so
 the shipped baseline is intentionally empty.
-
-> The Perl scripts under `tools/scripts/` (`benchmarker.pl`, `plotmaker.pl`, …)
-> remain available for ad-hoc benchmarking and gnuplot visualization; `tifa_tune`
-> is the self-contained, dependency-free path for parameter selection.
 
 ## Licence
 

@@ -62,7 +62,6 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "or:\n");
     fprintf(stderr, "%15s\n\n", program->argv[0]);
 
-    PRINT_USAGE_WARNING_MSG();
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {
@@ -140,9 +139,8 @@ static void process_args(factoring_program_t* const program) {
     }
     case CFRAC_F_MAX_ARGC: {
         //
-        // Read parameters on the command line as they are provided by
-        // the factorize.pl script... The script already checks for the validity
-        // of the parameters, but let's check one more time while we're at it.
+        // Read the parameters on the command line, in the order print_usage
+        // gives.
         //
         for (int i = 1; i < argc; i++) {
             if (!is_a_number(argv[i], MAX_NDIGITS)) {

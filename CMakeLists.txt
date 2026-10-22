@@ -79,7 +79,6 @@ option(TIFA_GENERATE_DOXYGEN_HTML "Doxygen: generate HTML output"            ON)
 option(TIFA_GENERATE_DOXYGEN_PDF  "Doxygen: generate PDF (LaTeX) output"     ON)
 option(TIFA_GENERATE_DOXYGEN_XML  "Doxygen: generate XML output"             OFF)
 option(TIFA_GENERATE_DOXYGEN_RTF  "Doxygen: generate RTF output"             OFF)
-option(TIFA_GENERATE_MAN_PAGES    "Generate Perl module man pages via pod2man" ON)
 set(TIFA_DOXYGEN_PAPER_TYPE "a4wide" CACHE STRING "Doxygen PDF paper type")
 set_property(CACHE TIFA_DOXYGEN_PAPER_TYPE PROPERTY
     STRINGS a4 a4wide letter legal executive)

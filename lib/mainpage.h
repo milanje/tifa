@@ -66,25 +66,25 @@
  *       <li>trial division</li>
  *     </ul>
  *   </li>
- *   <li>a set of stand-alone factorization programs for each algorithm
- *       implemented:
+ *   <li>stand-alone factorization programs: <tt>tifa_factor</tt>, which
+ *       chooses the methods as the <tt>tifa_factor</tt> function does, and
+ *       one program for each algorithm implemented:
  *     <ul>
- *       <li><tt>cfrac_program</tt></li>
- *       <li><tt>ecm_program</tt></li>
- *       <li><tt>fermat_program</tt></li>
- *       <li><tt>siqs_program</tt></li>
- *       <li><tt>squfof_program</tt></li>
- *       <li><tt>rho_program</tt></li>
- *       <li><tt>p_minus_1_program</tt></li>
- *       <li><tt>p_plus_1_program</tt></li>
- *       <li><tt>tdiv_program</tt></li>
+ *       <li><tt>cfrac</tt></li>
+ *       <li><tt>ecm</tt></li>
+ *       <li><tt>fermat</tt></li>
+ *       <li><tt>siqs</tt></li>
+ *       <li><tt>squfof</tt></li>
+ *       <li><tt>rho</tt></li>
+ *       <li><tt>p_minus_1</tt></li>
+ *       <li><tt>p_plus_1</tt></li>
+ *       <li><tt>tdiv</tt></li>
  *     </ul>
  *   </li>
- *   <li>a set of <strong>Perl 5</strong> scripts wrappers and launchers;</li>
- *   <li>a basic benchmarking framework written in <strong>Perl 5</strong> used 
- *       to assess the performance of <strong>TIFA</strong>'s implementations.
- *   </li> 
- * </ul> 
+ *   <li><tt>tifa_tune</tt>, which measures the algorithms' best parameters on
+ *       the current machine.
+ *   </li>
+ * </ul>
  *
  * \section documentation Documentation
  *
