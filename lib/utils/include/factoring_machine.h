@@ -213,6 +213,8 @@ typedef struct struct_factoring_machine factoring_machine_t;
     * \brief Attempt to factor an integer.
     *
     * Attempt to factor an integer with all parameters given by \c machine.
+    * Returns \c NO_FACTOR_FOUND if the integer is below 2, and \c FAILURE if
+    * it is a perfect square, which the algorithms cannot factor.
     *
     * \note This function is meant to be a starting point for implementations
     * of factorization algorithms and is obviously not intended to be directly

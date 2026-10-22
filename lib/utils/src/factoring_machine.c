@@ -62,25 +62,53 @@ ecode_t compute_multiplicities(
 
 //------------------------------------------------------------------------------
 ecode_t run_machine(factoring_machine_t* machine) {
+    if (mpz_cmp_ui(machine->n, 1) <= 0) {
+        return NO_FACTOR_FOUND;
+    }
+    if (MPZ_IS_SQUARE(machine->n)) {
+        return FAILURE;
+    }
+    //
+    // The modes work on arrays of their own: the caller's may be full, or
+    // already hold the factors of other numbers.
+    //
+    mpz_array_t*    const factors = machine->factors;
+    uint32_array_t* const multis  = machine->multis;
+
+    machine->factors = alloc_mpz_array(ELONGATION);
+    machine->multis  = (multis != NULL) ? alloc_uint32_array(ELONGATION)
+                                        : NULL;
+    ecode_t ecode = UNKNOWN_FACTORING_MODE;
+
     switch (machine->mode) {
         case SINGLE_RUN:
-            return single_run(machine);
+            ecode = single_run(machine);
             break;
         case FIND_SOME_FACTORS:
-            return find_some_factors(machine);
+            ecode = find_some_factors(machine);
             break;
         case FIND_SOME_PRIME_FACTORS:
-            return find_some_prime_factors(machine);
+            ecode = find_some_prime_factors(machine);
             break;
         case FIND_SOME_COPRIME_FACTORS:
-            return find_some_coprime_factors(machine);
+            ecode = find_some_coprime_factors(machine);
             break;
         case FIND_COMPLETE_FACTORIZATION:
-            return find_complete_factorization(machine);
+            ecode = find_complete_factorization(machine);
             break;
         default:
-            return UNKNOWN_FACTORING_MODE;
+            break;
     }
+    append_mpz_array(factors, machine->factors);
+    free_mpz_array(machine->factors);
+    machine->factors = factors;
+
+    if (multis != NULL) {
+        append_uint32_array(multis, machine->multis);
+        free_uint32_array(machine->multis);
+        machine->multis = multis;
+    }
+    return ecode;
 }
 //-----------------------------------------------------------------------------
 

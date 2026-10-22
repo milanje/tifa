@@ -56,6 +56,9 @@ ecode_t tdiv(mpz_array_t* const factors, uint32_array_t* const multis,
     // _WARNING_: The tdiv function does not have the same signature than the
     //            other factoring functions.
     //
+    if (mpz_cmp_ui(n, 1) <= 0) {
+        return NO_FACTOR_FOUND;
+    }
     PRINT_INTRO_MSG("trial division");
     INIT_TIMER;
     START_TIMER;
