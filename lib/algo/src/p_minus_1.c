@@ -150,6 +150,8 @@ ecode_t p_minus_1(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     p_minus_1_params_t own_params = *params;
+    own_params.b1 = MIN(own_params.b1, LARGEST_PRIME);
+    own_params.b2 = MIN(own_params.b2, LARGEST_PRIME);
 
     factoring_machine_t machine;
 
@@ -511,7 +513,7 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
                 unsigned long cur  = first_primes[ip + 1];
                 unsigned long gap  = cur - prev;
                 unsigned long half = gap >> 1;
-                if (half <= (unsigned long) MAX_GAP_HALF) {
+                if ((half != 0) && (half <= (unsigned long) MAX_GAP_HALF)) {
                     mpz_mul(aq, aq, gap_pow[half]);
                 } else {
                     mpz_powm_ui(t, a, gap, n);
@@ -556,7 +558,7 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
                             unsigned long cur  = first_primes[rip + 1];
                             unsigned long gap  = cur - rprev;
                             unsigned long half = gap >> 1;
-                            if (half <= (unsigned long) MAX_GAP_HALF) {
+                            if ((half != 0) && (half <= (unsigned long) MAX_GAP_HALF)) {
                                 mpz_mul(aq, aq, gap_pow[half]);
                             } else {
                                 mpz_powm_ui(t, a, gap, n);

@@ -168,6 +168,8 @@ ecode_t p_plus_1(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     p_plus_1_params_t own_params = *params;
+    own_params.b1 = MIN(own_params.b1, LARGEST_PRIME);
+    own_params.b2 = MIN(own_params.b2, LARGEST_PRIME);
 
     factoring_machine_t machine;
 
@@ -611,7 +613,8 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
         // m*D +- j (j <= PP1_DO2).
         //
         unsigned long m_min = ((unsigned long) params->b1 + PP1_DO2) / PP1_D;
-        unsigned long m_max = ((unsigned long) params->b2 - PP1_DO2) / PP1_D + 1;
+        unsigned long m_max = (params->b2 > PP1_DO2)
+                              ? (params->b2 - PP1_DO2) / PP1_D + 1 : 0;
         if (m_min < 1) {
             m_min = 1;
         }

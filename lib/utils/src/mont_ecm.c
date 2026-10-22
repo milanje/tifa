@@ -215,7 +215,7 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
     if (plan->m_first == 0) {
         plan->m_first = 1;
     }
-    const uint32_t m_last = (plan->b2 + half) / d;
+    const uint32_t m_last = (uint32_t) (((uint64_t) plan->b2 + half) / d);
     plan->nm      = m_last - plan->m_first + 1;
     plan->offsets = calloc(plan->nm + 1, sizeof(uint32_t));
 

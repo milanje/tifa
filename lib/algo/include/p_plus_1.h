@@ -62,15 +62,17 @@ struct struct_p_plus_1_params_t {
         /**
          * Stage 1 smoothness bound: all prime powers up to \c b1 are
          * accumulated in the exponent. A prime factor \c p is found when
-         * <tt>p + 1</tt> is <tt>b1</tt>-smooth. Must be no greater than the
-         * largest tabulated prime (see \c LARGEST_PRIME in first_primes.h).
+         * <tt>p + 1</tt> is <tt>b1</tt>-smooth. Larger values than the
+         * largest tabulated prime (see \c LARGEST_PRIME in first_primes.h)
+         * are lowered to it.
          */
     uint32_t b1;
         /**
          * Stage 2 bound. Stage 2 recovers a factor \c p when <tt>p + 1</tt> is
          * a \c b1-smooth number times a single prime in <tt>(b1, b2]</tt>. If
-         * <tt>b2 <= b1</tt>, stage 2 is skipped. Must be no greater than the
-         * largest tabulated prime (see \c LARGEST_PRIME in first_primes.h).
+         * <tt>b2 <= b1</tt>, stage 2 is skipped. Larger values than the
+         * largest tabulated prime (see \c LARGEST_PRIME in first_primes.h)
+         * are lowered to it.
          */
     uint32_t b2;
         /**

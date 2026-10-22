@@ -229,6 +229,11 @@ static const ecm_level_t ecm_levels[] = {
 // the size of n) before giving up.
 //
 #define MAX_ROUNDS_AT_TOP 4
+//
+// Largest stage 2 bound, above the top level's: the GMP stage 2 table takes
+// about two bytes per unit of b2.
+//
+#define MAX_B2 (1U << 26)
 
 //------------------------------------------------------------------------------
 //                    PROTOTYPES OF NON PUBLIC FUNCTION(S)
@@ -299,6 +304,7 @@ ecode_t ecm(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     ecm_params_t own_params = *params;
+    own_params.b2 = MIN(own_params.b2, MAX_B2);
 
     factoring_machine_t machine;
 
@@ -389,6 +395,19 @@ static void set_stage1_bound(ecm_context_t* const context,
         return;
     }
 #endif
+    //
+    // Stage 2 takes giant steps of D = 210 from b1 + D/2: as on the
+    // Montgomery curves, it needs b1 >= D/2, and b2 > b1.
+    //
+    if (params->b1 < 2) {
+        params->b1 = 2;
+    }
+    if ((params->b2 > params->b1) && (params->b1 < 105)) {
+        params->b1 = 105;
+    }
+    if (params->b2 <= params->b1) {
+        params->b2 = 0;
+    }
     //
     // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
     // tree...
