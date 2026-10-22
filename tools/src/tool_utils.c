@@ -27,7 +27,9 @@
 #    include <tifa_config.h>
 #endif
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -51,18 +53,20 @@ bool is_a_number(const char* const str_n, uint32_t length) {
     return true;
 }
 //------------------------------------------------------------------------------
-void chomp(char* const str_n, uint32_t length) {
-    //
-    // _NOTE_: This function is actually quite different from the
-    //         Perl builtin chomp function. It's name should probably
-    //         be changed to avoid confusion...
-    //
-    for (uint32_t i = 0; i < length; i++) {
-        if (str_n[i] == '\n') {
-            str_n[i] = '\0';
-            break;
-        }
+char* read_number(char* const buffer, uint32_t length) {
+    if (fgets(buffer, (int) length, stdin) == NULL) {
+        fprintf(stderr, "\nERROR: no number to read!\n");
+        exit(-1);
     }
+    char* const newline = strchr(buffer, '\n');
+    if (newline != NULL) {
+        *newline = '\0';
+    } else if (!feof(stdin)) {
+        fprintf(stderr, "\nERROR: the number has more than %" PRIu32
+                        " digits!\n", length - 2);
+        exit(-1);
+    }
+    return buffer;
 }
 //------------------------------------------------------------------------------
 

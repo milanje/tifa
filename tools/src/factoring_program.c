@@ -67,6 +67,10 @@ ecode_t run_program(factoring_program_t* const program) {
     //
     program->process_args_func(program);
 
+    if (mpz_cmp_ui(program->n, 2) < 0) {
+        gmp_printf("\nOOPS: %Zd has no prime factor!\n", program->n);
+        return 0;
+    }
     //
     // Of course, check if program->n is prime before proceeding.
     //

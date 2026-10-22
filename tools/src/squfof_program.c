@@ -68,9 +68,8 @@ static void process_args(factoring_program_t* const program) {
         //
         char str_buffer[MAX_NDIGITS];
         PRINT_ENTER_NUMBER_MSG();
-        char* str_factor_me = fgets(str_buffer, MAX_NDIGITS, stdin);
+        char* str_factor_me = read_number(str_buffer, MAX_NDIGITS);
         printf("\n");
-        chomp(str_factor_me, MAX_NDIGITS);
 
         if (!is_a_number(str_factor_me, MAX_NDIGITS)) {
             PRINT_NAN_ERROR(str_factor_me);

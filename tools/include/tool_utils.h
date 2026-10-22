@@ -53,20 +53,16 @@ extern "C" {
 bool is_a_number(const char* const str_n, uint32_t length);
 
    /**
-    * \brief <tt>NULL</tt> terminates a string.
+    * \brief Reads a line of the standard input, without its newline.
     *
-    * <tt>NULL</tt> terminates the string \c str_n at the first occurence
-    * of a newline encountered. If no newline is found \c str_n is left
-    * unchanged.
+    * Exits the program with an error message if nothing can be read or if
+    * the line does not fit in \c length - 1 characters.
     *
-    * \note This function is actually quite different from the Perl builtin
-    * \c chomp function. It's name should probably be changed to avoid
-    * possible confusion.
-    *
-    * \param[in] str_n The string to \c NULL terminate.
-    * \param[in] length The maximum length of the string to check.
+    * \param[out] buffer The line read.
+    * \param[in]  length The size of \c buffer.
+    * \return \c buffer.
     */
-void chomp(char* const str_n, uint32_t length);
+char* read_number(char* const buffer, uint32_t length);
 
 #ifdef __cplusplus
 }
