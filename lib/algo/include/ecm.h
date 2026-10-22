@@ -34,10 +34,10 @@
  * Hardware", K. Gaj et al., <i>Cryptographic Hardware and Embedded Systems -
  * CHES 2006</i>.
  *
- * \warning This is merely a toy-implementation of ECM without any smart
- * optimizations. More work is certainly needed to make it competitive
- * for small numbers. Large numbers are, of course, out of the scope of this
- * library.
+ * On odd numbers of up to four 64-bit limbs, the curves run in fixed-limb
+ * Montgomery arithmetic (mont_ecm.h), where the compiler has 128-bit
+ * integers; other numbers use the GMP code. Large numbers are, of course, out
+ * of the scope of this library.
  */
 
 #if !defined(_TIFA_ECM_H_)
@@ -75,9 +75,8 @@ struct struct_ecm_params_t {
          * Bound used in the second phase of ECM. If set to 0, no second phase
          * is performed.
          *
-         * \warning Due to a current limitation in the code, it is \c required
-         * than \c b2 == 0 (no second phase) or \c b2 > 105. Failure to assess
-         * such a condition will lead to unpredictable behaviour.
+         * \warning On the GMP code (see above), \c b2 must be 0, or above both
+         * 105 and \c b1: other values lead to unpredictable behaviour.
          */
     uint32_t b2;
         /**
@@ -89,8 +88,9 @@ struct struct_ecm_params_t {
         /**
          * Seed of the curve choice: two runs on the same number with the
          * same nonzero seed use the same curves. 0 derives the seed from the
-         * number to factor. On numbers of up to 256 bits, the first curves
-         * are always those of z2z8_curves.h, and the seed chooses the next.
+         * number to factor. On the Montgomery code (see above), the first
+         * curves are always those of z2z8_curves.h, and the seed chooses the
+         * next.
          */
     uint32_t seed;
 };
@@ -103,12 +103,12 @@ typedef struct struct_ecm_params_t ecm_params_t;
    /**
     * \brief Fills an \c ecm_params_t with default values.
     *
-    * Sets the bounds suited to the smallest factors (about 20 bits). In
-    * modes other than SINGLE_RUN, \c ecm then moves up to the bounds for
-    * larger factors, 5 bits at a time, as long as no factor is found, up to
-    * factors of half the size of \c n, and tries that last level a few more
-    * times before giving up. A tuning file row for the size of \c n (see
-    * tuning.h) overrides the starting values.
+    * Sets the bounds suited to the smallest factors (15 bits). In modes
+    * other than SINGLE_RUN, \c ecm then moves up to the bounds for larger
+    * factors, 5 bits at a time, as long as no factor is found, up to factors
+    * of half the size of \c n (85 bits at most), and tries that last level a
+    * few more times before giving up. The tuning file rows for the size of
+    * \c n (see tuning.h), interpolated, override the starting values.
     *
     * \param[in]  n The \c mpz_t integer to factor.
     * \param[out] params A pointer to the \c ecm_params_t structure to fill.
@@ -120,7 +120,8 @@ void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params);
     *
     * Sets \c b1 and \c b2 to the bounds minimizing the expected time to
     * find a prime factor of \c fbits bits, and \c ncurves to the mean number
-    * of curves that takes.
+    * of curves that takes, for the first tabulated size (15 to 85 bits, by 5)
+    * not below \c fbits. Sets \c seed to 0.
     *
     * \param[in]  fbits The size of the factor sought, in bits.
     * \param[out] params A pointer to the \c ecm_params_t structure to fill.

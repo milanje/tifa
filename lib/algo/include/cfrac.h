@@ -55,18 +55,6 @@ extern "C" {
 #include "exit_codes.h"
 
    /**
-    * \def CFRAC_DFLT_NPRIMES_IN_BASE
-    * Default number of prime numbers composing the factor base on which
-    * to factor the residues.
-    */
-#define CFRAC_DFLT_NPRIMES_IN_BASE  (NFIRST_PRIMES/16)
-   /**
-    * \def CFRAC_DFLT_NPRIMES_TDIV
-    * Default number of the first primes to use in the trial division
-    * of the residues.
-    */
-#define CFRAC_DFLT_NPRIMES_TDIV     (NFIRST_PRIMES/16)
-   /**
     * \def CFRAC_DFLT_NRELATIONS
     * Default number of congruence relations to find before attempting the
     * factorization of the large integer.
@@ -104,7 +92,8 @@ struct struct_cfrac_params_t {
         */
     uint32_t nprimes_tdiv;
        /**
-        * Number of linear dependences to find.
+        * Number of relations to collect beyond the size of the factor base
+        * (plus one, for the sign), before looking for linear dependences.
         */
     uint32_t nrelations;
        /**
@@ -121,12 +110,8 @@ struct struct_cfrac_params_t {
         */
     smooth_filter_method_t filter_method;
        /**
-        * Number of steps in the early abort strategy. If zero, no early
-        * abort is performed. Only used is \c linalg_method is set to
-        * \c TDIV or \c TDIV_EARLY_ABORT.
-        *
-        * \note \c nsteps should be less than or equal to \c MAX_NSTEPS,
-        * as defined in smooth_filter.h.
+        * Unused: \c filter_method sets the number of steps of the early
+        * abort strategy (see \c complete_filter_init in smooth_filter.h).
         */
     unsigned short int nsteps_early_abort;
 };
@@ -172,8 +157,6 @@ void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params);
     * be automatically resized to accommodate the data. This has to be kept
     * in mind when trying to do ingenious stuff with memory management (hint:
     * don't try to be clever here).
-    *
-    * \warning The "no large primes" variant is currently disabled.
     *
     * \param[out] factors Pointer to the found factors of <tt>n</tt>.
     * \param[out] multis Pointer to the multiplicities of the found factors

@@ -33,7 +33,8 @@
  * parameters with its usual defaults, then consults \c tifa_tuning_get_row. If
  * a tuning file provides a row for the number's bit-size, the tunable fields
  * are overridden; otherwise the defaults are left untouched. When no tuning
- * file is present the library behaves exactly as if this module did not exist.
+ * file is present and no baked table is compiled in (tuning_baked.h), the
+ * library behaves exactly as if this module did not exist.
  *
  * \section format Tuning file format
  *
@@ -46,8 +47,9 @@
  *
  * Lookup for a bit-size \c s returns the row with the largest
  * <tt>min_bitsize &lt;= s</tt>; if \c s is below the first row, the first row
- * is used. \c tifa_tuning_get_row further interpolates the numeric columns
- * linearly between that row and the next one.
+ * is used. \c tifa_tuning_get_row further interpolates the columns of the
+ * algorithm's \c TIFA_TUNING_INTERP_* mask linearly between that row and the
+ * next one.
  */
 
 #if !defined(_TIFA_TUNING_H_)

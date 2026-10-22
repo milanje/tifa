@@ -99,10 +99,11 @@ struct struct_cofactor_params_t {
          * Above this many bits, a composite is never handed to SIQS: once
          * ECM has searched it for as long as SIQS would take, without
          * finding a factor, it is given up (\c COFACTOR_GAVE_UP). With
-         * three large primes of 31 or 33 bits, this takes half the time of
-         * exact answers and misses about 0.3% of the smooth numbers. 0 for
-         * no limit: every answer is then exact. Ignored without 128-bit
-         * integers (the ECM used here needs them).
+         * three large primes and <tt>max_siqs_bits = 2 lpb</tt>, this takes
+         * 60% to 65% of the time of exact answers and misses 0.25% to 0.30%
+         * of the smooth numbers (readme/news.md). 0 for no limit: every
+         * answer is then exact. Ignored without 128-bit integers (the ECM
+         * used here needs them).
          */
     uint32_t max_siqs_bits;
 };

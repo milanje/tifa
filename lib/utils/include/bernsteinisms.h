@@ -153,14 +153,12 @@ void bern_71(
     * remainder tree).
     *
     * Given the prime numbers p_j listed by \c pj and the positive integers
-    * x_i listed by <tt>xi</tt>, determines the {p_j}-smooth part of each
-    * x_i and stores them in <tt>smooth</tt>, so that \c smooth->data[i] is
-    * the {p_j}-smooth part of \c xi->data[i].
+    * x_i listed by <tt>xi</tt>, appends to <tt>smooth</tt> the x_i that are
+    * {p_j}-smooth.
     *
     * The function stops when each integer from \c xi has been checked for
     * smoothness or when the \c smooth array is completely filled. It then
-    * returns the index of the last integer in \c xi that has been checked
-    * for smoothness.
+    * returns the number of integers of \c xi that have been checked.
     *
     * This is the algorithm 2.1 described in Daniel J. Bernstein's paper: "How
     * to find smooth parts of integers".
@@ -168,12 +166,10 @@ void bern_71(
     * \see Daniel J. Bernstein's paper: "How to find smooth parts of integers",
     * http://cr.yp.to/factorization/smoothparts-20040510.pdf
     *
-    * \param[out] smooth A pointer to the {p_j}-smooth parts of each
-    *                    x_i integer.
+    * \param[out] smooth A pointer to the {p_j}-smooth x_i.
     * \param[in] xi A pointer to the list of the x_i integers.
     * \param[in] z The product of the the p_j prime numbers in the facotr base.
-    * \return  The index of the last integer in \c xi that has been checked
-    *          for smoothness.
+    * \return  The number of integers of \c xi that have been checked.
     */
 uint32_t bern_21_rt(
     mpz_array_t* const smooth,
@@ -186,14 +182,12 @@ uint32_t bern_21_rt(
     * remainder tree).
     *
     * Given the prime numbers p_j listed by \c pj and the positive integers
-    * x_i listed by <tt>xi</tt>, determines the {p_j}-smooth part of each
-    * x_i and stores them in <tt>smooth</tt>, so that \c smooth->data[i] is
-    * the {p_j}-smooth part of \c xi->data[i].
+    * x_i listed by <tt>xi</tt>, appends to <tt>smooth</tt> the x_i that are
+    * {p_j}-smooth.
     *
     * The function stops when each integer from \c xi has been checked for
     * smoothness or when the \c smooth array is completely filled. It then
-    * returns the index of the last integer in \c xi that has been checked
-    * for smoothness.
+    * returns the number of integers of \c xi that have been checked.
     *
     * This is the algorithm 2.1 described in Daniel J. Bernstein's paper: "How
     * to find smooth parts of integers".
@@ -205,12 +199,10 @@ uint32_t bern_21_rt(
     * \see Daniel J. Bernstein's paper: "How to find smooth parts of integers",
     * http://cr.yp.to/factorization/smoothparts-20040510.pdf
     *
-    * \param[out] smooth A pointer to the {p_j}-smooth parts of each
-    *                    x_i integer.
+    * \param[out] smooth A pointer to the {p_j}-smooth x_i.
     * \param[in] xi A pointer to the list of the x_i integers.
     * \param[in] z The product of the the p_j prime numbers in the facotr base.
-    * \return  The index of the last integer in \c xi that has been checked
-    *          for smoothness.
+    * \return  The number of integers of \c xi that have been checked.
     */
 uint32_t bern_21(
     mpz_array_t* const smooth,
@@ -421,8 +413,10 @@ uint32_t bern_21_pairs_lp(
 );
 
    /**
-    * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS (with
-    * computation of a remainder tree).
+    * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS (with a
+    * remainder tree only when \c z has more than
+    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, each y_i is reduced
+    * modulo \c z directly).
     *
     * Given <tt>z</tt>, the product of prime numbers p_j and the positive
     * integers y_i listed by <tt>cand_yi</tt>, determines the y_i that are
@@ -477,7 +471,9 @@ uint32_t bern_21_rt_pairs_siqs(
 
    /**
     * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS, with large
-    * primes variation (with computation of a remainder tree).
+    * primes variation (with a remainder tree only when \c z has more than
+    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, each y_i is reduced
+    * modulo \c z directly).
     *
     * Given <tt>z</tt>, the product of prime numbers p_j and the positive
     * integers y_i listed by <tt>cand_yi</tt>, determines the y_i that are

@@ -382,9 +382,10 @@ bool is_prime(uint32_t n);
    /**
     * \brief Primality test for multi-precision integers.
     *
-    * Conclusive below 2^64 (see \c is_prime_u64, used there when available).
-    * Above, a Baillie-PSW test, with no known counterexample (see
-    * \c NMILLER_RABIN). Tests the absolute value of \c n.
+    * Below 2^64, \c is_prime_u64 where available (see factor_u64.h).
+    * Otherwise, \c mpz_probab_prime_p with \c NMILLER_RABIN reps: from GMP
+    * 6.2, a Baillie-PSW test, with no known counterexample (and none below
+    * 2^64); before, Miller-Rabin rounds. Tests the absolute value of \c n.
     *
     * \param[in] n The integer to test.
     * \returns \c true if \c n is (probably) prime.
@@ -713,12 +714,6 @@ void unrank_subset_lex(uint32_t n, uint32_t k, uint32_t r, uint32_t* subset);
     */
 void unrank_subset_revdoor(uint32_t n, uint32_t k, uint32_t r,
                            uint32_t* subset);
-
-/*
- *-----------------------------------------------------------------------------
- *                      Random number generation functions
- *-----------------------------------------------------------------------------
- */
 
 #ifdef __cplusplus
 }

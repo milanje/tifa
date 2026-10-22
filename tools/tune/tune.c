@@ -21,12 +21,13 @@
  * \brief   tifa_tune: measure and record good algorithm parameters per bit-size.
  *
  * For each selected algorithm and bit-size, tifa_tune generates a shared set of
- * test composites, sweeps the algorithm's parameter grid (evaluating every
- * combination on the same composites for a fair comparison), times each run,
- * and selects the parameter combination minimizing the expected time to find a
- * factor. The winning combination for each bit-size is written as one row of a
- * per-algorithm <tt>&lt;algo&gt;.tuning</tt> file that the library can load at
- * runtime (see lib/algo/include/tuning.h).
+ * test composites, sweeps the algorithm's parameter grid around a center that
+ * depends on the size (evaluating every combination on the same composites for
+ * a fair comparison, and dropping one as soon as it has taken longer than the
+ * best), times each run, and selects the parameter combination minimizing the
+ * expected time to find a factor. The winning combination for each bit-size is
+ * written as one row of a per-algorithm <tt>&lt;algo&gt;.tuning</tt> file that
+ * the library can load at runtime (see lib/algo/include/tuning.h).
  */
 
 // This tool relies on POSIX facilities (fork/pipe/select/waitpid/kill for the

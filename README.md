@@ -35,8 +35,9 @@ changes.
 ## What's in there
 
 - `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
-  method by size: trial division, machine-word arithmetic below 2^64, then an
-  ECM pre-pass, p-1 and p+1 from 90 bits, and SIQS.
+  methods by size: machine-word arithmetic below 2^64; above, trial division by
+  the primes below 1000, a short ECM search, single p-1 and p+1 runs from 90
+  bits, then SIQS.
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).
@@ -77,9 +78,9 @@ compiler with 128-bit integers (GCC and Clang have them on 64-bit platforms);
 without them, the library falls back on its GMP code.
 
 If GMP lives in a non-standard location, pass `-DGMP_INCDIR=<dir>` and
-`-DGMP_LIBDIR=<dir>`. Build options mirror the old `BuildOptions.py` and are set
-with `-D<OPTION>=<value>` (run `cmake -LH build` to list them); for example
-`-DTIFA_BITSTRING_T=...`, `-DTIFA_ALLOW_VERBOSE=ON`, `-DTIFA_ALLOW_TIMING=ON`.
+`-DGMP_LIBDIR=<dir>`. Build options are set with `-D<OPTION>=<value>` (run
+`cmake -LH build` to list them); for example `-DTIFA_BITSTRING_T=...`,
+`-DTIFA_ALLOW_VERBOSE=ON`, `-DTIFA_ALLOW_TIMING=ON`.
 
 The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
 `libtifa.dylib`) library, plus the command-line factorization programs and the
@@ -93,7 +94,7 @@ function chooses:
 
 The other programs run one algorithm each (`cfrac`, `ecm`, `fermat`, `siqs`,
 `squfof`, `rho`, `p_minus_1`, `p_plus_1`, `tdiv`); given only the number, they
-choose their parameters by its size. Installation also
+use the algorithm's default parameters. Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
 can consume TIFA with either:
 
@@ -109,8 +110,11 @@ cc app.c $(pkg-config --cflags --libs tifa) -o app
 Other targets: `cmake --build build --target doc` (Doxygen documentation, if
 available) and `cpack --config build/CPackSourceConfig.cmake` (source tarball).
 
-A [very crude documentation](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/doc/tifa_user.pdf) is available as a PDF on the
-[project's LIX webpage](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/tifa.xhtml).
+The [2011 user's guide](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/doc/tifa_user.pdf)
+(PDF, on the
+[project's LIX webpage](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/tifa.xhtml))
+describes the library before the 2026 rework; the Doxygen documentation
+(`cmake --build build --target doc`) describes the current one.
 
 ## Cofactorization
 
@@ -124,8 +128,8 @@ cofactor_params_t params = {
     .lpb              = 31,         // accept prime factors below 2^31
     .fb_bound         = 1UL << 22,  // the cofactors have no smaller factor
     .max_large_primes = 3,
-    .max_siqs_bits    = 64,         // above 64 bits, ECM only: give up rather
-                                    // than run SIQS (0: always exact)
+    .max_siqs_bits    = 62,         // above 2 lpb bits, ECM only: give up
+                                    // rather than run SIQS (0: always exact)
 };
 cofactor_strategy_t* strategy = alloc_cofactor_strategy(&params);
 
@@ -136,9 +140,10 @@ free_cofactor_strategy(strategy);
 ```
 
 Above `max_siqs_bits`, a composite that ECM does not split within the time SIQS
-would take is given up (`COFACTOR_GAVE_UP`): with three large primes, that
-takes about half the time of exact answers and misses about 0.3% of the smooth
-cofactors.
+would take is given up (`COFACTOR_GAVE_UP`). With three large primes and
+`max_siqs_bits = 2 lpb`, that takes 60% to 65% of the time of exact answers and
+misses 0.25% to 0.30% of the smooth cofactors (see
+[readme/news.md](./readme/news.md#cofactorization)).
 
 ## Parameter tuning
 
@@ -152,17 +157,20 @@ the library.
 There are three ways parameters reach the library, tried in order, with the
 built-in defaults always as the final fallback:
 
-1. **A runtime tuning file** — `<dir>/<algo>.tuning`, where `<dir>` is set via
-   the `TIFA_TUNING_DIR` environment variable (or, for embedders,
-   `tifa_tuning_set_dir()`). Nothing is baked into the binary; you can swap files
-   without recompiling.
+1. **A runtime tuning file** — `<dir>/<algo>.tuning`, where `<dir>` is the one
+   set by `tifa_tuning_set_dir()` (`tuning.h`, for embedders), else the
+   `TIFA_TUNING_DIR` environment variable, else the directory compiled in with
+   `-DTIFA_TUNING_DIR=<dir>` (default `<prefix>/share/tifa/tuning`). You can
+   swap files without recompiling.
 2. **Compiled-in ("baked") tables** — enabled with `-DTIFA_USE_BAKED_TUNING=ON`;
    consulted when no runtime file is found (see below).
 3. **The built-in defaults** — used whenever neither of the above applies, so an
    untouched build behaves exactly as before this feature existed.
 
-A tuning file lists rows of parameters for increasing bit-sizes; between two
-rows, the numeric parameters are interpolated.
+A tuning file lists rows of parameters for increasing bit-sizes. Between two
+rows, most quantities (bounds, sizes, counts) are interpolated; the flags,
+seeds, choices and the SIQS sieve width (whose cost jumps at each multiple of
+the sieve chunk) are taken from the row below.
 
 ### Generating tuning files
 
@@ -172,8 +180,10 @@ cmake --build build --target tifa_tune
 ```
 
 `tifa_tune` builds test composites (products of similar-size primes), sweeps a
-parameter grid for each bit-size, times each run, and writes the combination
-minimizing the expected time to find a factor. Useful options (`--help` lists
+parameter grid around a size-dependent center for each bit-size, times each
+run, and writes the combination minimizing the expected time to find a factor.
+A combination is dropped as soon as its runs have taken longer in total than
+the best one's. Useful options (`--help` lists
 all): `--algo <names|all>` (a comma-separated list of algorithm names, or `all`;
 `--help` lists the valid names), `--min`/`--max`/`--step` (bit-size range; `--max` is always tuned), `--trials`,
 `--seed` (reproducible composites), `--timeout <sec>` (per-run wall-clock budget;
@@ -218,22 +228,27 @@ the shipped baseline is intentionally empty.
 
 ## Licence
 
-The TIFA library is Copyright(C) 2011 CNRS, Ecole Polytechnique and INRIA.
+The TIFA library is Copyright (C) 2011 CNRS, Ecole Polytechnique and INRIA.
+The files added in 2026 are Copyright (C) 2026 Jerome Milan.
 
 The TIFA library is free software; you can redistribute it and/or modify it
 under the terms of the
-[GNU Lesser General Public License](http://www.gnu.org/licenses/lgpl.html)
+[GNU Lesser General Public License](https://www.gnu.org/licenses/lgpl.html)
 as published by the Free Software Foundation; either
 [version 2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 of the License, or (at your option) any later version.
 
 The TIFA library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
 
-The TIFA "puzzle cube" logo was created by Jerome Milan and is
-Copyright (C) 2011 [CNRS](http://www.cnrs.fr/index.php),
-[INRIA](http://en.inria.fr/) and
-[Ecole Polytechnique](http://www.polytechnique.edu/en). All rights reserved.
+The texts of the licenses are in the `readme` directory:
+[LGPL 2.1](./readme/license_v2.1.txt), [LGPL 3](./readme/license_v3.txt) and
+the [GPL 3](./readme/gpl_v3.txt) it refers to.
 
-Finally, note that TIFA has been registered in June 2011 at the european
+The TIFA "puzzle cube" logo was created by Jerome Milan and is
+Copyright (C) 2011 [CNRS](https://www.cnrs.fr),
+[INRIA](https://www.inria.fr/en) and
+[Ecole Polytechnique](https://www.polytechnique.edu/en). All rights reserved.
+
+Finally, note that TIFA has been registered in June 2011 at the French
 agency for software protection ([APP](https://www.app.asso.fr/en)) with the
 Inter Deposit Digital Number `IDDN.FR.001.220019.000.S.A.2011.000.31235`.

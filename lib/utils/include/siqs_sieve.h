@@ -60,7 +60,8 @@ extern "C" {
 #endif
 
 //
-// Do not sieve for the NPRIMES_TO_SKIP smallest primes in the factor base
+// Do not sieve with the NPRIMES_TO_SKIP smallest primes of the factor base,
+// or only with those up to the smallest prime of 'a' if it is among them
 //
 #define NPRIMES_TO_SKIP        20
 //
@@ -86,8 +87,9 @@ struct struct_siqs_sieve_t {
      */
     uint32_t nchunks;
     /**
-     * Size of a sieve chunk. The total sieving interval is thus given by
-     * \tt{2 * chunk_size * nchunks}
+     * Size of a sieve chunk. The last chunk on each side ends at
+     * \tt{endlast}, so that the sieving interval covers exactly
+     * \tt{2 * half_width} positions
      */
     uint32_t chunk_size;
     /**
@@ -104,8 +106,9 @@ struct struct_siqs_sieve_t {
      */   
     uint32_t scan_begin;
     /**
-     * The sieve threshold. An \b{xi} will be tested for smoothness if
-     * \tt{sieve[}\b{xi}\tt{]} < \tt{threshold}
+     * The sieve threshold: the initial value of each sieve byte. The logs of
+     * the primes hitting \b{xi} are subtracted from it, and \b{xi} is tested
+     * for smoothness once its byte goes below zero (high bit set)
      */
     uint32_t threshold;
     /**
@@ -241,8 +244,9 @@ ecode_t scan_sieve(
    /**
     * \brief Sets the <tt>siqs_sieve_t</tt>'s threshold.
     * 
-    * Sets \tt{sieve}'s threshold (all positions \b{xi} with
-    * \tt{sieve[}\b{xi}\tt{]} < threshold will be tested for smoothness).
+    * Sets \tt{sieve}'s threshold (see \tt{siqs_sieve_t}: the positions
+    * \b{xi} whose logs of primes add up to more than \tt{threshold} are
+    * tested for smoothness).
     *
     * \param sieve     the \tt{siqs_sieve_t} to update.
     * \param threshold the new threshold's value.

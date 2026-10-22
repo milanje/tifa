@@ -25,7 +25,8 @@
  * \brief Pollard's rho factorization algorithm.
  *
  * This is the TIFA library's naive implementation of Pollard's rho
- * factorization algorithm, using Floyd's cycle finding algorithm.
+ * factorization algorithm, using Brent's cycle finding algorithm by default,
+ * or Floyd's.
  */
 
 #if !defined(_TIFA_RHO_H_)

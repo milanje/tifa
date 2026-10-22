@@ -103,18 +103,18 @@ struct struct_siqs_poly_t {
      */
   int32_array_t *sol2;
     /**
-     * For all \b{l} in [0, \tt{npolys}-1] solutions to
+     * For all \b{l} in [0, \tt{nprimes_in_a}-1] solutions to
      *
      * \li \tt{Bl}^2 = \tt{n} mod \b{q_l}
      * \li \tt{Bl} = 0 mod \b{q_j} for all \b{j} != \b{l}
      *
      * where \b{q_i} are the primes from the factor base such that
-     * \b{a} = \b{q_0} x \b{q_1} x ... x \b{q_}\tt{npolys}
+     * \b{a} = \b{q_0} x \b{q_1} x ... x \b{q_}\tt{nprimes_in_a-1}
      */
   mpz_array_t* Bl;
     /**
-     * \tt{Bainv2[i][j]} = 2 x \tt{Bl[i]} x inv(\tt{a}) mod \b{pj} for
-     * \b{i} in [0, \tt{npolys}-1] and \b{pj} in the factor base 
+     * \tt{Bainv2[i][j]} = 2 x \tt{Bl[j]} x inv(\tt{a}) mod \b{pi} for
+     * \b{pi} in the factor base and \b{j} in [0, \tt{nprimes_in_a}-1]
      */
   uint32_t**   Bainv2;
     /**

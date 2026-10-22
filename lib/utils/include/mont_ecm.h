@@ -69,7 +69,9 @@ typedef struct struct_mont_ecm_plan_t mont_ecm_plan_t;
     * \brief Allocates the plan for the bounds \c b1 and \c b2.
     *
     * \c b1 is lowered to the largest tabulated prime (see
-    * first_primes.h) if needed. No stage 2 is planned if <tt>b2 <= b1</tt>.
+    * first_primes.h) if needed. If <tt>b2 > b1</tt>, \c b1 is raised to at
+    * least 105 (half the stage 2 step); no stage 2 is planned if \c b2 does
+    * not exceed the resulting \c b1.
     */
 mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2);
 

@@ -48,17 +48,19 @@ extern "C" {
    /**
     * \brief Generic Integer factorization.
     *
-    * Attempts to factor the non perfect square integer \c n with the
-    * most suitable algorithm (chosen according to the size of \c n)
-    * and with the factoring mode given by <tt>mode</tt>. Found factors are
-    * then stored in \c factors. Additionally, if the factoring mode used is
-    * set to \c FIND_COMPLETE_FACTORIZATION, factors' multiplicities are stored
-    * in the array <tt>multis</tt>. Numbers below 2^64 are factored with
+    * Attempts to factor the integer \c n with the most suitable algorithms
+    * (chosen according to the size of \c n) and with the factoring mode given
+    * by <tt>mode</tt>. Found factors are then stored in \c factors.
+    * Additionally, if the factoring mode used is set to
+    * \c FIND_COMPLETE_FACTORIZATION, factors' multiplicities are stored in
+    * the array <tt>multis</tt>. Numbers below 2^64 are factored with
     * machine-word arithmetic where the compiler supports it (see
     * factor_u64.h). Otherwise, prime factors below 1000 (below 8192 for
     * numbers of at most 26 bits) are found by trial division before any
-    * other algorithm runs, then a short ECM search (see ecm_schedule.h)
-    * looks for a medium factor before SIQS.
+    * other algorithm runs. The composites left go to SQUFOF up to 64 bits
+    * (58 on 32-bit machines); above, a short ECM search (see ecm_schedule.h,
+    * up to 256 bits) looks for a medium factor, then, from 90 bits, single
+    * p-1 and p+1 runs, before SIQS.
     *
     * \note If the factoring mode used is different from
     * \c FIND_COMPLETE_FACTORIZATION, \c multis is allowed to be a NULL
@@ -74,7 +76,7 @@ extern "C" {
     * \param[out] multis Pointer to the multiplicities of the found factors
     *                    (only computed if \c mode is set to
     *                     \c FIND_COMPLETE_FACTORIZATION).
-    * \param[in] n The non perfect square integer to factor.
+    * \param[in] n The integer to factor.
     * \param[in] mode The factoring mode to use.
     * \return An exit code: \c NO_FACTOR_FOUND if \c n is prime.
     */

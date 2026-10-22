@@ -46,23 +46,6 @@ extern "C" {
 #include "exit_codes.h"
 
    /**
-    * \def SIQS_DFLT_SIEVE_HALF_WIDTH
-    * Default sieving half-width.
-    */
-#define SIQS_DFLT_SIEVE_HALF_WIDTH 500000
-   /**
-    * \def SIQS_DFLT_NPRIMES_IN_BASE
-    * Default number of prime numbers composing the factor base on which
-    * to factor the residues.
-    */
-#define SIQS_DFLT_NPRIMES_IN_BASE  NFIRST_PRIMES/16
-   /**
-    * \def SIQS_DFLT_NPRIMES_TDIV
-    * Default number of the first primes to use in the trial division
-    * of the residues.
-    */
-#define SIQS_DFLT_NPRIMES_TDIV     NFIRST_PRIMES/16
-   /**
     * \def SIQS_DFLT_NRELATIONS
     * Default number of congruence relations to find before attempting the
     * factorization of the large integer.
@@ -110,8 +93,8 @@ struct struct_siqs_params_t {
         */
     uint32_t nprimes_tdiv;
        /**
-        * Number of congruence relations to find before attempting the
-        * factorization of the large integer.
+        * Number of relations to collect beyond the size of the factor base
+        * (plus one, for the sign), before looking for linear dependences.
         */
     uint32_t nrelations;
        /**

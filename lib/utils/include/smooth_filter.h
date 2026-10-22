@@ -43,8 +43,7 @@
   filter.n          = n;    // number to factor
   filter.kn         = kn;   // number to factor x multiplier
   filter.batch_size = 1024; // number of relations to perform a batch
-  filter.methid     = TDIV_EARLY_ABORT; // use the early abort strategy
-  filter.nsteps     = 2;    // use a 2-step early abort strategy
+  filter.method     = TDIV_EARLY_ABORT; // use the early abort strategy
   
   filter.htable                 = htable;
   filter.use_large_primes       = true;
@@ -183,9 +182,8 @@ struct struct_smooth_filter_t {
     smooth_filter_method_t method;
        /**
         * The number of steps in the early abort strategy. If <tt>nsteps ==
-        * 0</tt> no early abort is performed.
-        *
-        * \note \c nsteps should be less than or equal to \c MAX_NSTEPS.
+        * 0</tt> no early abort is performed. Set by \c complete_filter_init
+        * from \c method.
         */
     unsigned short int nsteps;
        /**
@@ -329,7 +327,6 @@ struct struct_smooth_filter_t {
     *
     *   \li \c n
     *   \li \c kn
-    *   \li \c nsteps
     *   \li \c batch_size
     *   \li \c base_size
     *   \li \c htable
@@ -345,11 +342,8 @@ struct struct_smooth_filter_t {
     * arrays since the structure just <em>refers</em> to them, but does
     * not <em>own</em> them.
     *
-    * \note If <tt>nsteps > MAX_NSTEPS</tt> then \c complete_filter_init
-    * will set it to \c MAX_NSTEPS.
-    *
-    * \warning If \c method == \c DJB_BATCH then \c nsteps will be set to 0
-    * and no early abort will be performed.
+    * \note Sets \c nsteps from \c method: 1 for \c TDIV_EARLY_ABORT, 0
+    * (no early abort) for \c TDIV and \c DJB_BATCH.
     *
     * \param filter a pointer to the \c smooth_filter_t to initialize
     * \param base   a pointer to the complete factor base used

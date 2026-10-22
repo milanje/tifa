@@ -95,8 +95,9 @@ typedef struct struct_p_plus_1_params_t p_plus_1_params_t;
     * This function is intended to fill a previously allocated
     * \c p_plus_1_params_t with default values.
     *
-    * \param[in]  n The number to factor. Its bit-size selects the row from a
-    *               tuning file when one is available (see tuning.h); otherwise
+    * \param[in]  n The number to factor. Its bit-size selects the rows of a
+    *               tuning file when one is available (see tuning.h), \c b1
+    *               and \c b2 interpolated between them; otherwise
     *               size-independent built-in defaults are used.
     * \param[out] params A pointer to the \c p_plus_1_params_t structure to fill.
     */

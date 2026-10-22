@@ -24,11 +24,12 @@
  *
  * \brief Pollard's p-1 factorization algorithm.
  *
- * This is the TIFA library's implementation of the (first stage of) Pollard's
- * p-1 factorization algorithm. It recovers a prime factor \c p of the number
- * to factor whenever <tt>p - 1</tt> is B1-smooth, by computing
+ * This is the TIFA library's implementation of Pollard's p-1 factorization
+ * algorithm. Its first stage recovers a prime factor \c p of the number to
+ * factor whenever <tt>p - 1</tt> is B1-smooth, by computing
  * <tt>gcd(a^E - 1, n)</tt> where \c E is the product of the prime powers up
- * to the bound \c B1.
+ * to the bound \c B1; its second stage, when <tt>p - 1</tt> is that times a
+ * single prime up to \c B2.
  */
 
 #if !defined(_TIFA_P_MINUS_1_H_)
@@ -48,8 +49,8 @@ extern "C" {
     * \struct struct_p_minus_1_params_t p_minus_1.h lib/algo/include/p_minus_1.h
     * \brief  Defines the variable parameters used in Pollard's p-1 algorithm.
     *
-    * This structure defines the set of the variable parameters used in the
-    * first stage of Pollard's p-1 algorithm.
+    * This structure defines the set of the variable parameters used in
+    * Pollard's p-1 algorithm.
     */
 struct struct_p_minus_1_params_t {
         /**
@@ -84,8 +85,9 @@ typedef struct struct_p_minus_1_params_t p_minus_1_params_t;
     * This function is intended to fill a previously allocated
     * \c p_minus_1_params_t with default values.
     *
-    * \param[in]  n The number to factor. Its bit-size selects the row from a
-    *               tuning file when one is available (see tuning.h); otherwise
+    * \param[in]  n The number to factor. Its bit-size selects the rows of a
+    *               tuning file when one is available (see tuning.h), \c b1
+    *               and \c b2 interpolated between them; otherwise
     *               size-independent built-in defaults are used.
     * \param[out] params A pointer to the \c p_minus_1_params_t structure to fill.
     */
