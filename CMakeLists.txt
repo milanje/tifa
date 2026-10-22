@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(Tifa
-    VERSION 0.1.5
+    VERSION 0.2.0
     DESCRIPTION "TIFA - Tools for Integer FActorization"
     LANGUAGES C
 )
@@ -243,10 +243,16 @@ configure_package_config_file(
     "${PROJECT_BINARY_DIR}/TifaConfig.cmake"
     INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Tifa"
 )
+# As for the soname (lib/CMakeLists.txt): below 1.0, minor versions differ.
+if(PROJECT_VERSION_MAJOR EQUAL 0)
+    set(TIFA_PACKAGE_COMPATIBILITY SameMinorVersion)
+else()
+    set(TIFA_PACKAGE_COMPATIBILITY SameMajorVersion)
+endif()
 write_basic_package_version_file(
     "${PROJECT_BINARY_DIR}/TifaConfigVersion.cmake"
     VERSION "${PROJECT_VERSION}"
-    COMPATIBILITY SameMajorVersion
+    COMPATIBILITY ${TIFA_PACKAGE_COMPATIBILITY}
 )
 install(FILES
     "${PROJECT_BINARY_DIR}/TifaConfig.cmake"

@@ -17,8 +17,9 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
-In October 2026, most of the library was reworked for speed, correctness and
-thread safety. Against the code before, on one thread of an Apple M5 Pro:
+Version 0.2.0 (October 2026) reworks most of the library for speed,
+correctness and thread safety. Against the code before, on one thread of an
+Apple M5 Pro:
 
 - `tifa_factor` is 6x to 100x faster from 32 to 110 bits, and 1.4x to 8x from
   128 to 200 bits. It now always returns complete factorizations, which it often

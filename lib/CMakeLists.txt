@@ -91,9 +91,16 @@ foreach(_t tifa_static tifa_shared)
     endif()
 endforeach()
 
+# Below 1.0, a minor version may break the ABI (0.2 added a field to
+# ecm_params_t, for one), so it is part of the soname.
+if(PROJECT_VERSION_MAJOR EQUAL 0)
+    set(TIFA_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+else()
+    set(TIFA_SOVERSION "${PROJECT_VERSION_MAJOR}")
+endif()
 set_target_properties(tifa_shared PROPERTIES
     VERSION "${PROJECT_VERSION}"
-    SOVERSION "${PROJECT_VERSION_MAJOR}"
+    SOVERSION "${TIFA_SOVERSION}"
 )
 
 # Exported (consumable) names: Tifa::tifa (shared), Tifa::tifa_static (static).

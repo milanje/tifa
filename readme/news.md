@@ -1,5 +1,19 @@
 # TIFA news
 
+## 22 October 2026 &mdash; version 0.2.0
+
+Version 0.2.0 gathers all the October 2026 work below: the rework for
+speed, correctness and thread safety, `tifa_cofactor`, the review of
+invalid inputs and parameters, the `tifa_factor` program and the updated
+documentation. It requires GMP 6.0 or later.
+
+The ABI changes (`ecm_params_t` gained a `seed` field, among others), so
+the shared library's soname now carries the minor version while the major
+one is 0: `libtifa.so.0.2` (`libtifa.0.2.dylib` on macOS). Programs built
+against 0.1.5 must be rebuilt. Likewise, `find_package(Tifa 0.2)` accepts
+0.2.x only. `tifa.pc` now lists GMP as a public dependency: programs using
+TIFA call GMP, and `pkg-config --libs tifa` left `-lgmp` out.
+
 ## 22 October 2026 &mdash; invalid inputs and parameters
 
 A review of the library and its programs for memory errors and invalid
