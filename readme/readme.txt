@@ -1,6 +1,6 @@
-                -----------------------------------------------
-                TIFA LIBRARY - development version - 2011-06-10
-                -----------------------------------------------
+             -----------------------------------------------------
+             TIFA LIBRARY - Tools for Integer FActorization
+             -----------------------------------------------------
 
 ------------------------------------------------------------------------------
 0. Contents
@@ -21,7 +21,9 @@
 1. About TIFA
 ------------------------------------------------------------------------------
 
-  This is a development version of the TIFA library, dated June 10, 2011.
+  TIFA was written around 2010 at LIX, the Computer Science Laboratory of
+  Ecole Polytechnique, and reworked in October 2026 for speed, correctness
+  and thread safety: the file news.md in this directory has the details.
 
   TIFA stands for (T)ools for (I)nteger (FA)ctorization. Yes, this is a rather
   dull name but I figured it would still be better than MyCfracAndQSLibrary.
@@ -55,7 +57,7 @@
   the same directory as this file.
 
   Finally, note that the TIFA library has been registered in June 2011 at the
-  french agency for software protection (APP - http://app.legalis.net) with
+  french agency for software protection (APP - https://www.app.asso.fr) with
   the Inter Deposit Digital Number:
 
       IDDN.FR.001.220019.000.S.A.2011.000.31235.
@@ -80,6 +82,11 @@
       - PM1     (Pollard's p-1 method)
       - PP1     (Williams's p+1 method)
       - TDIV    (trial division)
+
+  On top of them, tifa_factor() factors an integer completely, choosing the
+  method by size, and tifa_cofactor() decides whether an integer splits into
+  primes below a bound, as the cofactorization step of a sieve asks. Below
+  2^64, primality testing and factorization run in machine words.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)
@@ -332,17 +339,6 @@
     you should have CMake v3.20 or newer and a C99 compiler installed on your
     system, together with (of course) the GMP library.
 
-  The compilation fails: the linker complains about duplicate symbols!
-  --------------------------------------------------------------------
-
-    Let me guess: using Mac OS X? Apparently there is a "problem" with
-    inlined functions with the linker... Ugly temporary workaround: comment
-    the line
-
-        #define __GMP_EXTERN_INLINE      extern __inline__
-
-    in gmp.h. Hey, don't look at me this way! I told you this was ugly!
-
   Can TIFA run under OS X,Y,Z?
   ----------------------------
 
@@ -357,9 +353,11 @@
 
     For congruences of square methods, this can happen when the number of
     congruences of square obtained is too small. In this case, chances are that
-    only trivial factors were found. Try to run the program again with a larger
-    number of relations (its nrelations parameter). In practice 32 should be
-    enough most of the time.
+    only trivial factors were found. CFRAC and SIQS then retry by themselves
+    (with more relations and other multipliers for CFRAC, with a larger
+    factor base and sieve for SIQS). If a factorization still fails, run the
+    program again with a larger number of relations (its nrelations
+    parameter). In practice 32 should be enough most of the time.
 
   What? Do you mean that my program ran for hours for nothing and I have to
   -------------------------------------------------------------------------

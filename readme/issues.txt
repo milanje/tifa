@@ -1,20 +1,10 @@
 Got a bug or an issue to report? Write to <milanje at gmail dot com>.
 
-More bugs and issues are likely to be found once the library will be more
-widely distributed.
+Known bugs and issues
+---------------------
 
-Main bugs and outstanding issues
---------------------------------
-
-  - BETA VERSION WARNING:
-
-        The library is still in development and may^H^H^H certainly
-        have rough edges. As a result, things may (or rather, will) crash, 
-        and/or, fry your computer, burn your house, destroy the ozone layer 
-        (or what's left of it) and, incidentally, give wrong results.
-  
-  - WARNING:
-  
-        - Simple large prime variation is mandatory for the time being!
-          A code refactoring took place and the "no large prime"
-          variation has not been "replugged" for the time being.
+  None at the moment. The test suite ("ctest --test-dir build" after a build)
+  checks the factorizations of every algorithm and of tifa_factor, the
+  answers of tifa_cofactor, the machine-word and Montgomery code, the tuning
+  files, and factorizations running in several threads at once. It runs
+  with GCC and Clang on each push to master and each pull request.
