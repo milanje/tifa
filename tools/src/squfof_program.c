@@ -116,7 +116,6 @@ static void process_args(factoring_program_t* const program) {
         break;
     }
     default:
-    printf("\n\nnargc = %i\n\n", argc);
         PRINT_BAD_ARGC_ERROR();
         print_usage(program);
         exit(-1);

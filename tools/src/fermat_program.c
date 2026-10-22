@@ -83,6 +83,17 @@ static void process_args(factoring_program_t* const program) {
 
         break;
     }
+    case 2: {
+        if (!is_a_number(argv[1], MAX_NDIGITS)) {
+            PRINT_NAN_ERROR(argv[1]);
+            print_usage(program);
+            exit(-1);
+        }
+        mpz_init_set_str(program->n, argv[1], 10);
+        *nprimes_tdiv = NPRIMES_TRIAL_DIV;
+
+        break;
+    }
     case FERMAT_F_MAX_ARGC: {
         //
         // Read the parameters on the command line, in the order print_usage

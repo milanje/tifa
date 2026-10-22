@@ -46,8 +46,9 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s <nprimes_to_trial_divide_by> <number_to_factor>\n",
             program->argv[0]);
     fprintf(stderr, "or:\n");
+    fprintf(stderr, "%15s <number_to_factor>\n", program->argv[0]);
+    fprintf(stderr, "or:\n");
     fprintf(stderr, "%15s\n\n", program->argv[0]);
-
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {
@@ -63,7 +64,7 @@ static void process_args(factoring_program_t* const program) {
     case 1: {
         //
         // No argument provided: proceed in interactive mode, i.e. get the
-        // number to factor and then use CFRAC optimal default values.
+        // number to factor.
         //
         char str_buffer[MAX_NDIGITS];
         PRINT_ENTER_NUMBER_MSG();
@@ -76,6 +77,18 @@ static void process_args(factoring_program_t* const program) {
             exit(-1);
         }
         mpz_init_set_str(program->n, str_factor_me, 10);
+        *nprimes_tdiv = NPRIMES_TRIAL_DIV;
+        *nfactors     = 0;
+
+        break;
+    }
+    case 2: {
+        if (!is_a_number(argv[1], MAX_NDIGITS)) {
+            PRINT_NAN_ERROR(argv[1]);
+            print_usage(program);
+            exit(-1);
+        }
+        mpz_init_set_str(program->n, argv[1], 10);
         *nprimes_tdiv = NPRIMES_TRIAL_DIV;
         *nfactors     = 0;
 
