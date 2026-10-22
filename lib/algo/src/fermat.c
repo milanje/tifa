@@ -510,7 +510,6 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
         ntested_primes++;
 
         if (p > TIFA_SQRT_LONG_MAX) {
-            context->latest_p = p;
             goto clean_and_return;
         }
         p2 = p* p;
@@ -711,6 +710,7 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
   clean_and_return:
 
     context->ntested_primes = ntested_primes;
+    context->latest_p       = p;
 
     PRINT_SQRTM_MSG(GET_NAMED_TIMING(sqrtm));
     PRINT_GREEDY_MSG(GET_NAMED_TIMING(greedy));

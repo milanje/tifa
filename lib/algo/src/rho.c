@@ -52,6 +52,10 @@
 
 #define MAX_NUPDATES              3
 #define MAX_NITERS_GROWTH_FACTOR  4
+//
+// Keeps Brent's doubling step count within 32 bits.
+//
+#define MAX_MAX_NITERS            (1U << 30)
 
 #define DEFAULT_A          1
 #define DEFAULT_B          1
@@ -137,6 +141,8 @@ ecode_t rho(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     rho_params_t own_params = *params;
+    own_params.acc_niters = MAX(own_params.acc_niters, 1);
+    own_params.max_niters = MIN(own_params.max_niters, MAX_MAX_NITERS);
 
     factoring_machine_t machine;
 
@@ -275,7 +281,10 @@ static ecode_t update_rho_context(factoring_machine_t* const machine MAYBE_UNUSE
         if (IS_EVEN(params->b)) {
             params->b -= 1;
         }
-        params->max_niters *= MAX_NITERS_GROWTH_FACTOR;
+        params->max_niters = MIN(params->max_niters, MAX_MAX_NITERS
+                                                     / MAX_NITERS_GROWTH_FACTOR)
+                           * MAX_NITERS_GROWTH_FACTOR;
+        context->nupdates++;
     }
 
     STOP_TIMER;
