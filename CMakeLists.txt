@@ -255,20 +255,21 @@ install(FILES
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Tifa"
 )
 
-# pkg-config. TIFA's public headers include <gmp.h>, so the GMP dependency
-# must be expressed here. Prefer delegating to GMP's own gmp.pc when one was
-# found at configure time; otherwise embed the discovered GMP paths so the
-# .pc is self-contained.
+# pkg-config. TIFA's API is made of GMP types, so GMP is a public dependency:
+# programs using TIFA call GMP themselves. Prefer delegating to GMP's own
+# gmp.pc when one was found at configure time; otherwise embed the discovered
+# GMP paths so the .pc is self-contained.
 if(PC_GMP_FOUND)
-    set(TIFA_PC_REQUIRES_PRIVATE "gmp")
-    set(TIFA_PC_LIBS_PRIVATE "-lm ${CMAKE_THREAD_LIBS_INIT}")
+    set(TIFA_PC_REQUIRES "gmp")
+    set(TIFA_PC_LIBS_EXTRA "")
     set(TIFA_PC_CFLAGS_EXTRA "")
 else()
-    set(TIFA_PC_REQUIRES_PRIVATE "")
+    set(TIFA_PC_REQUIRES "")
     get_filename_component(_tifa_gmp_libdir "${GMP_LIBRARY}" DIRECTORY)
-    set(TIFA_PC_LIBS_PRIVATE "-L${_tifa_gmp_libdir} -lgmp -lm ${CMAKE_THREAD_LIBS_INIT}")
+    set(TIFA_PC_LIBS_EXTRA " -L${_tifa_gmp_libdir} -lgmp")
     set(TIFA_PC_CFLAGS_EXTRA " -I${GMP_INCLUDE_DIR}")
 endif()
+set(TIFA_PC_LIBS_PRIVATE "-lm ${CMAKE_THREAD_LIBS_INIT}")
 configure_file(
     "${PROJECT_SOURCE_DIR}/cmake/tifa.pc.in"
     "${PROJECT_BINARY_DIR}/tifa.pc"

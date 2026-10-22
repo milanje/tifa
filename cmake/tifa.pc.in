@@ -6,7 +6,7 @@ includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 Name: TIFA
 Description: Tools for Integer FActorization
 Version: @PROJECT_VERSION@
-Requires.private: @TIFA_PC_REQUIRES_PRIVATE@
-Libs: -L${libdir} -ltifa
+Requires: @TIFA_PC_REQUIRES@
+Libs: -L${libdir} -ltifa@TIFA_PC_LIBS_EXTRA@
 Libs.private: @TIFA_PC_LIBS_PRIVATE@
 Cflags: -I${includedir}/tifa@TIFA_PC_CFLAGS_EXTRA@
