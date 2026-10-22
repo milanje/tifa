@@ -68,9 +68,6 @@
 /* Set to 1 to allow use of some GMP's internal functions */
 #define TIFA_USE_GMP_INTERNAL_FUNCS @TIFA_CFG_USE_GMP_INTERNAL_FUNCS@
 
-/* Should we use TIFA's basic random generator or the system one? */
-#define TIFA_USE_OWN_RAND @TIFA_CFG_USE_OWN_RAND@
-
 /* Native type used to represent a string of bits */
 #define TIFA_BITSTRING_T @TIFA_CFG_BITSTRING_T@
 

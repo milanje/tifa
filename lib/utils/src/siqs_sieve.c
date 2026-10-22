@@ -106,7 +106,6 @@
     } while (0)
 #endif
 //-----------------------------------------------------------------------------
-int compute_threshold_correction(siqs_sieve_t* const sieve);
 ecode_t fill_sieve_chunk(siqs_sieve_t* const sieve);
 ecode_t scan_sieve_positive(
     siqs_sieve_t* const sieve,
@@ -119,7 +118,6 @@ ecode_t scan_sieve_negative(
     const uint32_t nsurvivors
 );
 ecode_t update_sieve_params(siqs_sieve_t* const sieve);
-void    update_sieve_threshold(siqs_sieve_t* const sieve);
 ecode_t reset_poly_sols(siqs_sieve_t* const sieve);
 void    switch_polynomial(siqs_sieve_t* const sieve);
 void    fill_buckets(siqs_sieve_t* const sieve);
@@ -181,9 +179,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         sieve->chunk_size    = half_width;
         sieve->nchunks       = 1;
 
-#if !ROUND_HALF_WIDTH
         sieve->endlast       = half_width - 1;
-#endif
 
     } else {
         sieve->sieve         = alloc_byte_array(chunk_max);
@@ -192,15 +188,6 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         uint32_t hwmod = half_width % chunk_max;
         sieve->nchunks = half_width / chunk_max;
 
-#if ROUND_HALF_WIDTH
-        //
-        // Rounds the half width to the closest multiple of
-        // the chunk size.
-        //
-        if (hwmod > (chunk_max / 2)) {
-            sieve->nchunks++;
-        }
-#else
         //
         // Use the exact half width provided as argument
         //
@@ -210,7 +197,6 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         } else {
             sieve->endlast = chunk_max - 1;
         }
-#endif
 
         sieve->chunk_size = chunk_max;
     }
@@ -227,11 +213,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
     mpz_mul_ui(target_a, n, 2);
     mpz_sqrt(target_a, target_a);
 
-#if ROUND_HALF_WIDTH
-    mpz_fdiv_q_ui(target_a, target_a, sieve->nchunks * sieve->chunk_size);
-#else
     mpz_fdiv_q_ui(target_a, target_a, half_width);
-#endif
 
     sieve->poly = alloc_siqs_poly(target_a, n, factor_base, sqrtm_pi);
 
@@ -316,11 +298,6 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve)
     // before resuming the scan.
     //
 
-#if ROUND_HALF_WIDTH
-    if (sieve->scan_begin != sieve->chunk_size) {
-        return SUCCESS;
-    }
-#else
     bool islast = (ABS(sieve->next_chunkno_to_fill) - 1 == (int)sieve->nchunks);
 
     if (islast) {
@@ -335,7 +312,6 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve)
             return SUCCESS;
         }
     }
-#endif
 
     //
     // On the positive x-side the sieve array represents positions [from, to]
@@ -374,96 +350,6 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve)
     return ecode;
 }
 //-----------------------------------------------------------------------------
-int compute_threshold_correction(siqs_sieve_t* const sieve)
-{
-    //
-    // Returns the average contribution of the NPRIMES_TO_SKIP first primes
-    // since we won't be sieving with them.
-    //
-    uint32_t logp     = 0;
-    uint32_t curprime = 0;
-    uint32_t sindex   = 0;
-
-    siqs_poly_t* const poly = sieve->poly;
-
-    const uint32_array_t* const primes     = poly->factor_base;
-    const byte_array_t*   const log_primes = sieve->log_primes;
-
-    const uint32_t sieve_length = sieve->sieve->length;
-
-    const uint32_t* const fbdata = primes->data;
-
-    int32_t* const sol1data = sieve->sol1->data;
-    int32_t* const sol2data = sieve->sol2->data;
-
-    unsigned char* const sieve_data = sieve->sieve->data;
-    unsigned char* const endptr     = &(sieve_data[sieve_length - 1]);
-    unsigned char* sieveptr;
-
-    TIFA_MEMSET(sieve_data, 0, sieve_length);
-
-    //
-    // Sieve with the prime 2 only for sol1
-    //
-    sindex   = sol1data[0];
-    sieveptr = &(sieve_data[sindex]);
-    while (sieveptr <= endptr) {
-        *sieveptr += 1;
-        sieveptr  += 2;
-        sindex    += 2;
-    }
-
-    int32_t* sol1ptr = &(sol1data[1]);
-    int32_t* sol2ptr = &(sol2data[1]);
-
-    const uint32_t* fbptr = &(fbdata[1]);
-    unsigned char* logptr = &(log_primes->data[1]);
-
-    //
-    // Sieve with primes > 2 with sol1 and sol2
-    //
-    for (uint32_t p = 1; p < NPRIMES_TO_SKIP; p++) {
-        curprime = *fbptr;
-        logp     = *logptr;
-        //
-        // Sieve with sol1
-        //
-        sindex   = *sol1ptr;
-        sieveptr = &(sieve_data[sindex]);
-
-        while (sieveptr <= endptr) {
-            *sieveptr += logp;
-            sieveptr  += curprime;
-            sindex    += curprime;
-        }
-        //
-        // Sieve with sol2
-        //
-        sindex   = *sol2ptr;
-        sieveptr = &(sieve_data[sindex]);
-
-        while (sieveptr <= endptr) {
-            *sieveptr += logp;
-            sieveptr  += curprime;
-            sindex    += curprime;
-        }
-        sol1ptr++;
-        sol2ptr++;
-        fbptr++;
-        logptr++;
-    }
-    //
-    // Return average contribution
-    //
-    int count = 0;
-    for (uint32_t i = 0; i < sieve->chunk_size; i++) {
-        count += sieve_data[i];
-    }
-    count /= sieve->chunk_size;
-
-    return count;
-}
-//-----------------------------------------------------------------------------
 inline ecode_t scan_sieve(siqs_sieve_t* const sieve,
                    int32_array_t* const survivors,
                    const uint32_t nsurvivors)
@@ -498,46 +384,6 @@ ecode_t update_sieve_params(siqs_sieve_t* const sieve)
         return SUCCESS;
     }
     return SUCCESS;
-}
-//-----------------------------------------------------------------------------
-void update_sieve_threshold(siqs_sieve_t* const sieve)
-{
-    int32_t chunkno = sieve->next_chunkno_to_fill;
-    int32_t xval    = 0;
-
-    const mpz_ptr a = sieve->poly->a;
-    const mpz_ptr b = sieve->poly->b;
-    const mpz_ptr c = sieve->poly->c;
-
-    mpz_t rgx;
-    mpz_init(rgx);
-
-    xval = (ABS(chunkno) - 1) * sieve->chunk_size + (sieve->chunk_size / 2);
-
-    if (chunkno < 0) {
-        xval = -xval;
-    }
-
-    if (xval < 0) {
-        mpz_mul_ui(rgx, a, (long unsigned int)(-xval));
-        mpz_neg(rgx, rgx);
-    } else {
-        mpz_mul_ui(rgx, a, xval);
-    }
-    mpz_add(rgx, rgx, b);
-    mpz_add(rgx, rgx, b);
-
-    if (xval < 0) {
-        mpz_mul_ui(rgx, rgx, (long unsigned int)(-xval));
-        mpz_neg(rgx, rgx);
-    } else {
-        mpz_mul_ui(rgx, rgx, xval);
-    }
-    mpz_add(rgx, rgx, c);
-
-    sieve->threshold  = mpz_sizeinbase(rgx, 2);
-
-    mpz_clear(rgx);
 }
 //-----------------------------------------------------------------------------
 ecode_t reset_poly_sols(siqs_sieve_t* const sieve)
@@ -725,17 +571,10 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
 
     uint32_t iend = sieve_length - 1;
 
-#if !ROUND_HALF_WIDTH
     if ((uint32_t)ABS(sieve->next_chunkno_to_fill) == sieve->nchunks) {
         iend = sieve->endlast;
     }
-#endif
 
-#if SIEVE_WITH_2
-    unsigned char* const endptr = &(sieve_data[iend]);
-    unsigned char* sieveptr;
-    uint32_t sindex;
-#endif
 
     //
     // (Re-)initialize the sieve array with the full log approximation...
@@ -749,20 +588,6 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
         //
         empty_bucket(sieve);
     }
-
-    //
-    // Sieve with the prime 2 only for sol1 and only if SIEVE_WITH_2 != 0.
-    //
-#if SIEVE_WITH_2
-    sindex   = sol1data[0];
-    sieveptr = &(sieve_data[sindex]);
-    while (sieveptr <= endptr) {
-        *sieveptr -= 1;
-        sieveptr  += 2;
-        sindex    += 2;
-    }
-    sol1data[0] = sindex - sieve_length;
-#endif
 
     //
     // Sieve with the primes from the first one not skipped, but for those
@@ -807,11 +632,9 @@ ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
 
     uint32_t iend = sieve_length - 1;
 
-#if !ROUND_HALF_WIDTH
     if ((uint32_t)ABS(chunkno) == siqs_sieve->nchunks) {
         iend = siqs_sieve->endlast;
     }
-#endif
 
     const int32_t  sieve_end = sieve_begin + iend;
 
@@ -951,11 +774,9 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
 
     uint32_t iend = sieve_length - 1;
 
-#if !ROUND_HALF_WIDTH
     if ((uint32_t)ABS(chunkno) == siqs_sieve->nchunks) {
        iend = siqs_sieve->endlast;
     }
-#endif
 
     const int32_t  sieve_end = sieve_begin + iend;
 

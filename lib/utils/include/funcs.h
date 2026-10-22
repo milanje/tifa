@@ -720,29 +720,6 @@ void unrank_subset_revdoor(uint32_t n, uint32_t k, uint32_t r,
  *-----------------------------------------------------------------------------
  */
 
-   /**
-    * \brief Initializes TIFA's basic pseudo-random generator.
-    * <p>
-    *   Initializes TIFA's basic random number generator with a user
-    *   defined seed.
-    * </p>
-    * <p>
-    *   The generator state is global: not thread-safe. The library itself
-    *   does not use it.
-    * </p>
-    * \param[in] seed The seed as a \c uint32_t.
-    */
-void tifa_srand(uint32_t seed);
-
-   /**
-    * \brief Returns a pseudo-random integer.
-    * <p>
-    *   Returns a pseudo-random integer using TIFA's basic random number
-    *   generator (not thread-safe, see \c tifa_srand).
-    * </p>
-    */
-uint32_t tifa_rand();
-
 #ifdef __cplusplus
 }
 #endif

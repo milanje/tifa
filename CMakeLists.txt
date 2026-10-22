@@ -46,7 +46,6 @@ set(TIFA_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/tifa")
 # Options (successors of BuildOptions.py)
 #------------------------------------------------------------------------------
 option(TIFA_USE_GMP_INTERNAL_FUNCS "Use some of GMP's internal functions (needs gmp-impl.h)" OFF)
-option(TIFA_USE_OWN_RAND           "Use TIFA's basic pseudo-random generator"                OFF)
 option(TIFA_USE_CALLOC_MEMSET      "Use calloc/memset for zero-init of integer arrays"       ON)
 option(TIFA_PRINT_ERROR            "Print critical error messages on stderr"                 ON)
 option(TIFA_ALLOW_VERBOSE          "Master switch enabling per-algorithm verbose output"     OFF)
@@ -165,7 +164,6 @@ set(TIFA_CFG_COMPILED_ON
 
 tifa_bool01(TIFA_CFG_USE_CALLOC_MEMSET      TIFA_USE_CALLOC_MEMSET)
 tifa_bool01(TIFA_CFG_USE_GMP_INTERNAL_FUNCS TIFA_USE_GMP_INTERNAL_FUNCS)
-tifa_bool01(TIFA_CFG_USE_OWN_RAND           TIFA_USE_OWN_RAND)
 tifa_bool01(TIFA_CFG_PRINT_ERROR            TIFA_PRINT_ERROR)
 tifa_bool01(TIFA_CFG_USE_BAKED_TUNING       TIFA_USE_BAKED_TUNING)
 

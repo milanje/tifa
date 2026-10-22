@@ -69,22 +69,8 @@ extern "C" {
 #define BUCKETS_SMALLEST_PRIME 2400
 
 #if (NPRIMES_TO_SKIP == 0)
-    //
-    // Sieving for the prime 2 is done separately...
-    //
-    #define SIEVE_WITH_2      1
-    #undef  NPRIMES_TO_SKIP
-    #define NPRIMES_TO_SKIP   1
-#else
-    #define SIEVE_WITH_2      0
+    #error "NPRIMES_TO_SKIP must be at least 1: 2 is never sieved"
 #endif
-
-//
-// If ROUND_HALF_WIDTH is not zero, round the half-width to the nearest
-// multiple of the chunk size (unless if the half-width is less than the chunk
-// size).
-//
-#define ROUND_HALF_WIDTH  0
 
     /**
      * \struct struct_siqs_sieve_t siqs_sieve.h lib/utils/include/siqs_sieve.h
@@ -148,9 +134,7 @@ struct struct_siqs_sieve_t {
       * The index of the last position to sieve in the last sieve chunk (on
       * either side)
       */
-#if !ROUND_HALF_WIDTH
     uint32_t endlast;
-#endif
 
      /**
       * Should we use a bucket sieving for the largest primes in the base?
@@ -202,10 +186,7 @@ typedef struct struct_siqs_sieve_t siqs_sieve_t;
     * \param log_primes  logarithms (in base 2) of the primes in the base
     * \param sqrtm_pi    modular square roots of \tt{n} for each prime in
     *                    the base
-    * \param half_width  the (approximate) half_width of the sieving interval
-    *                    (the real half_width will be adjusted to be a multiple
-    *                    of \tt{chunk_size} if \tt{ROUND_HALF_WIDTH} is
-    *                    defined as non zero)
+    * \param half_width  the half_width of the sieving interval
     *
     * \return A pointer to the newly allocated \c siqs_sieve_t.
     */

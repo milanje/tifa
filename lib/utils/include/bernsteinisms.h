@@ -547,10 +547,9 @@ uint32_t bern_21_rt_pairs_lp_siqs(
     * \brief Daniel J. Bernstein's algorithm 2.1 adapted to be used with a
     * \c smooth_filter_t.
     *
-    * <h3>If \c filter->nsteps == 0 </h3>
-    *
-    * In such a case, no early abort strategy is performed. The effect of
-    * the function is the same as \c bern_21_*_pairs_* called with:
+    * No early abort strategy is performed (\c complete_filter_init sets
+    * \c filter->nsteps to 0 for this method). The effect of the function is
+    * the same as \c bern_21_*_pairs_* called with:
     * \verbatim
     filter->n
     filter->htable
@@ -563,33 +562,10 @@ uint32_t bern_21_rt_pairs_lp_siqs(
     filter->prod_pj[0]
     \endverbatim
     *
-    * <h3>If \c filter->nsteps != 0 </h3>
-    *
-    * An early abort strategy is performed.
-    *
-    * \li If 1 <= \c step < \c filter->nsteps:<br>
-    * Relations at step \c step-1 from \c filter,
-    * (\c filter->filtered_*[\c step-1]) are used as "candidate" arrays to
-    * populate either \c filter->accepted_* or \c filter->filtered_*[step].
-    *
-    * \li If \c step == 0:<br>
-    * The candidate relations are taken from \c filter->candidate_*.
-    *
-    * \li If \c step == \c filter->nsteps:<br>
-    * The candidate relations are taken from
-    * \c filter->filtered_*[\c filter->nsteps - 1] and 'good' relations
-    * will be stored in \c filter->accepted_*.
-    *
     * \see The bern_21_* functions.
     *
-    * \warning Using \c filter->nsteps != 0 is not recommended. First, it
-    * certainly does not make any sense to try to early-abort the batch.
-    * Second, even if it is useful (for some weird reasons that I'm not
-    * aware of), the cases \c filter->nsteps != 0 have not been tuned / fully
-    * debugged.
-    *
     * \param filter pointer to the \c smooth_filter_t to use
-    * \param step the step number in the early abort strategy
+    * \param step unused
     * \return The number of relations used from the "candidate" arrays.
     */
 uint32_t djb_batch_rt(
