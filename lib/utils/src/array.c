@@ -205,7 +205,7 @@ uint32_t index_in_sorted_byte_array(unsigned char to_find,
             min = index;
         }
     }
-    if (to_find == sorted_array->data[max]) {
+    if ((max < sorted_array->length) && (to_find == sorted_array->data[max])) {
         return max;
     } else {
         //
@@ -384,7 +384,7 @@ uint32_t index_in_sorted_uint32_array(uint32_t to_find,
             min = index;
         }
     }
-    if (to_find == sorted_array->data[max]) {
+    if ((max < sorted_array->length) && (to_find == sorted_array->data[max])) {
         return max;
     } else {
         //
@@ -539,7 +539,7 @@ uint32_t index_in_sorted_int32_array(int32_t to_find,
             min = index;
         }
     }
-    if (to_find == sorted_array->data[max]) {
+    if ((max < sorted_array->length) && (to_find == sorted_array->data[max])) {
         return max;
     } else {
         //
@@ -725,7 +725,8 @@ uint32_t index_in_sorted_mpz_array(const mpz_t to_find,
             min = index;
         }
     }
-    if (mpz_cmp(to_find, sorted_array->data[max]) == 0) {
+    if (   (max < sorted_array->length)
+        && (mpz_cmp(to_find, sorted_array->data[max]) == 0)) {
         return max;
     } else {
         //

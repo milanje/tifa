@@ -313,7 +313,8 @@ is_in_byte_array(unsigned char to_find, const byte_array_t* const array) {
     * \param[in] sorted_array A pointer to the <tt>byte_array_t</tt>.
     * \param[in] min_index The beginning of the sorted array portion to
     *                      search in.
-    * \param[in] max_index The end of the sorted array portion to search in.
+    * \param[in] max_index The end of the sorted array portion to search in
+    *                      (an index past the array's length is not read).
     * \returns The index of \c to_find in the array if \c to_find is found in
     *          the sorted array portion.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
@@ -574,7 +575,8 @@ is_in_uint32_array(uint32_t to_find, const uint32_array_t* const array) {
     * \param[in] sorted_array A pointer to the <tt>uint32_array_t</tt>.
     * \param[in] min_index The beginning of the sorted array portion to
     *                      search in.
-    * \param[in] max_index The end of the sorted array portion to search in.
+    * \param[in] max_index The end of the sorted array portion to search in
+    *                      (an index past the array's length is not read).
     * \returns The index of \c to_find in the array if \c to_find is found in
     *          the sorted array portion.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
@@ -809,7 +811,8 @@ is_in_int32_array(int32_t to_find, const int32_array_t* const array) {
     * \param[in] sorted_array A pointer to the <tt>int32_array_t</tt>.
     * \param[in] min_index The beginning of the sorted array portion to
     *                      search in.
-    * \param[in] max_index The end of the sorted array portion to search in.
+    * \param[in] max_index The end of the sorted array portion to search in
+    *                      (an index past the array's length is not read).
     * \returns The index of \c to_find in the array if \c to_find is found in
     *          the sorted array portion.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
@@ -1035,7 +1038,8 @@ uint32_t index_in_mpz_array(const mpz_t to_find,
     * \param[in] sorted_array   A pointer to the \e sorted <tt>mpz_array_t</tt>.
     * \param[in] min_index The beginning of the sorted array portion to
     *                      search in.
-    * \param[in] max_index The end of the sorted array portion to search in.
+    * \param[in] max_index The end of the sorted array portion to search in
+    *                      (an index past the array's length is not read).
     * \returns The index of \c to_find in the array if \c to_find is found.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
