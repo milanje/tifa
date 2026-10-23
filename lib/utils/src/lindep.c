@@ -193,10 +193,24 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 l[k] = vl[k];
             }
             //
-            // Once the residue is 1, the primes left cannot divide it.
+            // Once the residue is 1, the primes left cannot divide it. Once
+            // it is below p^2, with no factor below p left, it is 1 or a prime,
+            // found in the (sorted) factor base by a binary search.
             //
             for (uint32_t j = 0; j < factor_base->length; j++) {
                 const uint64_t p = factor_base->data[j];
+                if ((n == 1) && (p != 2) && (l[0] < p * p)) {
+                    const uint32_t t = index_in_sorted_uint32_array(
+                                           (uint32_t) l[0], factor_base, j,
+                                           factor_base->length
+                                       );
+                    if ((l[0] <= UINT32_MAX) && (t != NOT_IN_ARRAY)) {
+                        decomp_data[i][t]++;
+                        flip_matrix_bit(nrows, t + 1, matrix);
+                        l[0] = 1;
+                    }
+                    break;
+                }
                 if (p == 2) {
                     const uint32_t e = remove_twos(l, &n);
                     decomp_data[i][j] += (unsigned char) e;
