@@ -14,15 +14,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # clang enforces -Werror: this is the configuration verified to be
-          # warning-clean. It is the gate that can fail a PR.
+          # Both compilers build with -Wall -Wextra -Werror.
           - { cc: clang, werror: ON }
-          # gcc also builds and runs the full test suite. -Werror is left OFF
-          # for now because gcc's -Wall/-Wextra set differs from clang's and
-          # has not yet been confirmed clean; flip to ON once its log is clean.
-          - { cc: gcc, werror: OFF }
+          - { cc: gcc, werror: ON }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y libgmp-dev
