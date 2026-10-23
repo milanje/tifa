@@ -523,7 +523,6 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     // only when large primes are enabled and are simply discarded otherwise.
     //
     context->filter.use_large_primes = params->use_large_primes;
-    context->filter.use_siqs_variant = false;
 
     complete_filter_init(&(context->filter), context->factor_base);
 

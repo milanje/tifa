@@ -47,7 +47,6 @@
   
   filter.htable                 = htable;
   filter.use_large_primes       = true;
-  filter.use_siqs_batch_variant = false;
   
   filter.base_size    = factor_base->length; // size of factor base
   filter.candidate_xi = candidate_xi; // candidate relations stored
@@ -206,60 +205,25 @@ struct struct_smooth_filter_t {
        /**
         * The candidate x's. Together with \c candidate_yi, stores candidate
         * relations verifying \c x^2 (mod \c kn) == \c y (mod \c kn)
-        *
-        * \note See \c candidate_ai if \c use_siqs_batch_variant is true.
-        * In that case the relations become \c x^2 (mod \c kn) == \c y * \c a 
-        * (mod \c kn).
         */
     mpz_array_t* candidate_xi;
        /**
         * The candidate y's. Together with \c candidate_xi, stores candidate
         * relations verifying \c x^2 (mod \c kn) == \c y (mod \c kn)
-        *
-        * \note See \c candidate_ai if \c use_siqs_batch_variant is true.
-        * In that case the relations become \c x^2 (mod \c kn) == \c y * \c a 
-        * (mod \c kn).
         */
     mpz_array_t* candidate_yi;
-       /**
-        * Used only if \c use_siqs_batch_variant is true.
-        *
-        * \c candidate_ai stores the a's (i.e. the value of the first 
-        * parameter of the SIQS polynomial used). Together with \c candidate_xi 
-        * and \c candidate_yi, stores candidate relations verifying
-        * \c x^2 (mod \c kn) == \c y * \c a (mod \c kn).
-        */
-    mpz_array_t* candidate_ai;
        /**
         * The accepted x's. Together with \c accepted_yi, stores 'good'
         * relations verifying \c x^2 (mod \c kn) == \c y (mod \c kn) with
         * \c y smooth over the factor base.
-        *
-        * \note See \c accepted_ai if \c use_siqs_batch_variant is true.
-        * In that case the relations become \c x^2 (mod \c kn) == \c y * \c a 
-        * (mod \c kn).
         */
     mpz_array_t* accepted_xi;
        /**
         * The accepted y's. Together with \c accepted_xi, stores 'good'
         * relations verifying \c x^2 (mod \c kn) == \c y (mod \c kn) with
         * \c y smooth over the factor base.
-        *
-        * \note See \c accepted_ai if \c use_siqs_batch_variant is true.
-        * In that case the relations become \c x^2 (mod \c kn) == \c y * \c a 
-        * (mod \c kn).
         */
     mpz_array_t* accepted_yi;
-       /**
-        * Used only if \c use_siqs_batch_variant is true.
-        *
-        * The accepted a's (i.e. the value of the first 
-        * parameter of the SIQS polynomial used). Together with \c accepted_xi, 
-        * and \c accepted_yi, stores candidate relations verifying
-        * \c x^2 (mod \c kn) == \c y * \c a (mod \c kn) with \c y smooth over 
-        * the factor base.
-        */
-    mpz_array_t* accepted_ai; 
        /**
         * The \c filtered_xi[s] array gives the filtered x's after \c s 
         * early abort steps. Together with \c filtered_yi[s] and
@@ -268,10 +232,6 @@ struct struct_smooth_filter_t {
         * the base composed by the partial_factor bases used in the
         * early abort steps up to (and including) the \c s-th one, and with
         * \c y less than \c bounds[s].
-        *
-        * \note See \c filtered_ai if \c use_siqs_batch_variant is true.
-        * In that case the relations become \c x^2 (mod \c kn) == \c y * \c a *
-        * \c cofactor (mod \c kn).
         */
     mpz_array_t* filtered_xi[MAX_NSTEPS];
        /**
@@ -279,11 +239,6 @@ struct struct_smooth_filter_t {
         * early abort steps. See filtered_xi.
         */
     mpz_array_t* filtered_yi[MAX_NSTEPS];
-       /**
-        * The \c filtered_ai[s] array gives the filtered a's after \c s 
-        * early abort steps. See filtered_xi.
-        */
-    mpz_array_t* filtered_ai[MAX_NSTEPS];
        /**
         * The \c cofactor[s] array gives the cofactors of the y's in
         * \c filtered_yi[s] after \c s early abort steps. See filtered_xi.
@@ -309,11 +264,6 @@ struct struct_smooth_filter_t {
         * true if and only if we are using the large prime variation.
         */
     bool use_large_primes;
-       /**
-        * true if and only if we are using this \c smooth_filter_t with
-        * SIQS.
-        */
-    bool use_siqs_variant;
 };
 
    /**
@@ -335,7 +285,6 @@ struct struct_smooth_filter_t {
     *   \li \c accepted_xi
     *   \li \c accepted_yi
     *   \li \c use_large_primes
-    *   \li \c use_siqs_batch_variant
     *
     * No pointer ownership is transfered. For example, it is still the
     * responsability of the client code to properly clears the \c candidate_*

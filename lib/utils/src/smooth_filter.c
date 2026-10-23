@@ -110,27 +110,9 @@ void clear_smooth_filter(smooth_filter_t* const filter) {
     case TDIV_EARLY_ABORT:
     
         for (unsigned int i = 0; i < filter->nsteps; i++) {
-            mpz_t* const xidat = filter->filtered_xi[i]->data;
-            mpz_t* const yidat = filter->filtered_yi[i]->data;
-            mpz_t* const codat = filter->cofactors  [i]->data;
-            
-            for (unsigned int j = 0; j < filter->batch_size; j++) {
-                mpz_clear(xidat[j]);
-                mpz_clear(yidat[j]);
-                mpz_clear(codat[j]);
-            }
-            free(filter->filtered_xi[i]);
-            free(filter->filtered_yi[i]);
-            free(filter->cofactors[i]);
-        }
-        if (filter->use_siqs_variant) {
-            for (unsigned int i = 0; i < filter->nsteps; i++) {
-                mpz_t* const xidat = filter->filtered_ai[i]->data;
-                for (unsigned int j = 0; j < filter->batch_size; j++) {
-                    mpz_clear(xidat[j]);
-                }
-                free(filter->filtered_ai[i]);
-            }
+            free_mpz_array(filter->filtered_xi[i]);
+            free_mpz_array(filter->filtered_yi[i]);
+            free_mpz_array(filter->cofactors[i]);
         }
         for (unsigned int i = 0; i < filter->nsteps; i++) {
             mpz_clear(filter->bounds[i]);

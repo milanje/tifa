@@ -280,21 +280,12 @@ uint32_t bern_21_rt_pairs_lp_siqs(
     * \c smooth_filter_t.
     *
     * No early abort strategy is performed (\c complete_filter_init sets
-    * \c filter->nsteps to 0 for this method). The effect of the function is
-    * the same as \c bern_21_*_pairs_* called with:
-    * \verbatim
-    filter->n
-    filter->htable
-    filter->accepted_xi
-    filter->accepted_yi
-    filter->accepted_ai
-    filter->candidate_xi
-    filter->candidate_yi
-    filter->candidate_ai
-    filter->prod_pj[0]
-    \endverbatim
-    *
-    * \see The bern_21_* functions.
+    * \c filter->nsteps to 0 for this method). Appends to
+    * \c filter->accepted_xi and \c filter->accepted_yi the relations of
+    * \c filter->candidate_xi and \c filter->candidate_yi whose y is smooth
+    * over the primes of \c filter->prod_pj[0]. With \c filter->htable, a
+    * relation whose y is smooth but for one tabulated prime is kept there
+    * until another one with the same prime comes, and the two are combined.
     *
     * \param filter pointer to the \c smooth_filter_t to use
     * \param step unused
