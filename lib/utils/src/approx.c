@@ -33,6 +33,7 @@
 #include "macros.h"
 #include "funcs.h"
 #include "tifa_config.h"
+#include "tifa_alloc.h"
 
 //------------------------------------------------------------------------------
 //
@@ -110,7 +111,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
                                uint32_array_t* const facpool,
                                uint32_t              nfactors)
 {
-    approximer_t* const aximer = malloc(sizeof(approximer_t));
+    approximer_t* const aximer = tifa_malloc(sizeof(approximer_t));
 
     mpz_init_set(aximer->target, target);
 
@@ -248,7 +249,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
     // factors (here, by looking at its logarithm in base 10).
     //
     if (aximer->keven > 0) {
-        uint32_t *subset = malloc(aximer->keven * sizeof(uint32_t));
+        uint32_t *subset = tifa_malloc(aximer->keven * sizeof(uint32_t));
 
         for (uint32_t i = 0; i < aximer->keven; i++) {
             //
@@ -257,7 +258,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
             subset[i] = i + 1;
         }
         aximer->ntuples = n_choose_k(aximer->neven, aximer->keven);
-        aximer->tuples  = malloc(aximer->ntuples * sizeof(uint32_tuple_t));
+        aximer->tuples  = tifa_malloc(aximer->ntuples * sizeof(uint32_tuple_t));
 
         bool end = false;
 
@@ -285,7 +286,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
         free(subset);
     }
     aximer->nsubsets_odd = n_choose_k(aximer->nodd, aximer->kodd);
-    aximer->subset_odd   = malloc(aximer->kodd  * sizeof(uint32_t));
+    aximer->subset_odd   = tifa_malloc(aximer->kodd  * sizeof(uint32_t));
 
     //
     // Start from a rank derived from the target rather than from a clock-seeded

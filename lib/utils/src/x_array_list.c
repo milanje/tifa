@@ -26,6 +26,7 @@
 #include "stdlib.h"
 #include "stdio.h"
 #include "x_array_list.h"
+#include "tifa_alloc.h"
 
 /*
  *-----------------------------------------------------------------------------
@@ -36,11 +37,11 @@
 //-----------------------------------------------------------------------------
 uint32_array_list_t* alloc_uint32_array_list(uint32_t alloced) {
 
-    uint32_array_list_t* list = malloc(sizeof(uint32_array_list_t));
+    uint32_array_list_t* list = tifa_malloc(sizeof(uint32_array_list_t));
 
     list->alloced = alloced;
     list->length  = 0;
-    list->data    = malloc(list->alloced*sizeof(uint32_array_t*));
+    list->data    = tifa_malloc(list->alloced*sizeof(uint32_array_t*));
 
     return list;
 }
@@ -82,11 +83,11 @@ void print_uint32_array_list(const uint32_array_list_t* const list) {
 //-----------------------------------------------------------------------------
 mpz_array_list_t* alloc_mpz_array_list(uint32_t alloced) {
 
-    mpz_array_list_t* list = malloc(sizeof(mpz_array_list_t));
+    mpz_array_list_t* list = tifa_malloc(sizeof(mpz_array_list_t));
 
     list->alloced = alloced;
     list->length  = 0;
-    list->data    = malloc(list->alloced*sizeof(mpz_array_t*));
+    list->data    = tifa_malloc(list->alloced*sizeof(mpz_array_t*));
 
     return list;
 }

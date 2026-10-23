@@ -34,6 +34,7 @@
 #include "ecm_schedule.h"
 #include "siqs.h"
 #include "tifa_factor.h"
+#include "tifa_alloc.h"
 
 //------------------------------------------------------------------------------
 //                      CONSTANT DATA, SYMBOLS AND MACROS
@@ -83,7 +84,7 @@ cofactor_strategy_t* alloc_cofactor_strategy(const cofactor_params_t* params) {
     if ((params->lpb == 0) || (params->lpb > 63)) {
         return NULL;
     }
-    cofactor_strategy_t* const s = malloc(sizeof(cofactor_strategy_t));
+    cofactor_strategy_t* const s = tifa_malloc(sizeof(cofactor_strategy_t));
 
     s->lpb              = params->lpb;
     s->max_large_primes = params->max_large_primes;
@@ -362,9 +363,11 @@ cofactor_status_t tifa_cofactor(mpz_array_t* factors, uint32_array_t* multis,
     run.factors  = factors;
     run.multis   = multis;
     run.pending  = (max_pending <= 16) ? pending_buf
-                                       : malloc(max_pending * sizeof(mpz_t));
+                                       : tifa_malloc(max_pending
+                                                     * sizeof(mpz_t));
     run.pmultis  = (max_pending <= 16) ? pmultis_buf
-                                       : malloc(max_pending * sizeof(uint32_t));
+                                       : tifa_malloc(max_pending
+                                                     * sizeof(uint32_t));
     run.npending = 0;
     run.nlarge   = 0;
     for (uint32_t i = 0; i < max_pending; i++) {

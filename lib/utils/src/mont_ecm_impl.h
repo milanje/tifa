@@ -248,7 +248,7 @@ static bool FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
     // (j + 2).P = j.P + 2.P (difference (j - 2).P).
     //
     const uint32_t half = plan->d / 2;
-    FN(pt_t)* const baby = malloc(plan->nbaby * sizeof(FN(pt_t)));
+    FN(pt_t)* const baby = tifa_malloc(plan->nbaby * sizeof(FN(pt_t)));
 
     FN(pt_t) p2, prev, cur, next;
     FN(xdbl)(&p2, p, a24, m);
@@ -271,7 +271,7 @@ static bool FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
     //
     // xs[i] = x / z of baby[i], by a batch inversion.
     //
-    uint64_t (*const xs)[NL] = malloc(plan->nbaby * sizeof(*xs));
+    uint64_t (*const xs)[NL] = tifa_malloc(plan->nbaby * sizeof(*xs));
     for (uint32_t i = 0; i < plan->nbaby; i++) {
         if (i == 0) {
             for (int j = 0; j < NL; j++) {

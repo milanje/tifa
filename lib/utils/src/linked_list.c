@@ -27,6 +27,7 @@
 #include <inttypes.h>
 
 #include "linked_list.h"
+#include "tifa_alloc.h"
 
 //
 // _TO_DO_: Consider adding in the linked_list_t structure a pointer to a
@@ -65,7 +66,7 @@ void clear_linked_list(linked_list_t* const list) {
 }
 //-----------------------------------------------------------------------------
 void append_to_linked_list(linked_list_t* const list, void* const data) {
-    linked_list_node_t* to_append = malloc(sizeof(linked_list_node_t));
+    linked_list_node_t* to_append = tifa_malloc(sizeof(linked_list_node_t));
 
     to_append->data = data;
     to_append->next = NULL;
@@ -81,7 +82,7 @@ void append_to_linked_list(linked_list_t* const list, void* const data) {
 }
 //-----------------------------------------------------------------------------
 void prepend_to_linked_list(linked_list_t* const list, void* const data) {
-    linked_list_node_t* to_prepend = malloc(sizeof(linked_list_node_t));
+    linked_list_node_t* to_prepend = tifa_malloc(sizeof(linked_list_node_t));
 
     to_prepend->data = data;
     to_prepend->next = list->head;
@@ -178,7 +179,7 @@ void* push_linked_list(linked_list_t* const list) {
 //-----------------------------------------------------------------------------
 void insert_in_linked_list(linked_list_t* const list, void* const data) {
 
-    linked_list_node_t* to_insert = malloc(sizeof(linked_list_node_t));
+    linked_list_node_t* to_insert = tifa_malloc(sizeof(linked_list_node_t));
 
     to_insert->data = data;
 

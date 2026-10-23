@@ -26,6 +26,7 @@
  */
  
 #include <stdlib.h>
+#include "tifa_alloc.h"
 
 #if !defined(_TIFA_BUCKETS_H_)
 #define _TIFA_BUCKETS_H_
@@ -50,10 +51,10 @@ typedef struct struct_buckets_t buckets_t;
 static inline buckets_t*
 alloc_buckets(uint16_t balloced, uint32_t nbins) {
     
-    buckets_t* buckets = malloc(sizeof(buckets_t));
+    buckets_t* buckets = tifa_malloc(sizeof(buckets_t));
     
     buckets->nbins = nbins;
-    buckets->bins  = malloc(nbins * sizeof(uint32_array_t*));
+    buckets->bins  = tifa_malloc(nbins * sizeof(uint32_array_t*));
     
     for (uint32_t i = 0; i < nbins; i++) {
       buckets->bins[i] = alloc_uint32_array(balloced);
@@ -87,7 +88,7 @@ add_to_buckets(const uint32_t a, const uint8_t b, const uint32_t ibin,
     uint32_t        blen = bin->length;
     
     if (blen == bin->alloced) {
-        bin->data    = realloc(bin->data, 2 * blen * sizeof(uint32_t));
+        bin->data    = tifa_realloc(bin->data, 2 * blen * sizeof(uint32_t));
         bin->alloced = 2 * blen;
     }
     bin->data[blen] = (a << 8) ^ (b & 0xFF);

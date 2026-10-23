@@ -33,6 +33,7 @@
 #include "rho.h"
 #include "tifa_factor.h"
 #include "tuning.h"
+#include "tifa_alloc.h"
 
 #define RHO_DEBUG 0
 #if RHO_DEBUG
@@ -208,7 +209,7 @@ static ecode_t init_rho_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context       = (void*)malloc(sizeof(rho_context_t));
+    machine->context       = (void*)tifa_malloc(sizeof(rho_context_t));
     rho_context_t* context = (rho_context_t*)machine->context;
 
     mpz_init_set(context->n, machine->n);

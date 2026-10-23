@@ -55,6 +55,7 @@
 #include "siqs_sieve.h"
 #include "messages.h"
 #include "print_error.h"
+#include "tifa_alloc.h"
 
 //-----------------------------------------------------------------------------
 //                         NON PUBLIC DEFINE(S)
@@ -560,7 +561,7 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context        = (void*) malloc(sizeof(siqs_context_t));
+    machine->context        = (void*) tifa_malloc(sizeof(siqs_context_t));
     siqs_context_t* context = (siqs_context_t*) machine->context;
     siqs_params_t* params   = (siqs_params_t*)  machine->params;
 
@@ -725,7 +726,7 @@ static ecode_t update_siqs_context(factoring_machine_t* const machine) {
 
     uint32_t relset_size = 1U << (most_significant_bit(context->matrix_nrows)
                                   + 2);
-    context->relset      = calloc(relset_size, sizeof(uint32_t));
+    context->relset      = tifa_calloc(relset_size, sizeof(uint32_t));
     context->relset_mask = relset_size - 1;
     //
     // Undo multiply_by_smooth_a: the next run multiplies again.

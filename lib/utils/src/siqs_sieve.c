@@ -67,6 +67,7 @@
 
 #include "timer.h"
 #include "messages.h"
+#include "tifa_alloc.h"
 
 //-----------------------------------------------------------------------------
 #define __EXTRA_TIMING__ TIFA_EXTRA_TIMING
@@ -162,7 +163,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const sqrtm_pi,
                                uint32_t half_width)
 {
-    siqs_sieve_t* const sieve = malloc(sizeof(siqs_sieve_t));
+    siqs_sieve_t* const sieve = tifa_malloc(sizeof(siqs_sieve_t));
 
     INIT_EXTRA_TIMER(init_poly);
     INIT_EXTRA_TIMER(fill);

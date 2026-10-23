@@ -32,6 +32,7 @@
 
 #include "first_primes.h"
 #include "z2z8_curves.h"
+#include "tifa_alloc.h"
 
 typedef unsigned __int128 u128;
 
@@ -108,7 +109,7 @@ typedef struct {
 static void push_u64(u64_vec_t* const v, const uint64_t x) {
     if (v->length == v->alloced) {
         v->alloced = (v->alloced == 0) ? 64 : 2 * v->alloced;
-        v->data    = realloc(v->data, v->alloced * sizeof(uint64_t));
+        v->data    = tifa_realloc(v->data, v->alloced * sizeof(uint64_t));
     }
     v->data[v->length++] = x;
 }
@@ -133,7 +134,7 @@ static void for_each_prime(const uint32_t lo, const uint32_t hi,
     const uint64_t first = (lo > (uint64_t) LARGEST_PRIME + 1)
                            ? lo : (uint64_t) LARGEST_PRIME + 1;
     const uint64_t SEG   = 1 << 16;
-    uint8_t* const composite = malloc(SEG);
+    uint8_t* const composite = tifa_malloc(SEG);
 
     for (uint64_t s = first; s <= hi; s += SEG) {
         const uint64_t e = (s + SEG - 1 < hi) ? (s + SEG - 1) : hi;
@@ -196,7 +197,7 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
     const uint32_t d    = plan->d;
     const uint32_t half = d / 2;
 
-    plan->jslot = malloc((half + 1) * sizeof(uint16_t));
+    plan->jslot = tifa_malloc((half + 1) * sizeof(uint16_t));
     plan->nbaby = 0;
     for (uint32_t j = 0; j <= half; j++) {
         bool coprime = (j & 1) != 0;
@@ -217,14 +218,14 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
     }
     const uint32_t m_last = (uint32_t) (((uint64_t) plan->b2 + half) / d);
     plan->nm      = m_last - plan->m_first + 1;
-    plan->offsets = calloc(plan->nm + 1, sizeof(uint32_t));
+    plan->offsets = tifa_calloc(plan->nm + 1, sizeof(uint32_t));
 
     stage2_builder_t sb;
     sb.plan   = plan;
     sb.pairs.data    = NULL;
     sb.pairs.length  = 0;
     sb.pairs.alloced = 0;
-    sb.needed = calloc(plan->nbaby, sizeof(uint8_t));
+    sb.needed = tifa_calloc(plan->nbaby, sizeof(uint8_t));
     sb.cur_m  = plan->m_first;
 
     for_each_prime(plan->b1 + 1, plan->b2, add_stage2_prime, &sb);
@@ -233,7 +234,7 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
         flush_giant_step(&sb);
         sb.cur_m++;
     }
-    plan->pairs = malloc((sb.pairs.length + 1) * sizeof(uint16_t));
+    plan->pairs = tifa_malloc((sb.pairs.length + 1) * sizeof(uint16_t));
     for (uint32_t i = 0; i < sb.pairs.length; i++) {
         plan->pairs[i] = (uint16_t) sb.pairs.data[i];
     }
@@ -259,7 +260,7 @@ static void product_of_scalars(mpz_t e, const uint64_t* const scalars,
 }
 
 mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
-    mont_ecm_plan_t* const plan = calloc(1, sizeof(mont_ecm_plan_t));
+    mont_ecm_plan_t* const plan = tifa_calloc(1, sizeof(mont_ecm_plan_t));
 
     if (b1 > LARGEST_PRIME) {
         b1 = LARGEST_PRIME;
@@ -304,7 +305,7 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
     product_of_scalars(e, scalars.data, 0, scalars.length);
     free(scalars.data);
     plan->ebits = mpz_sizeinbase(e, 2);
-    plan->e     = malloc((plan->ebits / 64 + 1) * sizeof(uint64_t));
+    plan->e     = tifa_malloc((plan->ebits / 64 + 1) * sizeof(uint64_t));
     mpz_export(plan->e, &plan->ne, -1, sizeof(uint64_t), 0, 0, e);
     mpz_clear(e);
 

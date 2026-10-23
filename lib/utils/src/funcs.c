@@ -34,6 +34,7 @@
 #include "funcs.h"
 #include "factor_u64.h"
 #include "macros.h"
+#include "tifa_alloc.h"
 
 /*
  *-----------------------------------------------------------------------------
@@ -836,7 +837,7 @@ static void ks_init(void) {
     while (first_primes[nq] <= LARGEST_MULTIPLIER) {
         nq++;
     }
-    int8_t (*legendre_q)[KS_NPRIMES] = malloc(nq * sizeof(*legendre_q));
+    int8_t (*legendre_q)[KS_NPRIMES] = tifa_malloc(nq * sizeof(*legendre_q));
     uint8_t isqr[LARGEST_MULTIPLIER + 1];
 
     for (uint32_t j = 0; j < nq; j++) {

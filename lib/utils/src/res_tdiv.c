@@ -36,6 +36,7 @@
 #include "first_primes.h"
 #include "hashtable.h"
 #include "gmp_utils.h"
+#include "tifa_alloc.h"
 
 //-----------------------------------------------------------------------------
 //                 PROTOTYPES OF NON PUBLIC FUNCTION(S)
@@ -225,7 +226,7 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
                     //
-                    uint32_t *key = malloc(sizeof(uint32_t));
+                    uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
                     //
@@ -305,7 +306,7 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
                         // Add this pair in the hashtable with the position
                         // of the prime in first_primes_array as key...
                         //
-                        mpz_pair_t* pair = malloc(sizeof(mpz_pair_t));
+                        mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                         mpz_init_set(pair->x, in_xi->data[k]);
                         mpz_init_set(pair->y, in_yi->data[k] );
                         add_entry_in_hashtable(htable, (void*)key, (void*)pair);
@@ -491,7 +492,7 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
                     //
-                    uint32_t *key = malloc(sizeof(uint32_t));
+                    uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
                     //
@@ -580,7 +581,7 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
                         // Add this pair in the hashtable with the position
                         // of the prime in first_primes_array as key...
                         //
-                        mpz_pair_t* pair = malloc(sizeof(mpz_pair_t));
+                        mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                         mpz_init_set(pair->x, in_xi->data[k]);
                         mpz_init_set(pair->y, in_yi->data[k]);
                         mpz_mul(pair->y, pair->y, in_cof->data[k]);
@@ -793,7 +794,7 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
                     //
-                    uint32_t *key = malloc(sizeof(uint32_t));
+                    uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
                     //
@@ -873,7 +874,7 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
                         // Add this pair in the hashtable with the position
                         // of the prime in first_primes_array as key...
                         //
-                        mpz_pair_t* pair = malloc(sizeof(mpz_pair_t));
+                        mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                         mpz_init_set(pair->x, in_xi->data[k]);
                         mpz_init_set(pair->y, in_yi->data[k]);
                         add_entry_in_hashtable(htable, (void*)key, (void*)pair);
@@ -1073,7 +1074,7 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                     // cand_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
                     //
-                    uint32_t *key = malloc(sizeof(uint32_t));
+                    uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
                     //
@@ -1151,7 +1152,7 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                         // Add this pair in the hashtable with the position
                         // of the prime in first_primes_array as key...
                         //                        
-                        mpz_pair_t* pair = malloc(sizeof(mpz_pair_t));
+                        mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                         mpz_init_set(pair->x, in_xi->data[k]);
                         mpz_init_set(pair->y, in_yi->data[k]);
                         mpz_mul(pair->y, pair->y, cofact->data[k]);

@@ -60,6 +60,7 @@
 #include "factoring_machine.h"
 #include "squfof.h"
 #include "tifa_factor.h"
+#include "tifa_alloc.h"
 
 #define SQUFOF_DEBUG 0
 #if SQUFOF_DEBUG
@@ -503,7 +504,7 @@ static ecode_t init_squfof_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context          = (void*) malloc(sizeof(squfof_context_t));
+    machine->context          = (void*) tifa_malloc(sizeof(squfof_context_t));
     squfof_context_t* context = (squfof_context_t*) machine->context;
 
     context->params  = machine->params;
@@ -575,7 +576,8 @@ static ecode_t update_squfof_context(factoring_machine_t* const machine) {
         PRINT_UPDATE_RACE_MSG;
 
         context->nracers = NMULTIPLIERS;
-        context->racers  = malloc(context->nracers * sizeof(squfof_racer_t));
+        context->racers  = tifa_malloc(context->nracers
+                                       * sizeof(squfof_racer_t));
         for (uint32_t i = 0; i < context->nracers; i++) {
             init_squfof_racer(&context->racers[i], context->n, multipliers[i]);
         }
@@ -1543,7 +1545,7 @@ inline static unsigned long int divide_trick(const unsigned long int N,
 
 //-----------------------------------------------------------------------------
 static tmp_vars_t* alloc_init_tmp_vars(unsigned long int S, mpz_t D, mpz_t N) {
-    tmp_vars_t* vars = malloc(sizeof(tmp_vars_t));
+    tmp_vars_t* vars = tifa_malloc(sizeof(tmp_vars_t));
 
     mpz_init(vars->tmp_1);
     mpz_init(vars->tmp_2);

@@ -34,6 +34,7 @@
 #include "res_tdiv.h"
 #include "gmp_utils.h"
 #include "first_primes.h"
+#include "tifa_alloc.h"
 
 //------------------------------------------------------------------------------
 uint32_t select_res(smooth_filter_t* const filter, unsigned long int step);
@@ -76,12 +77,12 @@ void complete_filter_init(smooth_filter_t* const filter,
             ip++;
             eap = base->data[ip];
         }
-        filter->factor_base[0]          = malloc(sizeof(uint32_array_t));
+        filter->factor_base[0]          = tifa_malloc(sizeof(uint32_array_t));
         filter->factor_base[0]->data    = base->data;
         filter->factor_base[0]->length  = ip + 1;
         filter->factor_base[0]->alloced = 0;
         
-        filter->factor_base[1]          = malloc(sizeof(uint32_array_t));
+        filter->factor_base[1]          = tifa_malloc(sizeof(uint32_array_t));
         filter->factor_base[1]->data    = &(base->data[ip + 1]);
         filter->factor_base[1]->length  = nprimes - ip - 2;
         filter->factor_base[1]->alloced = 0;

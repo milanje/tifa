@@ -41,6 +41,7 @@
 #include "gauss_elim.h"
 #include "first_primes.h"
 #include "print_error.h"
+#include "tifa_alloc.h"
 
 //-----------------------------------------------------------------------------
 void fill_matrix_trial_div(binary_matrix_t* const matrix,
@@ -162,8 +163,8 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
         nrows_to_add = matrix->nrows_alloced - nrows;
     }
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
-    uint64_t* const pinv = malloc(factor_base->length * sizeof(uint64_t));
-    uint64_t* const plim = malloc(factor_base->length * sizeof(uint64_t));
+    uint64_t* const pinv = tifa_malloc(factor_base->length * sizeof(uint64_t));
+    uint64_t* const plim = tifa_malloc(factor_base->length * sizeof(uint64_t));
     for (uint32_t j = 0; j < factor_base->length; j++) {
         const uint64_t p = factor_base->data[j];
         uint64_t inv = p;
@@ -468,7 +469,7 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
 
     uint32_t irow = 0;
 
-    unsigned int*  decomp = malloc(
+    unsigned int*  decomp = tifa_malloc(
                                 yi_decomp_matrix->ncols * sizeof(unsigned int)
                             );
     unsigned char** decomp_data = yi_decomp_matrix->data;

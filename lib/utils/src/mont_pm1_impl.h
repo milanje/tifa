@@ -129,7 +129,7 @@ static void FN(lucas_stage2)(uint64_t* const acc, const uint64_t* const q,
                              const mont_ecm_plan_t* const plan,
                              const mod_t* const m) {
     const uint32_t half = plan->d / 2;
-    uint64_t (*const baby)[NL] = malloc(plan->nbaby * sizeof(*baby));
+    uint64_t (*const baby)[NL] = tifa_malloc(plan->nbaby * sizeof(*baby));
 
     uint64_t two[NL], v2[NL], prev[NL], cur[NL], next[NL];
     FN(add)(two, m->one, m->one, m);

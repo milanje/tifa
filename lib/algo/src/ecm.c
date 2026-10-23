@@ -46,6 +46,7 @@
 #define __TIMING__   TIFA_TIMING_ECM
 
 #include "messages.h"
+#include "tifa_alloc.h"
 
 //------------------------------------------------------------------------------
 //                   NON PUBLIC STRUCTURE(S) AND TYPEDEF(S)
@@ -481,7 +482,7 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context             = (void*) malloc(sizeof(ecm_context_t));
+    machine->context             = (void*) tifa_malloc(sizeof(ecm_context_t));
     ecm_context_t* const context = (ecm_context_t* const) machine->context;
     ecm_params_t*  const params  = (ecm_params_t* const)  machine->params;
     
@@ -1251,10 +1252,10 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     // _NOTE_: More space than strictly required is allocated in order to keep
     //         a simple implementation without translating indices.
     //
-    context->gcd_table = malloc((DO2 + 1) * sizeof(unsigned int));
-    context->SX        = malloc((DO2 + 1) * sizeof(mpz_t));
-    context->SZ        = malloc((DO2 + 1) * sizeof(mpz_t));
-    context->Js        = malloc((DO2 + 1) * sizeof(unsigned int));
+    context->gcd_table = tifa_malloc((DO2 + 1) * sizeof(unsigned int));
+    context->SX        = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
+    context->SZ        = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
+    context->Js        = tifa_malloc((DO2 + 1) * sizeof(unsigned int));
     context->njs       = 0;
 
     for (unsigned long int j = 1; j <= DO2; j++) {
@@ -1271,10 +1272,10 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     unsigned int nrows = m_max - m_min + 1;
     unsigned int ncols = DO2 + 1;
 
-    context->prime_table = malloc(nrows * sizeof(unsigned int*));
+    context->prime_table = tifa_malloc(nrows * sizeof(unsigned int*));
 
     for (unsigned int i = 0U; i < nrows; i++) {
-        context->prime_table[i] = malloc(ncols * sizeof(unsigned int));
+        context->prime_table[i] = tifa_malloc(ncols * sizeof(unsigned int));
     }
     unsigned int deltam = m_max - m_min;
 

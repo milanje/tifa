@@ -63,6 +63,7 @@
 #include "tune_algos.h"
 #include "tune_grid.h"
 #include "tune_numgen.h"
+#include "tifa_alloc.h"
 
 #define TUNE_EPS         1e-9
 #define TUNE_MAX_ROWS    256
@@ -641,8 +642,8 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
 
         // Build the shared test set once, so every grid point is compared on
         // identical composites.
-        mpz_t* nset = malloc(setlen * sizeof(mpz_t));
-        mpz_t* pset = malloc(setlen * sizeof(mpz_t));
+        mpz_t* nset = tifa_malloc(setlen * sizeof(mpz_t));
+        mpz_t* pset = tifa_malloc(setlen * sizeof(mpz_t));
         for (unsigned int t = 0; t < setlen; t++) {
             mpz_init(nset[t]);
             mpz_init(pset[t]);

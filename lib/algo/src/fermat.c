@@ -45,6 +45,7 @@
 #include "funcs.h"
 #include "macros.h"
 #include "linked_list.h"
+#include "tifa_alloc.h"
 
 #define FERMAT_DEBUG 1
 #if FERMAT_DEBUG
@@ -320,7 +321,7 @@ static ecode_t init_fermat_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context = (void*) malloc(sizeof(fermat_context_t));
+    machine->context = (void*) tifa_malloc(sizeof(fermat_context_t));
     fermat_context_t* const context = (fermat_context_t*) machine->context;
 
     context->n       = machine->n;

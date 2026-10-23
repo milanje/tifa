@@ -158,6 +158,7 @@ set(TIFA_PUBLIC_HEADERS
     utils/include/smooth_filter.h
     utils/include/sqrt_cont_frac.h
     utils/include/stopwatch.h
+    utils/include/tifa_alloc.h
     utils/include/timer.h
     utils/include/x_array_list.h
     utils/include/x_tree.h

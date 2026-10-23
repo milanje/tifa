@@ -48,6 +48,7 @@
 #define __TIMING__      TIFA_TIMING_CFRAC
 
 #include "messages.h"
+#include "tifa_alloc.h"
 
 //------------------------------------------------------------------------------
 //                         NON PUBLIC DEFINE(S)
@@ -400,7 +401,7 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context         = (void*) malloc(sizeof(cfrac_context_t));
+    machine->context         = (void*) tifa_malloc(sizeof(cfrac_context_t));
     cfrac_context_t* context = (cfrac_context_t*) machine->context;
     cfrac_params_t*  params  = (cfrac_params_t*)  machine->params;
 
@@ -410,7 +411,8 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
         mpz_sizeinbase(context->n, 2) + BITSIZE_LARGEST_MULTIPLIER
     );
 
-    context->mult_data     = malloc(LARGEST_MULTIPLIER * sizeof(mult_data_t));
+    context->mult_data     = tifa_malloc(LARGEST_MULTIPLIER
+                                         * sizeof(mult_data_t));
     context->factor_base   = alloc_uint32_array(params->nprimes_in_base);
     //
     // Number of columns is indeed params->nprimes_in_base + 1 since the first
@@ -472,7 +474,7 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     //
     // Init state of continued fraction generator.
     //
-    context->cfstate = malloc(sizeof(cont_frac_state_t));
+    context->cfstate = tifa_malloc(sizeof(cont_frac_state_t));
 
     init_cont_frac_state(context->cfstate, context->kn);
     step_cont_frac_state(context->cfstate, MIN_NSTEP_CFRAC - 2);

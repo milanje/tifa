@@ -26,6 +26,7 @@
 #include <math.h>
 
 #include "ecm_schedule.h"
+#include "tifa_alloc.h"
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -82,7 +83,7 @@ struct struct_ecm_schedule_t {
 
 //------------------------------------------------------------------------------
 ecm_schedule_t* alloc_ecm_schedule(const uint32_t max_bits) {
-    ecm_schedule_t* const s = malloc(sizeof(ecm_schedule_t));
+    ecm_schedule_t* const s = tifa_malloc(sizeof(ecm_schedule_t));
 
     s->pm1_plan = alloc_mont_ecm_plan(PM1_B1, 50 * PM1_B1);
     s->nlevels  = 0;

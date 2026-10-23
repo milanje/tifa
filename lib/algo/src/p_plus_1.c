@@ -41,6 +41,7 @@
 #define __TIMING__      TIFA_TIMING_PP1
 
 #include "messages.h"
+#include "tifa_alloc.h"
 
 //
 // Maximum number of times the smoothness bounds are grown (after the whole
@@ -331,7 +332,7 @@ static ecode_t init_p_plus_1_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context = (void*) malloc(sizeof(p_plus_1_context_t));
+    machine->context = (void*) tifa_malloc(sizeof(p_plus_1_context_t));
     p_plus_1_context_t* context = (p_plus_1_context_t*) machine->context;
 
     mpz_init_set(context->n, machine->n);
@@ -584,7 +585,7 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
         // from the Lucas recurrence W_0 = 2, W_1 = x, W_j = x*W_{j-1} - W_{j-2}
         // (mod n), carried across the non-coprime gaps by two rolling terms.
         //
-        mpz_t* SV = (mpz_t*) malloc((PP1_DO2 + 1) * sizeof(mpz_t));
+        mpz_t* SV = (mpz_t*) tifa_malloc((PP1_DO2 + 1) * sizeof(mpz_t));
         for (unsigned int ij = 0; ij < njs; ij++) {
             mpz_init(SV[Js[ij]]);
         }
@@ -628,7 +629,7 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
             // primes q in (b1, b2] (q = m*D + r, j = |r|); no primality tests.
             //
             unsigned char* mask = (unsigned char*)
-                calloc(nrows * (PP1_DO2 + 1), sizeof(unsigned char));
+                tifa_calloc(nrows * (PP1_DO2 + 1), sizeof(unsigned char));
 
             for (uint32_t i = ip;
                  (i < NFIRST_PRIMES) && (first_primes[i] <= params->b2); i++) {

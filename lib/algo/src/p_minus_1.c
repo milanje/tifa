@@ -40,6 +40,7 @@
 #define __TIMING__      TIFA_TIMING_PM1
 
 #include "messages.h"
+#include "tifa_alloc.h"
 
 //
 // Maximum number of times the context is updated (i.e. B1 is grown and the
@@ -227,7 +228,7 @@ static ecode_t init_p_minus_1_context(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    machine->context = (void*) malloc(sizeof(p_minus_1_context_t));
+    machine->context = (void*) tifa_malloc(sizeof(p_minus_1_context_t));
     p_minus_1_context_t* context = (p_minus_1_context_t*) machine->context;
 
     mpz_init_set(context->n, machine->n);

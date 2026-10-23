@@ -45,6 +45,7 @@
 
 #include "timer.h"
 #include "tifa_config.h"
+#include "tifa_alloc.h"
 
 //
 // Set this to non zero to perform "safer" modular arithmetic. It involves
@@ -62,11 +63,11 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
                              uint32_array_t* const factor_base,
                              uint32_array_t* const sqrtm_pi)
 {    
-    siqs_poly_t* const poly = malloc(sizeof(siqs_poly_t));
+    siqs_poly_t* const poly = tifa_malloc(sizeof(siqs_poly_t));
         
     poly->nfullpolyinit = 0;
     poly->nprimes_in_a  = determine_nprimes(mpz_sizeinbase(target_a, 2));
-    poly->idx_of_a      = malloc(poly->nprimes_in_a * sizeof(uint32_t));
+    poly->idx_of_a      = tifa_malloc(poly->nprimes_in_a * sizeof(uint32_t));
     
     poly->factor_base = factor_base;
     poly->sqrtm_pi    = sqrtm_pi;
@@ -90,8 +91,8 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     poly->sol1   = alloc_int32_array(poly->factor_base->length);
     poly->sol2   = alloc_int32_array(poly->factor_base->length);
     poly->Bl     = alloc_mpz_array(poly->nprimes_in_a);
-    poly->Bainv2 = malloc(poly->factor_base->length * sizeof(uint32_t*));
-    poly->Bainv2[0] = malloc(  poly->factor_base->length
+    poly->Bainv2 = tifa_malloc(poly->factor_base->length * sizeof(uint32_t*));
+    poly->Bainv2[0] = tifa_malloc(  poly->factor_base->length
                              * poly->nprimes_in_a * sizeof(uint32_t));
     for (uint32_t i = 1; i < poly->factor_base->length; i++) {
         poly->Bainv2[i] = poly->Bainv2[0] + i * poly->nprimes_in_a;

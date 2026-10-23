@@ -32,6 +32,7 @@
 #include "macros.h"
 #include "gmp_utils.h"
 #include "x_tree.h"
+#include "tifa_alloc.h"
 
 //-----------------------------------------------------------------------------
 void print_mpz_tree_rec(const mpz_tree_t* const, uint32_t, uint32_t);
@@ -66,7 +67,7 @@ mpz_tree_t* prod_tree(const mpz_array_t* const array) {
     //         of view, is pretty ugly. It may be worthwhile to rewrite these
     //         two functions in a clever way to avoid such bad code reuse...
     //
-    mpz_tree_t* const tree = malloc(sizeof(mpz_tree_t));
+    mpz_tree_t* const tree = tifa_malloc(sizeof(mpz_tree_t));
     //
     // Handle the special cases separately...
     //
@@ -79,7 +80,7 @@ mpz_tree_t* prod_tree(const mpz_array_t* const array) {
     if (1 == array->length) {
         tree->alloced = 1;
         tree->length = 1;
-        tree->data = malloc(sizeof(mpz_t));
+        tree->data = tifa_malloc(sizeof(mpz_t));
         mpz_init_set(tree->data[0], array->data[0]);
         return tree;
     }
@@ -98,7 +99,7 @@ mpz_tree_t* prod_tree(const mpz_array_t* const array) {
     //
     tree->alloced = 2*(1<<minpow) - 1;
     tree->length = tree->alloced;
-    tree->data = malloc(tree->alloced*sizeof(mpz_t));
+    tree->data = tifa_malloc(tree->alloced*sizeof(mpz_t));
     //
     // Use a local constant pointer to the data to bypass the reading of a
     // non constant pointer. This should hopefully speed-up things a bit...
@@ -126,7 +127,7 @@ mpz_tree_t* prod_tree(const mpz_array_t* const array) {
     }
     size_tree = size_leaves * (minpow + 1);
 
-    PTR(treedata[0]) = malloc(size_tree * sizeof(mp_limb_t));
+    PTR(treedata[0]) = tifa_malloc(size_tree * sizeof(mp_limb_t));
     mp_limb_t* const treelimbs = PTR(treedata[0]);
 
     uint32_t next_free_space_index = size_tree;
@@ -255,7 +256,7 @@ mpz_tree_t* prod_tree_mod(const mpz_array_t* const array, const mpz_t n) {
     //         of view, is pretty ugly. It may be worthwhile to rewrite these
     //         two functions in a clever way to avoid such bad code reuse...
     //
-    mpz_tree_t* const tree = malloc(sizeof(mpz_tree_t));
+    mpz_tree_t* const tree = tifa_malloc(sizeof(mpz_tree_t));
     //
     // Handle the special cases separately...
     //
@@ -268,7 +269,7 @@ mpz_tree_t* prod_tree_mod(const mpz_array_t* const array, const mpz_t n) {
     if (1 == array->length) {
         tree->alloced = 1;
         tree->length = 1;
-        tree->data = malloc(sizeof(mpz_t));
+        tree->data = tifa_malloc(sizeof(mpz_t));
         mpz_init_set(tree->data[0], array->data[0]);
         return tree;
     }
@@ -287,7 +288,7 @@ mpz_tree_t* prod_tree_mod(const mpz_array_t* const array, const mpz_t n) {
     //
     tree->alloced = 2*(1<<minpow) - 1;
     tree->length = tree->alloced;
-    tree->data = malloc(tree->alloced*sizeof(mpz_t));
+    tree->data = tifa_malloc(tree->alloced*sizeof(mpz_t));
     //
     // Use a local constant pointer to the data to bypass the reading of a
     // non constant pointer. This should hopefully speed-up things a bit...
@@ -315,7 +316,7 @@ mpz_tree_t* prod_tree_mod(const mpz_array_t* const array, const mpz_t n) {
     }
     size_tree = size_leaves * (minpow + 1);
 
-    PTR(treedata[0]) = malloc(size_tree * sizeof(mp_limb_t));
+    PTR(treedata[0]) = tifa_malloc(size_tree * sizeof(mp_limb_t));
     mp_limb_t* const treelimbs = PTR(treedata[0]);
 
     uint32_t next_free_space_index = size_tree;
@@ -359,10 +360,10 @@ mpz_tree_t* prod_tree_mod(const mpz_array_t* const array, const mpz_t n) {
         iarray--;
     }
     
-    mp_limb_t* quotient = malloc(
+    mp_limb_t* quotient = tifa_malloc(
                               (size_leaves - SIZ(n) + 1) * sizeof(mp_limb_t)
                           );
-    mp_limb_t* remainder = malloc(SIZ(n) * sizeof(mp_limb_t));
+    mp_limb_t* remainder = tifa_malloc(SIZ(n) * sizeof(mp_limb_t));
 
     uint32_t ichild_1 = 0;
     uint32_t ichild_2 = 0;
@@ -513,7 +514,7 @@ mpz_tree_t* prod_tree_ui(const uint32_array_t* const array) {
     //         pretty ugly. It may be worthwhile to rewrite these two functions
     //         in a clever way to avoid such bad code reuse...
     //
-    mpz_tree_t* const tree = malloc(sizeof(mpz_tree_t));
+    mpz_tree_t* const tree = tifa_malloc(sizeof(mpz_tree_t));
     //
     // Handle the special cases separately...
     //
@@ -526,7 +527,7 @@ mpz_tree_t* prod_tree_ui(const uint32_array_t* const array) {
     if (1 == array->length) {
         tree->alloced = 1;
         tree->length = 1;
-        tree->data = malloc(sizeof(mpz_t));
+        tree->data = tifa_malloc(sizeof(mpz_t));
         mpz_init_set_ui(tree->data[0], array->data[0]);
         return tree;
     }
@@ -545,7 +546,7 @@ mpz_tree_t* prod_tree_ui(const uint32_array_t* const array) {
     //
     tree->alloced = 2*(1<<minpow) - 1;
     tree->length = tree->alloced;
-    tree->data = malloc(tree->alloced*sizeof(mpz_t));
+    tree->data = tifa_malloc(tree->alloced*sizeof(mpz_t));
     //
     // Use a local constant pointer to the data to bypass the reading of a
     // non constant pointer. This should hopefully speed-up things a bit...
@@ -573,7 +574,7 @@ mpz_tree_t* prod_tree_ui(const uint32_array_t* const array) {
     }
     size_tree = size_leaves * (minpow + 1);
 
-    PTR(treedata[0]) = malloc(size_tree * sizeof(mp_limb_t));
+    PTR(treedata[0]) = tifa_malloc(size_tree * sizeof(mp_limb_t));
     mp_limb_t* const treelimbs = PTR(treedata[0]);
 
     uint32_t next_free_space_index = size_tree;
@@ -716,7 +717,7 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
     //         allocated memory of the mpz_t's in the array can NOT be
     //         increased...
     //
-    mpz_tree_t* const res = malloc(sizeof(mpz_tree_t));
+    mpz_tree_t* const res = tifa_malloc(sizeof(mpz_tree_t));
 
     if (0 == ptree->length) {
         res->alloced = 0;
@@ -726,7 +727,7 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
     }
     res->alloced = ptree->length;
     res->length  = res->alloced;
-    res->data    = malloc(res->alloced * sizeof(mpz_t));
+    res->data    = tifa_malloc(res->alloced * sizeof(mpz_t));
     //
     // Use local constant pointers to the data to by pass the reading of
     // non constant pointers. This should hopefully speed-up things a bit...
@@ -759,7 +760,7 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
     // We don't need to keep the value of the quotients. So allocate enough
     // memory for the largest possible quotient and reuse this array...
     //
-    mp_limb_t* quotdata = malloc(ABSIZ(z) * sizeof(mp_limb_t));
+    mp_limb_t* quotdata = tifa_malloc(ABSIZ(z) * sizeof(mp_limb_t));
 
     //
     // Computes the memory needed to hold the remainder tree and allocate the
@@ -769,7 +770,7 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
     for (uint32_t inode = 0U; inode < ptree->length; inode++) {
         size_tree += ABSIZ(ptree->data[inode]);
     }
-    PTR(resdata[0]) = malloc(size_tree * sizeof(mp_limb_t));
+    PTR(resdata[0]) = tifa_malloc(size_tree * sizeof(mp_limb_t));
     mp_limb_t* const reslimbs = PTR(resdata[0]);
     //
     // Sets each mpz_t's data pointer to its "dedicated" memory location

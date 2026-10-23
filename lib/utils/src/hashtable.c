@@ -29,6 +29,7 @@
 #include "hashtable.h"
 #include "macros.h"
 #include "funcs.h"
+#include "tifa_alloc.h"
 
 //
 // _TO_DO_: Consider adding in the hashtable_t structure (and hence in the
@@ -43,7 +44,7 @@ hashtable_t* alloc_init_hashtable(
                                          const void* const key_b),
                         uint32_t (*hash_func) (const void* const key) ) {
 
-    hashtable_t *htable = malloc(sizeof(hashtable_t));
+    hashtable_t *htable = tifa_malloc(sizeof(hashtable_t));
     //
     // Make sure that htable->alloced is a power of 2 so that we can just use
     // the binary & operator instead of computing a modulo...
@@ -54,7 +55,7 @@ hashtable_t* alloc_init_hashtable(
     }
     htable->alloced  = size;
     htable->nentries = 0;
-    htable->buckets  = malloc(size * sizeof(linked_list_t));
+    htable->buckets  = tifa_malloc(size * sizeof(linked_list_t));
 
     htable->hash_func = hash_func;
     htable->cmp_func  = cmp_func;
@@ -90,7 +91,7 @@ void add_entry_in_hashtable(hashtable_t* const htable,
                             const void* const key,
                             const void* const data) {
 
-    hashtable_entry_t* entry = malloc(sizeof(hashtable_entry_t));
+    hashtable_entry_t* entry = tifa_malloc(sizeof(hashtable_entry_t));
 
     entry->key  = (void*)key;
     entry->data = (void*)data;

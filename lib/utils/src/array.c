@@ -37,6 +37,7 @@
 #include "funcs.h"
 #include "macros.h"
 #include "bitstring_t.h"
+#include "tifa_alloc.h"
 
 /*
  *-----------------------------------------------------------------------------
@@ -47,15 +48,15 @@
 //-----------------------------------------------------------------------------
 byte_array_t* alloc_byte_array(uint32_t length) {
 
-    byte_array_t* array = malloc(sizeof(byte_array_t));
+    byte_array_t* array = tifa_malloc(sizeof(byte_array_t));
 
     array->alloced = length;
     array->length  = 0U;
 
 #if USE_CALLOC_MEMSET
-    array->data = calloc(array->alloced, sizeof(unsigned char));
+    array->data = tifa_calloc(array->alloced, sizeof(unsigned char));
 #else
-    array->data = malloc(array->alloced * sizeof(unsigned char));
+    array->data = tifa_malloc(array->alloced * sizeof(unsigned char));
     for (uint32_t i = 0; i < array->alloced; i++) {
         array->data[i] = 0;
     }
@@ -77,9 +78,10 @@ void resize_byte_array(byte_array_t* array, uint32_t alloced) {
         array->length = alloced;
     }
     if (array->alloced > 0) {
-        array->data = realloc(array->data, alloced * sizeof(unsigned char));
+        array->data = tifa_realloc(array->data, alloced
+                                   * sizeof(unsigned char));
     } else {
-        array->data = malloc(alloced * sizeof(unsigned char));
+        array->data = tifa_malloc(alloced * sizeof(unsigned char));
     }
     array->alloced = alloced;
 }
@@ -226,15 +228,15 @@ uint32_t index_in_sorted_byte_array(unsigned char to_find,
 //-----------------------------------------------------------------------------
 uint32_array_t* alloc_uint32_array(uint32_t length) {
 
-    uint32_array_t* array = malloc(sizeof(uint32_array_t));
+    uint32_array_t* array = tifa_malloc(sizeof(uint32_array_t));
 
     array->alloced = length;
     array->length  = 0U;
 
 #if USE_CALLOC_MEMSET
-    array->data = calloc(array->alloced, sizeof(uint32_t));
+    array->data = tifa_calloc(array->alloced, sizeof(uint32_t));
 #else
-    array->data = malloc(array->alloced * sizeof(uint32_t));
+    array->data = tifa_malloc(array->alloced * sizeof(uint32_t));
     for (uint32_t i = 0U; i < array->alloced; i++) {
         array->data[i] = 0U;
     }
@@ -256,9 +258,9 @@ void resize_uint32_array(uint32_array_t* array, uint32_t alloced) {
         array->length = alloced;
     }
     if (array->alloced > 0) {
-        array->data = realloc(array->data, alloced * sizeof(uint32_t));
+        array->data = tifa_realloc(array->data, alloced * sizeof(uint32_t));
     } else {
-        array->data = malloc(alloced * sizeof(uint32_t));
+        array->data = tifa_malloc(alloced * sizeof(uint32_t));
     }
     array->alloced = alloced;
 }
@@ -405,15 +407,15 @@ uint32_t index_in_sorted_uint32_array(uint32_t to_find,
 //-----------------------------------------------------------------------------
 int32_array_t* alloc_int32_array(uint32_t length) {
 
-    int32_array_t* array = malloc(sizeof(int32_array_t));
+    int32_array_t* array = tifa_malloc(sizeof(int32_array_t));
 
     array->alloced = length;
     array->length  = 0U;
 
 #if USE_CALLOC_MEMSET
-    array->data = calloc(array->alloced, sizeof(int32_t));
+    array->data = tifa_calloc(array->alloced, sizeof(int32_t));
 #else
-    array->data = malloc(array->alloced * sizeof(int32_t));
+    array->data = tifa_malloc(array->alloced * sizeof(int32_t));
     for (uint32_t i = 0U; i < array->alloced; i++) {
         array->data[i] = 0;
     }
@@ -435,9 +437,9 @@ void resize_int32_array(int32_array_t* array, uint32_t alloced) {
         array->length = alloced;
     }
     if (array->alloced > 0) {
-        array->data = realloc(array->data, alloced * sizeof(int32_t));
+        array->data = tifa_realloc(array->data, alloced * sizeof(int32_t));
     } else {
-        array->data = malloc(alloced * sizeof(int32_t));
+        array->data = tifa_malloc(alloced * sizeof(int32_t));
     }
     array->alloced = alloced;
 }
@@ -560,11 +562,11 @@ uint32_t index_in_sorted_int32_array(int32_t to_find,
 //-----------------------------------------------------------------------------
 mpz_array_t* alloc_mpz_array(uint32_t length) {
 
-    mpz_array_t* array = malloc(sizeof(mpz_array_t));
+    mpz_array_t* array = tifa_malloc(sizeof(mpz_array_t));
 
     array->alloced = length;
     array->length  = 0U;
-    array->data    = malloc(array->alloced * sizeof(mpz_t));
+    array->data    = tifa_malloc(array->alloced * sizeof(mpz_t));
     
     //
     // _WARNING_: The mpz_t array given by array->data is fully mpz_init'ed 
@@ -615,9 +617,9 @@ void resize_mpz_array(mpz_array_t* const array, uint32_t alloced) {
         array->length = alloced;
     }
     if (array->alloced > 0) {
-        array->data = realloc(array->data, alloced * sizeof(mpz_t));
+        array->data = tifa_realloc(array->data, alloced * sizeof(mpz_t));
     } else {
-        array->data = malloc(alloced * sizeof(mpz_t));
+        array->data = tifa_malloc(alloced * sizeof(mpz_t));
     }
     //
     // _WARNING_: The mpz_t array given by array->data is fully
@@ -773,7 +775,7 @@ void qsort_mpz_array(mpz_array_t* const array) {
 //-----------------------------------------------------------------------------
 binary_array_t* alloc_binary_array(uint32_t length) {
 
-    binary_array_t* array = malloc(sizeof(binary_array_t));
+    binary_array_t* array = tifa_malloc(sizeof(binary_array_t));
     //
     // Remember now that array->alloced is not the number of bits but the
     // smallest number of TIFA_BITSTRING_T needed to store length bits.
@@ -782,9 +784,9 @@ binary_array_t* alloc_binary_array(uint32_t length) {
     array->length  = 0U;
 
 #if USE_CALLOC_MEMSET
-    array->data = calloc(array->alloced, sizeof(TIFA_BITSTRING_T));
+    array->data = tifa_calloc(array->alloced, sizeof(TIFA_BITSTRING_T));
 #else
-    array->data = malloc(array->alloced * sizeof(TIFA_BITSTRING_T));
+    array->data = tifa_malloc(array->alloced * sizeof(TIFA_BITSTRING_T));
     for (uint32_t i = 0U; i < array->alloced; i++) {
         array->data[i]  = 0;
         //
@@ -815,9 +817,10 @@ void resize_binary_array(binary_array_t* array, uint32_t alloced) {
         array->length = alloced;
     }
     if (array->alloced > 0) {
-        array->data = realloc(array->data, nalloc * sizeof(TIFA_BITSTRING_T));
+        array->data = tifa_realloc(array->data, nalloc
+                                   * sizeof(TIFA_BITSTRING_T));
     } else {
-        array->data = malloc(nalloc * sizeof(TIFA_BITSTRING_T));
+        array->data = tifa_malloc(nalloc * sizeof(TIFA_BITSTRING_T));
     }
     if (array->alloced < nalloc) {
         //

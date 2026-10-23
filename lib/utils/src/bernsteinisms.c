@@ -38,6 +38,7 @@
 #include "first_primes.h"
 #include "hashtable.h"
 #include "macros.h"
+#include "tifa_alloc.h"
 
 #define DEBUG 0
 #if DEBUG
@@ -90,7 +91,7 @@ mpz_t* bern_51(uint32_t b, const mpz_t u) {
     //
     //         Variable names and notations are the ones used in the paper.
     //
-    mpz_t* v = malloc(sizeof(mpz_t));
+    mpz_t* v = tifa_malloc(sizeof(mpz_t));
     mpz_init(*v);
     //
     // Step 1
@@ -156,7 +157,7 @@ mpz_t* bern_53(uint32_t b, const mpz_t u, const mpz_t x) {
     //
     //         Variable names and notations are the ones used in the paper.
     //
-    mpz_t *r = malloc(sizeof(mpz_t));
+    mpz_t *r = tifa_malloc(sizeof(mpz_t));
     mpz_init(*r);
     //
     // Step 1
@@ -211,7 +212,7 @@ uint32_array_t* bern_63(const mpz_t x, const mpz_tree_t* const tree) {
     //
     // Bootstrap...
     //
-    uint32_array_t* result = malloc(sizeof(mpz_array_t));
+    uint32_array_t* result = tifa_malloc(sizeof(mpz_array_t));
 
     if (0 == tree->length) {
         result->alloced = 0;
@@ -221,7 +222,7 @@ uint32_array_t* bern_63(const mpz_t x, const mpz_tree_t* const tree) {
     }
     result->alloced = (tree->length + 1) / 2;
     result->length  = 0;
-    result->data    = malloc(result->alloced*sizeof(uint32_t));
+    result->data    = tifa_malloc(result->alloced*sizeof(uint32_t));
     //
     // Recursion: steps 1 to 7
     //
@@ -262,7 +263,7 @@ void bern_63_rec(uint32_array_t* result, const mpz_t x,
         //
         // Step 4
         //
-        r = malloc(sizeof(mpz_t));
+        r = tifa_malloc(sizeof(mpz_t));
         mpz_init_set(*r, x);
     }
     //
@@ -774,7 +775,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                 // cand_yi->data[k] is the product of a smooth number with
                 // the prime number first_primes_array->data[ind]
                 //
-                uint32_t *key = malloc(sizeof(uint32_t));
+                uint32_t *key = tifa_malloc(sizeof(uint32_t));
                 *key  = nsp_ui;
                 
                 //
@@ -848,7 +849,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                     // Add this pair in the hashtable with the position
                     // of the prime in first_primes_array as key...
                     //
-                    mpz_pair_t* pair = malloc(sizeof(mpz_pair_t));
+                    mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                     mpz_init_set(pair->x, *candidate_x);
                     mpz_init_set(pair->y, *candidate_y);
                     mpz_mul(pair->y, pair->y, *candidate_a);
@@ -989,7 +990,7 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                     // in_yi->data[k] is the product of a smooth number with
                     // the prime number first_primes_array->data[ind]
                     //
-                    uint32_t *key = malloc(sizeof(uint32_t));
+                    uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
             
                     //
@@ -1062,7 +1063,7 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                         // Add this pair in the hashtable with the position
                         // of the prime in first_primes_array as key...
                         //
-                        mpz_pair_t* pair = malloc(sizeof(mpz_pair_t));
+                        mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                         mpz_init_set(pair->x, in_xi->data[k]);
                         mpz_init_set(pair->y, in_yi->data[k]);
                         add_entry_in_hashtable(htable, (void*)key, (void*)pair);
