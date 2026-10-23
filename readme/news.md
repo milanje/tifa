@@ -1,5 +1,23 @@
 # TIFA news
 
+## 23 October 2026 &mdash; faster SIQS setup (for 0.3.0)
+
+Outside the sieve, a SIQS run spent a fifth of its time at 70 bits on its
+setup and per-run overheads. The factor base takes its residues from the
+multiplier choice (bitmaps of quadratic residues instead of Jacobi symbols,
+no GMP division or `log()` per prime), `sqrtm` rejects non-residues first and
+needs one exponentiation for three primes in four, the relations' trial
+division stops once the residue is below p^2, and the polynomial coefficient
+approximer and the batch smoothness test lost most of their libm calls,
+sorting and GMP allocations. The results are unchanged.
+
+| `tifa_factor`, balanced semiprimes | 72 | 80 | 90 | 100 | 110 | 128 | 160 bits |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| time, against the cleanups below | 0.90 | 0.93 | 0.94 | 0.95 | 0.96 | 0.97 | 0.98 |
+
+`tifa_cofactor` in its exact mode is 2 to 3.5% faster on the sets of the
+October tables.
+
 ## 23 October 2026 &mdash; cleanups (for 0.3.0)
 
 The version is now 0.3.0 (`libtifa.so.0.3`), not released yet: builds of
