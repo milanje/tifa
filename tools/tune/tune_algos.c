@@ -270,7 +270,6 @@ static void build_grid_cfrac(uint32_t bitsize, grid_t* g) {
     grid_add_axis_fixed(g, d.nprimes_tdiv);                                       // nprimes_tdiv
     grid_add_axis_fixed(g, d.nrelations);                                         // nrelations
     grid_add_axis_list(g, BOOL01, 2);                                             // use_large_primes
-    grid_add_axis_fixed(g, d.nsteps_early_abort);                                 // nsteps_early_abort
 }
 
 static bool run_cfrac(const mpz_t n, const mpz_t p, const uint32_t cols[],
@@ -282,7 +281,6 @@ static bool run_cfrac(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.nprimes_tdiv       = cols[1];
     params.nrelations         = cols[2];
     params.use_large_primes   = (cols[3] != 0);
-    params.nsteps_early_abort = (unsigned short) cols[4];
 
     bool ok;
     TIME_RUN(cfrac(_f, _m, n, &params, SINGLE_RUN), secs, &ok);

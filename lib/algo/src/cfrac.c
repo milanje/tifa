@@ -363,7 +363,6 @@ void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params) {
     params->linalg_method      = CFRAC_DFLT_LINALG_METHOD;
     params->use_large_primes   = CFRAC_DFLT_USE_LARGE_PRIMES;
     params->filter_method      = DJB_BATCH;
-    params->nsteps_early_abort = 0;
 
     //
     // Override the tabulated defaults with machine-tuned values if a tuning
@@ -378,7 +377,6 @@ void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params) {
         params->nprimes_tdiv       = row.cols[1];
         params->nrelations         = row.cols[2];
         params->use_large_primes   = (row.cols[3] != 0);
-        params->nsteps_early_abort = (unsigned short) row.cols[4];
     }
 }
 //------------------------------------------------------------------------------
@@ -508,7 +506,6 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     context->filter.n             = context->n;
     context->filter.kn            = context->kn;
     context->filter.batch_size    = 1 << e;
-    context->filter.nsteps        = params->nsteps_early_abort;
     context->filter.htable        = context->htable;
     context->filter.base_size     = context->factor_base->length;
     context->filter.candidate_xi  = context->candidate_xi;
@@ -518,7 +515,6 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     context->filter.complete_base = context->factor_base;
 
     context->filter.method = params->filter_method;
-    context->filter.nsteps = params->nsteps_early_abort;
 
     //
     // The large-prime variation is active iff the hashtable was allocated

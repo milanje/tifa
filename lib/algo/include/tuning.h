@@ -101,8 +101,8 @@ extern "C" {
 #define TIFA_TUNING_COLS_ECM         "b1 b2 ncurves"
 #define TIFA_TUNING_INTERP_ECM       0x7
 
-#define TIFA_TUNING_NCOLS_CFRAC      5
-#define TIFA_TUNING_COLS_CFRAC       "nprimes_in_base nprimes_tdiv nrelations use_large_primes nsteps_early_abort"
+#define TIFA_TUNING_NCOLS_CFRAC      4
+#define TIFA_TUNING_COLS_CFRAC       "nprimes_in_base nprimes_tdiv nrelations use_large_primes"
 #define TIFA_TUNING_INTERP_CFRAC     0x7
 
 #define TIFA_TUNING_NCOLS_SIQS       6

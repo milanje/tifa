@@ -109,11 +109,6 @@ struct struct_cfrac_params_t {
         * Method to use to detect smooth residues and relations.
         */
     smooth_filter_method_t filter_method;
-       /**
-        * Unused: \c filter_method sets the number of steps of the early
-        * abort strategy (see \c complete_filter_init in smooth_filter.h).
-        */
-    unsigned short int nsteps_early_abort;
 };
 
    /**
