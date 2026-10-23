@@ -2,6 +2,9 @@
 
 ## 23 October 2026 &mdash; cleanups (for 0.3.0)
 
+The version is now 0.3.0 (`libtifa.so.0.3`), not released yet: builds of
+this code no longer pass for 0.2.0, whose ABI differs.
+
 - Every allocation is checked: out of memory, the library prints an error
   and aborts, as GMP does, instead of writing through a NULL pointer
   (`tifa_alloc.h`).
