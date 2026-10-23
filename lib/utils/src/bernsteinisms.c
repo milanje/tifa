@@ -542,10 +542,10 @@ static inline uint64_t gcd_u64(uint64_t a, uint64_t b) {
 //
 // Whether the candidate y is smooth over the primes of z, given r = z mod |y|
 // (if rleaf is NULL, it is computed from z). If not and nsp is not NULL, nsp
-// is set to |y| over its smooth part. yk is scratch.
+// is set to |y| over its smooth part. yk and yo are scratch.
 //
 static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
-                        mpz_t yk, mpz_t nsp) {
+                        mpz_t yk, mpz_t yo, mpz_t nsp) {
     const uint32_t msb = mpz_sizeinbase(y, 2) - 1;
     const uint32_t e   = most_significant_bit(msb) + 1;
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
@@ -572,10 +572,8 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
             mpz_abs(yk, yk);
         }
         //
-        // yk = r, nsp (or the stack) = the odd part yo of |y|, r mod yo.
+        // yk = r mod yo, with yo the odd part of |y|.
         //
-        mpz_t yo;
-        mpz_init(yo);
         mpz_abs(yo, y);
         mpz_tdiv_q_2exp(yo, yo, mpz_scan1(yo, 0));
         mpz_tdiv_r(yk, yk, yo);
@@ -595,7 +593,6 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
             mpz_gcd(yk, yk, yo);
             mpz_divexact(nsp, yo, yk);
         }
-        mpz_clear(yo);
         return smooth;
     }
 #endif
@@ -645,13 +642,14 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
     //
     // Step 3
     //
-    mpz_t yk;
+    mpz_t yk, yo;
     mpz_init(yk);
+    mpz_init(yo);
 
     for (uint32_t k = 0U; k < cand_yi->length; k++) {
         const mpz_srcptr rleaf = (rtree != NULL)
                                ? rtree->data[rtree->length/2 + k] : NULL;
-        if (siqs_smooth(cand_yi->data[k], z, rleaf, yk, NULL)) {
+        if (siqs_smooth(cand_yi->data[k], z, rleaf, yk, yo, NULL)) {
 			//
             // We found a good pair (cand_yi->data[k], cand_xi->data[k])!
             // Add cand_yi->data[k] is the smooth_yi array and add
@@ -672,6 +670,7 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
         }
     }
     mpz_clear(yk);
+    mpz_clear(yo);
 
     if (rtree != NULL) {
         free_mpz_tree(rtree);
@@ -715,8 +714,9 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     //
     // Step 3
     //
-    mpz_t yk;
+    mpz_t yk, yo;
     mpz_init(yk);
+    mpz_init(yo);
 
     mpz_t nsp;
     mpz_init(nsp);
@@ -741,7 +741,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
         //         it is not smooth.
         //
         if (siqs_smooth(*candidate_y, z, (rtreeptr != NULL) ? *rtreeptr : NULL,
-                        yk, nsp)) {
+                        yk, yo, nsp)) {
 			//
             // We found a good pair (cand_yi->data[k], cand_xi->data[k])!
             // Add cand_yi->data[k] is the smooth_yi array and add
@@ -870,6 +870,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
         }
     }
     mpz_clear(yk);
+    mpz_clear(yo);
     mpz_clear(nsp);
     mpz_clear(nsp_inv);
 
