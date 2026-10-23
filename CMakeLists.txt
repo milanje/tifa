@@ -351,8 +351,11 @@ set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "tifa-${PROJECT_VERSION}")
 set(CPACK_VERBATIM_VARIABLES YES)
 set(CPACK_SOURCE_IGNORE_FILES
+    "/\\.git$"
     "/\\.git/"
-    "/build/"
+    "/build[^/]*/"
+    "/\\.claude/"
+    "\\.DS_Store$"
     "/\\.sconf_temp/"
     "\\.sconsign"
     "\\.sconsign\\.dblite"
