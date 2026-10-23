@@ -1,3 +1,21 @@
+// Copyright (C) 2026 Jerome Milan.
+//
+// This file is part of TIFA.
+//
+// TIFA is free software; you can redistribute it and/or modify it under the
+// terms of the GNU Lesser General Public License as published by the Free
+// Software Foundation; either version 2.1 of the License, or (at your option)
+// any later version.
+//
+// TIFA is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+// more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this library; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
+
 // Candidate curves and points for z2z8_curves in lib/data/src/z2z8_curves.c.
 //
 // Edwards curves x^2 + y^2 = 1 + d.x^2.y^2 with torsion Z/2 x Z/8: a point
