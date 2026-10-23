@@ -303,6 +303,18 @@ uint32_t powm(uint32_t base, uint32_t power, uint32_t modulus);
 uint32_t sqrtm(uint32_t a, uint32_t p);
 
    /**
+    * \brief \c sqrtm for an \c a known to be a nonzero quadratic residue.
+    *
+    * Same result as <tt>sqrtm(a, p)</tt>, without checking that \c a has a
+    * square root modulo \c p.
+    *
+    * \param[in] a The modular square, a nonzero quadratic residue mod \c p.
+    * \param[in] p The modulus, an odd prime.
+    * \returns The modular square root of <tt>a</tt> (mod <tt>p</tt>).
+    */
+uint32_t sqrtm_qr(uint32_t a, uint32_t p);
+
+   /**
     * \brief Quadratic residues mod 221
     *
     * \c x is a square mod 221 if <tt>qres_mod_221[x % 221] == 1</tt>.
@@ -464,6 +476,33 @@ unsigned long int sqrtm_p2(uint32_t a, uint32_t p);
     * \returns The "best" multiplier to factor n.
     */
 uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base);
+
+   /**
+    * \def KS_NPRIMES
+    * Largest number of the first primes \c ks_multiplier looks at.
+    */
+#define KS_NPRIMES 300
+
+   /**
+    * \brief \c ks_multiplier, also giving what it computed modulo the first
+    * primes.
+    *
+    * Returns the multiplier \c k that \c ks_multiplier returns. For \c i from
+    * 1 to <tt>*nprimes - 1</tt>, with p the i-th tabulated prime (see
+    * first_primes.h), \c nmodp[i] is <tt>n mod p</tt> and \c legendre_kn[i]
+    * is the Legendre symbol <tt>(k.n / p)</tt>.
+    *
+    * \param[in]  n The number to factor.
+    * \param[in]  size_base The desired size of the factor base.
+    * \param[out] nmodp An array of \c KS_NPRIMES entries.
+    * \param[out] legendre_kn An array of \c KS_NPRIMES entries.
+    * \param[out] nprimes The number of the first primes covered.
+    * \returns The "best" multiplier to factor n.
+    */
+uint32_t ks_multiplier_with_residues(const mpz_t n, const uint32_t size_base,
+                                     uint32_t* const nmodp,
+                                     int8_t* const legendre_kn,
+                                     uint32_t* const nprimes);
 
 /*
  *-----------------------------------------------------------------------------

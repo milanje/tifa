@@ -24,7 +24,6 @@
  */
 
 #include <stdlib.h>
-#include <math.h>
 
 #include "tifa_config.h"
 
@@ -110,10 +109,6 @@
 // if __TIMING__ if set to 0.
 //
 #define __EXTRA_TIMING__    TIFA_EXTRA_TIMING
-//
-// Approximate value of the inverse of the natural logarithm of 2
-//
-#define INV_LN_OF_2         1.442695
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -375,7 +370,10 @@ static ecode_t recurse(
     const mpz_t,
     factoring_mode_t
 );
-static void init_factor_base_data(siqs_context_t* const context);
+static void init_factor_base_data(siqs_context_t* const context,
+                                  const uint32_t* const nmodp_known,
+                                  const int8_t* const legendre_known,
+                                  const uint32_t nknown);
 static void compute_reduced_polynomial_values(siqs_context_t* const context);
 static ecode_t collect_relations(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
@@ -576,9 +574,14 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
                                    context->factor_base->alloced
                                );
 
-    context->multiplier = ks_multiplier(
+    uint32_t nmodp_known[KS_NPRIMES];
+    int8_t   legendre_known[KS_NPRIMES];
+    uint32_t nknown = 0;
+
+    context->multiplier = ks_multiplier_with_residues(
                               context->n,
-                              context->factor_base->alloced
+                              context->factor_base->alloced,
+                              nmodp_known, legendre_known, &nknown
                           );
 
     mpz_mul_ui(context->kn, context->n, context->multiplier);
@@ -586,7 +589,7 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     // Initialize all the data common to all the polynomials we are likely to
     // use for the sieving.
     //
-    init_factor_base_data(context);
+    init_factor_base_data(context, nmodp_known, legendre_known, nknown);
 
     context->ptree = prod_tree_ui(context->factor_base);
 
@@ -910,7 +913,10 @@ static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
  */
 
 //-----------------------------------------------------------------------------
-static void init_factor_base_data(siqs_context_t* const context) {
+static void init_factor_base_data(siqs_context_t* const context,
+                                  const uint32_t* const nmodp_known,
+                                  const int8_t* const legendre_known,
+                                  const uint32_t nknown) {
     //
     // Initializes the factor base factor_base by keeping only those primes
     // pi such that the number to factor n has a square root mod pi, and keeps
@@ -956,10 +962,26 @@ static void init_factor_base_data(siqs_context_t* const context) {
     // Determine the factor base and the solutions to the equations
     // t^2 = N (mod p) where the p's are the primes in the factor base
     //
+    //
+    // For the first primes, ks_multiplier_with_residues already gave n mod p
+    // and (kn/p). With b = floor(log2(p)), round(log2(p)) is b, plus 1 when
+    // p^2 >= 2^(2b+1), and round(log2(p)/2) is (b + 1)/2.
+    //
     while ((ibase != fb_alloced) && (prime != last)) {
         prime++;
-        nmodp = mpz_fdiv_ui(kn, *prime);
+        const uint32_t ip = (uint32_t) (prime - first_primes);
+        const uint64_t p  = *prime;
+        const uint32_t b  = floor_log2(*prime);
 
+        if (ip < nknown) {
+            if (legendre_known[ip] == -1) {
+                continue;
+            }
+            nmodp = (uint32_t) ((context->multiplier * (uint64_t) nmodp_known[ip])
+                                % p);
+        } else {
+            nmodp = mpz_fdiv_ui(kn, *prime);
+        }
         if (nmodp == 0) {
             //
             // This prime divides n (extremely unlikely) or the divisor. There
@@ -969,8 +991,7 @@ static void init_factor_base_data(siqs_context_t* const context) {
             //
             *fbptr   = *prime;
             *sqrtptr = 0;
-            *logptr  = round(0.5 * INV_LN_OF_2 * log(*prime));
-                       //most_significant_bit(*prime) / 2;
+            *logptr  = (unsigned char) ((b + 1) / 2);
             fbptr++;
             sqrtptr++;
             logptr++;
@@ -978,7 +999,7 @@ static void init_factor_base_data(siqs_context_t* const context) {
 
             continue;
         }
-        t = sqrtm(nmodp, *prime);
+        t = (ip < nknown) ? sqrtm_qr(nmodp, *prime) : sqrtm(nmodp, *prime);
 
         if (t != NO_SQRT_MOD_P) {
             //
@@ -986,8 +1007,7 @@ static void init_factor_base_data(siqs_context_t* const context) {
             //
             *fbptr   = *prime;
             *sqrtptr = t;
-            *logptr  = round(INV_LN_OF_2 * log(*prime));
-                       //most_significant_bit(*prime);
+            *logptr  = (unsigned char) (b + (p * p >= ((uint64_t) 2 << (2 * b))));
             fbptr++;
             sqrtptr++;
             logptr++;

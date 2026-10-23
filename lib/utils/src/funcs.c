@@ -319,6 +319,10 @@ uint32_t sqrtm(uint32_t a, uint32_t p) {
     if (kronecker_ui(a, p) != 1) {
         return NO_SQRT_MOD_P;
     }
+    return sqrtm_qr(a, p);
+}
+//-----------------------------------------------------------------------------
+uint32_t sqrtm_qr(uint32_t a, uint32_t p) {
     //
     // For p = 3 (mod 4) and p = 5 (mod 8), a single exponentiation, giving
     // the root the general algorithm below would (2 is the non-residue it
@@ -830,7 +834,6 @@ unsigned long int sqrtm_p2(uint32_t n, uint32_t p) {
     return (unsigned long int)s;
 }
 //-----------------------------------------------------------------------------
-#define KS_NPRIMES 300
 #define KS_ANY_RESIDUE_BITSIZE 100
 //
 // The candidate multipliers: the odd squarefree k up to LARGEST_MULTIPLIER.
@@ -845,6 +848,17 @@ static uint32_t       ks_mults[KS_MAX_MULTS];
 static uint32_t       ks_nmults;
 static int8_t         ks_legendre[KS_MAX_MULTS][KS_NPRIMES];
 static double         ks_logp[KS_NPRIMES];
+//
+// The quadratic residues mod each of the first KS_NPRIMES primes p, as bits
+// of ks_qr from ks_qr_offset[i] on: KS_QR_BITS is the sum of these primes,
+// 2 excepted.
+//
+#define KS_QR_BITS 271059
+#if (KS_NPRIMES != 300)
+    #error "KS_QR_BITS is the sum of the first KS_NPRIMES primes but 2"
+#endif
+static uint64_t       ks_qr[(KS_QR_BITS + 63) / 64];
+static uint32_t       ks_qr_offset[KS_NPRIMES];
 static double         ks_logp2[KS_NPRIMES];
 static pthread_once_t ks_once = PTHREAD_ONCE_INIT;
 
@@ -886,10 +900,18 @@ static void ks_init(void) {
             legendre_q[j][i] = l;
         }
     }
+    uint32_t offset = 0;
     for (uint32_t i = 1; i < KS_NPRIMES; i++) {
         const uint32_t p = first_primes[i];
         ks_logp[i]  = log((double) p) / (p - 1);
         ks_logp2[i] = 2.0 * ks_logp[i];
+
+        ks_qr_offset[i] = offset;
+        for (uint64_t x = 1; x <= p / 2; x++) {
+            const uint32_t r = offset + (uint32_t) ((x * x) % p);
+            ks_qr[r / 64] |= (uint64_t) 1 << (r % 64);
+        }
+        offset += p;
     }
     ks_nmults = 0;
     for (uint32_t k = 1; k <= LARGEST_MULTIPLIER; k += 2) {
@@ -913,6 +935,17 @@ static void ks_init(void) {
 }
 
 uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
+    uint32_t nmodp[KS_NPRIMES];
+    int8_t   legendre_kn[KS_NPRIMES];
+    uint32_t nprimes;
+    return ks_multiplier_with_residues(n, size_base, nmodp, legendre_kn,
+                                       &nprimes);
+}
+//-----------------------------------------------------------------------------
+uint32_t ks_multiplier_with_residues(const mpz_t n, const uint32_t size_base,
+                                     uint32_t* const nmodp,
+                                     int8_t* const legendre_kn,
+                                     uint32_t* const nprimes_out) {
     //
     // Knuth-Schroeppel function, as in msieve and YAFU: for each odd
     // squarefree k, add the expected log contribution of the small primes to
@@ -935,8 +968,10 @@ uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
 
     int8_t legendre_n[KS_NPRIMES];
     for (uint32_t i = 1; i < nprimes; i++) {
-        const uint32_t p = first_primes[i];
-        legendre_n[i] = kronecker_ui(mpz_fdiv_ui(n, p), p);
+        const uint32_t r = mpz_fdiv_ui(n, first_primes[i]);
+        const uint32_t b = ks_qr_offset[i] + r;
+        nmodp[i]      = r;
+        legendre_n[i] = (r == 0) ? 0 : (((ks_qr[b / 64] >> (b % 64)) & 1) ? 1 : -1);
     }
     const uint32_t nmod8 = mpz_fdiv_ui(n, 8);
     const double   log2  = log(2.0);
@@ -1003,11 +1038,13 @@ uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
         score[4 * b + 3] = s3;
     }
     uint32_t mult      = 1;
+    uint32_t imult     = 0;
     double   bestscore = 0.0;
     for (uint32_t c = 0; c < ncand; c++) {
         if ((c == 0) || (score[c] > bestscore)) {
             bestscore = score[c];
-            mult      = ks_mults[cand[c]];
+            imult     = cand[c];
+            mult      = ks_mults[imult];
         }
     }
     //
@@ -1019,10 +1056,15 @@ uint32_t ks_multiplier(const mpz_t n, const uint32_t size_base) {
         mpz_init(q);
         mpz_divexact_ui(q, n, mult);
         if (mpz_perfect_square_p(q)) {
-            mult = 1;
+            mult  = 1;
+            imult = 0;
         }
         mpz_clear(q);
     }
+    for (uint32_t i = 1; i < nprimes; i++) {
+        legendre_kn[i] = ks_legendre[imult][i] * legendre_n[i];
+    }
+    *nprimes_out = nprimes;
     return mult;
 }
 //-----------------------------------------------------------------------------
