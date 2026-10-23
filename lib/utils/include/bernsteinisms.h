@@ -171,13 +171,11 @@ void bern_71(
     * This function uses the algorithm 2.1 described in Daniel J. Bernstein's
     * paper: "How to find smooth parts of integers" except that this function
     * has been tailored to better suit the factorization problem, particularly
-    * to our SIQS implementation where we need to keep track of additionnal
-    * \c a_i integers associated to each \c y_i integers. These extra integers
-    * are stored in \c cand_a whereas the a_i associated to the smooth y_i will
-    * be stored in the \c a_for_smooth_gx array.
-    *
-    * \note The \c a_i integers are actually the values of the first parameter
-    *       of the polynomials used in the SIQS algorithm.
+    * to our SIQS implementation where we need to keep track of the
+    * coefficient \c a of the polynomial each \c y_i comes from, given by its
+    * index in the table of the coefficients used: \c cand_a lists these
+    * indexes for the \c y_i, and those of the smooth y_i are appended to
+    * \c a_for_smooth_gx.
     *
     * \see Daniel J. Bernstein's paper: "How to find smooth parts of integers",
     * http://cr.yp.to/factorization/smoothparts-20040510.pdf
@@ -185,11 +183,10 @@ void bern_71(
     * \param[out] xi A pointer to the \c x_i associated to the {p_j}-smooth
     *                \c y_i integer.
     * \param[out] smooth_yi A pointer to the {p_j}-smooth \c y_i integer.
-    * \param[out] a_for_smooth_gx A pointer to the array of the \c a_i integers.
+    * \param[out] a_for_smooth_gx The indexes of the \c a of the smooth \c y_i.
     * \param[in] cand_xi A pointer to the list of the \c x_i integers.
     * \param[in] cand_yi A pointer to the list of the \c y_i integers.
-    * \param[in] cand_a A pointer to the list of the \c a_i integers associated
-    *                   to the {p_j}-smooth y_i integers.
+    * \param[in] cand_a The indexes of the \c a of the \c y_i.
     * \param[in] z The product of the the \c p_j prime numbers in the factor
     *              base.
     * \return  The index of the last integer in \c cand_yi that has been checked
@@ -198,10 +195,10 @@ void bern_71(
 uint32_t bern_21_rt_pairs_siqs(
     mpz_array_t* const xi,
     mpz_array_t* const smooth_yi,
-    mpz_array_t* const a_for_smooth_gx,
+    uint32_array_t* const a_for_smooth_gx,
     const mpz_array_t* const cand_xi,
     const mpz_array_t* const cand_yi,
-    const mpz_array_t* const cand_a,
+    const uint32_array_t* const cand_a,
     const mpz_t z
 );
 
@@ -236,13 +233,11 @@ uint32_t bern_21_rt_pairs_siqs(
     * This function uses the algorithm 2.1 described in Daniel J. Bernstein's
     * paper: "How to find smooth parts of integers" except that this function
     * has been tailored to better suit the factorization problem, particularly
-    * to our SIQS implementation where we need to keep track of additionnal
-    * \c a_i integers associated to each \c y_i integers. These extra integers
-    * are stored in \c cand_a whereas the a_i associated to the smooth y_i will
-    * be stored in the \c a_for_smooth_gx array.
-    *
-    * \note The \c a_i integers are actually the values of the first parameter
-    *       of the polynomials used in the SIQS algorithm.
+    * to our SIQS implementation where we need to keep track of the
+    * coefficient \c a of the polynomial each \c y_i comes from, given by its
+    * index in the table of the coefficients used: \c cand_a lists these
+    * indexes for the \c y_i, and those of the smooth y_i are appended to
+    * \c a_for_smooth_gx.
     *
     * \see Daniel J. Bernstein's paper: "How to find smooth parts of integers",
     * http://cr.yp.to/factorization/smoothparts-20040510.pdf
@@ -253,11 +248,11 @@ uint32_t bern_21_rt_pairs_siqs(
     * \param[out] xi A pointer to the \c x_i associated to the {p_j}-smooth
     *                \c y_i integer.
     * \param[out] smooth_yi A pointer to the {p_j}-smooth \c y_i integer.
-    * \param[out] a_for_smooth_yi A pointer to the array of the \c a_i integers.
+    * \param[out] a_for_smooth_yi The indexes of the \c a of the smooth \c y_i.
     * \param[in] cand_xi A pointer to the list of the \c x_i integers.
     * \param[in] cand_yi A pointer to the list of the \c y_i integers.
-    * \param[in] cand_a A pointer to the list of the \c a_i integers associated
-    *                   to the {p_j}-smooth y_i integers.
+    * \param[in] cand_a The indexes of the \c a of the \c y_i.
+    * \param[in] a_values The coefficients \c a the indexes refer to.
     * \param[in] z The product of the the \c p_j prime numbers in the factor
     *              base.
     * \return  The index of the last integer in \c cand_yi that has been checked
@@ -268,10 +263,11 @@ uint32_t bern_21_rt_pairs_lp_siqs(
     hashtable_t* const htable,
     mpz_array_t* const xi,
     mpz_array_t* const smooth_yi,
-    mpz_array_t* const a_for_smooth_yi,
+    uint32_array_t* const a_for_smooth_yi,
     const mpz_array_t* const cand_xi,
     const mpz_array_t* const cand_yi,
-    const mpz_array_t* const cand_a,
+    const uint32_array_t* const cand_a,
+    const mpz_array_t* const a_values,
     const mpz_t z
 );
 

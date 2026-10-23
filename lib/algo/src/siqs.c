@@ -231,11 +231,11 @@ struct struct_siqs_context_t {
     // Relations to find: (a.xi+b)^2 = g_{a,b}(xi) (mod kn) with
     // g_{a,b}(xi) smooth. These are the g_{a, b}(xi)/a to check for
     // smoothness (cand_redgx) together with their corresponding ui = a.xi+b
-    // and the values of the 'a' parameter...
+    // and the index of their 'a' parameter in a_values...
     //
-    mpz_array_t *cand_redgx;
-    mpz_array_t *cand_u;
-    mpz_array_t *cand_a_array;
+    mpz_array_t    *cand_redgx;
+    mpz_array_t    *cand_u;
+    uint32_array_t *cand_a_idx;
     //
     // All accepted relations, i.e. the g_{a,b}(xi)/a and their
     // corresponding ui = a.xi+b, such that ui^2 = g_{a, b}(xi) (mod n) with
@@ -244,10 +244,16 @@ struct struct_siqs_context_t {
     mpz_array_t *smooth_redgx;
     mpz_array_t *u;
     //
-    // Values of the 'a' parameter associated to each smooth g_{a,b}(xi)/a in
-    // the smooth_redgx array.
+    // Index in a_values of the 'a' parameter associated to each smooth
+    // g_{a,b}(xi)/a in the smooth_redgx array.
     //
-    mpz_array_t *a_for_smooth_redgx;
+    uint32_array_t *a_idx_for_smooth;
+    //
+    // The 'a' parameters used so far, and the polynomial initialization that
+    // set the last one (see siqs_poly_t's nfullpolyinit).
+    //
+    mpz_array_t *a_values;
+    uint32_t     a_values_npolyinit;
     //
     // Hashtable used in large primes variation. It will hold mpz_pair_t's
     // such as ((a.xi + b), g_{a,b}(xi)) with an index in first_primes_array
@@ -620,10 +626,12 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
 
     context->cand_redgx    = alloc_mpz_array(context->to_collect);
     context->cand_u        = alloc_mpz_array(context->to_collect);
-    context->cand_a_array  = alloc_mpz_array(context->to_collect);
+    context->cand_a_idx    = alloc_uint32_array(context->to_collect);
 
     context->smooth_redgx       = alloc_mpz_array(context->matrix_nrows);
-    context->a_for_smooth_redgx = alloc_mpz_array(context->matrix_nrows);
+    context->a_idx_for_smooth   = alloc_uint32_array(context->matrix_nrows);
+    context->a_values           = alloc_mpz_array(ELONGATION);
+    context->a_values_npolyinit = 0;
     context->u                  = alloc_mpz_array(context->matrix_nrows);
 
     context->drop_duplicates = false;
@@ -678,12 +686,13 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
 
         free_siqs_sieve(context->sieve);
 
-        free_mpz_array(context->cand_a_array);
+        free_uint32_array(context->cand_a_idx);
         free_mpz_array(context->cand_u);
         free_mpz_array(context->u);
         free_mpz_array(context->cand_redgx);
         free_mpz_array(context->smooth_redgx);
-        free_mpz_array(context->a_for_smooth_redgx);
+        free_uint32_array(context->a_idx_for_smooth);
+        free_mpz_array(context->a_values);
 
         free_mpz_tree(context->ptree);
 
@@ -738,7 +747,7 @@ static ecode_t update_siqs_context(factoring_machine_t* const machine) {
         mpz_divexact(
             context->smooth_redgx->data[i],
             context->smooth_redgx->data[i],
-            context->a_for_smooth_redgx->data[i]
+            context->a_values->data[context->a_idx_for_smooth->data[i]]
         );
     }
     const uint32_t nrels = context->u->length;
@@ -1040,13 +1049,19 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
     const mpz_ptr b = context->sieve->poly->b;
     const mpz_ptr c = context->sieve->poly->c;
 
-    mpz_array_t* const cand_u       = context->cand_u;
-    mpz_array_t* const cand_redgx   = context->cand_redgx;
-    mpz_array_t* const cand_a_array = context->cand_a_array;
+    mpz_array_t*    const cand_u     = context->cand_u;
+    mpz_array_t*    const cand_redgx = context->cand_redgx;
+    uint32_array_t* const cand_a_idx = context->cand_a_idx;
 
-    mpz_t* const cand_u_data       = cand_u->data;
-    mpz_t* const cand_redgx_data   = cand_redgx->data;
-    mpz_t* const cand_a_array_data = cand_a_array->data;
+    mpz_t* const cand_u_data     = cand_u->data;
+    mpz_t* const cand_redgx_data = cand_redgx->data;
+
+    const uint32_t npolyinit = context->sieve->poly->nfullpolyinit;
+    if (npolyinit != context->a_values_npolyinit) {
+        append_mpz_to_array(context->a_values, a);
+        context->a_values_npolyinit = npolyinit;
+    }
+    const uint32_t a_idx = context->a_values->length - 1;
 
     const uint32_t x_length = context->xpool->length;
     int32_t* const x_data = context->xpool->data;
@@ -1078,11 +1093,11 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
         mpz_add(rgx, rgx, c);
 
         mpz_set(cand_redgx_data[i], rgx);
-        mpz_set(cand_a_array_data[i], a);
+        cand_a_idx->data[i] = a_idx;
     }
-    cand_redgx->length   = x_length;
-    cand_u->length       = x_length;
-    cand_a_array->length = x_length;
+    cand_redgx->length = x_length;
+    cand_u->length     = x_length;
+    cand_a_idx->length = x_length;
 
     mpz_clear(rgx);
 }
@@ -1095,11 +1110,12 @@ static void multiply_by_smooth_a(siqs_context_t* const context) {
     //
     const uint32_t redgx_length = context->smooth_redgx->length;
 
-    mpz_t* const smooth_redgx       = context->smooth_redgx->data;
-    mpz_t* const a_for_smooth_redgx = context->a_for_smooth_redgx->data;
+    mpz_t*    const smooth_redgx = context->smooth_redgx->data;
+    mpz_t*    const a_values     = context->a_values->data;
+    uint32_t* const a_idx        = context->a_idx_for_smooth->data;
 
     for (uint32_t i = 0; i < redgx_length; i++) {
-        mpz_mul(smooth_redgx[i], smooth_redgx[i], a_for_smooth_redgx[i]);
+        mpz_mul(smooth_redgx[i], smooth_redgx[i], a_values[a_idx[i]]);
     }
 }
 //-----------------------------------------------------------------------------
@@ -1163,7 +1179,7 @@ static ecode_t collect_relations(siqs_context_t* const context) {
         context->xpool->length        = 0;
         context->cand_redgx->length   = 0;
         context->cand_u->length       = 0;
-        context->cand_a_array->length = 0;
+        context->cand_a_idx->length   = 0;
 
         PRINT_NRELS_FOUND(
             context->smooth_redgx->length,
@@ -1194,9 +1210,9 @@ static void drop_duplicate_relations(siqs_context_t* const context,
     // u^2 - kn, which is common for small numbers. Duplicate relations (u or
     // -u) only yield trivial dependencies, so keep the first copy of each.
     //
-    mpz_t* const u     = context->u->data;
-    mpz_t* const redgx = context->smooth_redgx->data;
-    mpz_t* const a     = context->a_for_smooth_redgx->data;
+    mpz_t*    const u     = context->u->data;
+    mpz_t*    const redgx = context->smooth_redgx->data;
+    uint32_t* const a     = context->a_idx_for_smooth->data;
 
     uint32_t* const relset = context->relset;
     const uint32_t  mask   = context->relset_mask;
@@ -1220,14 +1236,14 @@ static void drop_duplicate_relations(siqs_context_t* const context,
         if (nkept != i) {
             mpz_swap(u[nkept], u[i]);
             mpz_swap(redgx[nkept], redgx[i]);
-            mpz_swap(a[nkept], a[i]);
+            a[nkept] = a[i];
         }
         relset[slot] = nkept + 1;
         nkept++;
     }
-    context->u->length                  = nkept;
-    context->smooth_redgx->length       = nkept;
-    context->a_for_smooth_redgx->length = nkept;
+    context->u->length                = nkept;
+    context->smooth_redgx->length     = nkept;
+    context->a_idx_for_smooth->length = nkept;
 }
 //-----------------------------------------------------------------------------
 inline static void
@@ -1243,20 +1259,21 @@ keep_relations_with_smooth_gx(siqs_context_t* const context) {
             context->htable,
             context->u,
             context->smooth_redgx,
-            context->a_for_smooth_redgx,
+            context->a_idx_for_smooth,
             context->cand_u,
             context->cand_redgx,
-            context->cand_a_array,
+            context->cand_a_idx,
+            context->a_values,
             context->ptree->data[0]
         );
     } else {
         bern_21_rt_pairs_siqs(
             context->u,
             context->smooth_redgx,
-            context->a_for_smooth_redgx,
+            context->a_idx_for_smooth,
             context->cand_u,
             context->cand_redgx,
-            context->cand_a_array,
+            context->cand_a_idx,
             context->ptree->data[0]
         );
     }

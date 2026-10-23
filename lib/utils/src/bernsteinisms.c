@@ -619,10 +619,10 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
 //------------------------------------------------------------------------------
 uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
                                mpz_array_t* const smooth_yi,
-                               mpz_array_t* const a_for_smooth_gx,
+                               uint32_array_t* const a_for_smooth_gx,
                                const mpz_array_t* const cand_xi,
                                const mpz_array_t* const cand_yi,
-                               const mpz_array_t* const cand_a,
+                               const uint32_array_t* const cand_a,
                                const mpz_t z) {
     if (smooth_yi->length == smooth_yi->alloced) {
         return 0;
@@ -657,8 +657,7 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
             //
             mpz_set(smooth_yi->data[smooth_yi->length], cand_yi->data[k]);
             mpz_set(xi->data[xi->length], cand_xi->data[k]);
-            mpz_set(a_for_smooth_gx->data[a_for_smooth_gx->length],
-                    cand_a->data[k]);
+            a_for_smooth_gx->data[a_for_smooth_gx->length] = cand_a->data[k];
             smooth_yi->length++;
             xi->length++;
             a_for_smooth_gx->length++;
@@ -682,10 +681,11 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                                   hashtable_t* const htable,
                                   mpz_array_t* const xi,
                                   mpz_array_t* const smooth_yi,
-                                  mpz_array_t* const a_for_smooth_gx,
+                                  uint32_array_t* const a_for_smooth_gx,
                                   const mpz_array_t* const cand_xi,
                                   const mpz_array_t* const cand_yi,
-                                  const mpz_array_t* const cand_a,
+                                  const uint32_array_t* const cand_a,
+                                  const mpz_array_t* const a_values,
                                   const mpz_t z) {
 
     //
@@ -728,12 +728,12 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
 
     mpz_t* candidate_y = &(cand_yi->data[0]);
     mpz_t* candidate_x = &(cand_xi->data[0]);
-    mpz_t* candidate_a = &(cand_a->data[0]);
+    const uint32_t* candidate_a = &(cand_a->data[0]);
     mpz_t* rtreeptr    = (rtree != NULL) ? &(rtree->data[rtree->length/2])
                                          : NULL;
     mpz_t* smooth_y    = &(smooth_yi->data[smooth_yi->length]);
     mpz_t* x           = &(xi->data[xi->length]);
-    mpz_t* matching_a  = &(a_for_smooth_gx->data[a_for_smooth_gx->length]);
+    uint32_t* matching_a = &(a_for_smooth_gx->data[a_for_smooth_gx->length]);
     
     for (uint32_t k = 0U; k < cand_yi_length; k++) {
         //
@@ -749,7 +749,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
             //
             mpz_set(*smooth_y, *candidate_y);
             mpz_set(*x, *candidate_x);
-            mpz_set(*matching_a, *candidate_a);
+            *matching_a = *candidate_a;
             
             smooth_yi->length++;
             xi->length++;
@@ -805,7 +805,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                         goto next_candidate;
                     }
 
-                    mpz_set(*matching_a, *candidate_a);
+                    *matching_a = *candidate_a;
                 
                     mpz_mul(*smooth_y, *candidate_y, found->y);
                     mpz_mul(*x, *candidate_x, found->x);
@@ -852,7 +852,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                     mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                     mpz_init_set(pair->x, *candidate_x);
                     mpz_init_set(pair->y, *candidate_y);
-                    mpz_mul(pair->y, pair->y, *candidate_a);
+                    mpz_mul(pair->y, pair->y, a_values->data[*candidate_a]);
                     add_entry_in_hashtable(htable, (void*)key, (void*)pair);
                     //
                     // _WARNING_: Do not free key and pair as they are now
