@@ -105,7 +105,68 @@
 
 //------------------------------------------------------------------------------
 uint32_tuple_t* find_best_tuple(float, uint32_tuple_t* const, uint32_t);
-int uint32_triplet_cmp_func(const void* const a, const void* const b);
+//-----------------------------------------------------------------------------
+//
+// Tuples sort by their log, then by their primes. The comparison is inlined:
+// qsort's indirect calls cost more than the comparisons themselves.
+//
+static inline bool tuple_less(const uint32_tuple_t* const a,
+                              const uint32_tuple_t* const b) {
+    if (a->tlog != b->tlog) {
+        return a->tlog < b->tlog;
+    }
+    for (uint32_t j = 0; j < MAX_NPRIMES_IN_TUPLE; j++) {
+        if (a->tuple[j] != b->tuple[j]) {
+            return a->tuple[j] < b->tuple[j];
+        }
+    }
+    return false;
+}
+
+static void sort_tuples(uint32_tuple_t* const t, const uint32_t n) {
+    if (n < 16) {
+        for (uint32_t i = 1; i < n; i++) {
+            const uint32_tuple_t x = t[i];
+            uint32_t j = i;
+            while ((j > 0) && tuple_less(&x, &t[j - 1])) {
+                t[j] = t[j - 1];
+                j--;
+            }
+            t[j] = x;
+        }
+        return;
+    }
+    //
+    // Hoare partition around the median of the first, middle and last.
+    //
+    const uint32_tuple_t* a = &t[0];
+    const uint32_tuple_t* b = &t[n / 2];
+    const uint32_tuple_t* c = &t[n - 1];
+    const uint32_tuple_t* m = tuple_less(a, b)
+                            ? (tuple_less(b, c) ? b : (tuple_less(a, c) ? c : a))
+                            : (tuple_less(a, c) ? a : (tuple_less(b, c) ? c : b));
+    const uint32_tuple_t pivot = *m;
+    uint32_t i = 0;
+    uint32_t j = n - 1;
+    while (true) {
+        while (tuple_less(&t[i], &pivot)) {
+            i++;
+        }
+        while (tuple_less(&pivot, &t[j])) {
+            j--;
+        }
+        if (i >= j) {
+            break;
+        }
+        const uint32_tuple_t tmp = t[i];
+        t[i] = t[j];
+        t[j] = tmp;
+        i++;
+        j--;
+    }
+    sort_tuples(t, j + 1);
+    sort_tuples(t + j + 1, n - j - 1);
+}
 //-----------------------------------------------------------------------------
 approximer_t* alloc_approximer(mpz_t                 target,
                                uint32_array_t* const facpool,
@@ -260,6 +321,10 @@ approximer_t* alloc_approximer(mpz_t                 target,
         aximer->ntuples = n_choose_k(aximer->neven, aximer->keven);
         aximer->tuples  = tifa_malloc(aximer->ntuples * sizeof(uint32_tuple_t));
 
+        double* const lg = tifa_malloc(aximer->neven * sizeof(double));
+        for (uint32_t k = 0; k < aximer->neven; k++) {
+            lg[k] = log10(fdata[aximer->imin + 2 * k]);
+        }
         bool end = false;
 
         for (uint32_t i = 0; i < aximer->ntuples; i++) {
@@ -269,20 +334,19 @@ approximer_t* alloc_approximer(mpz_t                 target,
             for (uint32_t j = 0; j < aximer->keven; j++) {
                 uint32_t ifac = aximer->imin + 2 * (subset[j] - 1);
 
-                aximer->tuples[i].tlog     += log10(fdata[ifac]);
+                aximer->tuples[i].tlog     += lg[subset[j] - 1];
                 aximer->tuples[i].tuple[j]  = ifac;
+            }
+            for (uint32_t j = aximer->keven; j < MAX_NPRIMES_IN_TUPLE; j++) {
+                aximer->tuples[i].tuple[j] = 0;
             }
             //
             // Generate next combination in lexicographic order
             //
             next_subset_lex(aximer->neven, aximer->keven, subset, &end);
         }
-        qsort(
-            aximer->tuples,
-            aximer->ntuples,
-            sizeof(uint32_tuple_t),
-            uint32_triplet_cmp_func
-        );
+        sort_tuples(aximer->tuples, aximer->ntuples);
+        free(lg);
         free(subset);
     }
     aximer->nsubsets_odd = n_choose_k(aximer->nodd, aximer->kodd);
@@ -379,42 +443,6 @@ random_approximation(approximer_t* const aximer,
         }
     }
     qsort(indexes, aximer->nfactors, sizeof(uint32_t), uint32_cmp_func);
-}
-//-----------------------------------------------------------------------------
-int
-uint32_triplet_cmp_func(const void* const a, const void* const b)
-{
-    //
-    // Compare a uint32_tuple_t using this function...
-    //
-    uint32_tuple_t* const ta = (uint32_tuple_t* const) a;
-    uint32_tuple_t* const tb = (uint32_tuple_t* const) b;
-
-    if (ta->tlog >= tb->tlog) {
-        return 1;
-    }
-    if (ta->tlog < tb->tlog) {
-        return -1;
-    }
-    if (ta->tuple[0] > tb->tuple[0]) {
-        return 1;
-    }
-    if (ta->tuple[0] < tb->tuple[0]) {
-        return -1;
-    }
-    if (ta->tuple[1] > tb->tuple[1]) {
-        return 1;
-    }
-    if (ta->tuple[1] < tb->tuple[1]) {
-        return -1;
-    }
-    if (ta->tuple[2] > tb->tuple[2]) {
-        return 1;
-    }
-    if (ta->tuple[2] < tb->tuple[2]) {
-        return -1;
-    }
-    return 0;
 }
 //-----------------------------------------------------------------------------
 uint32_tuple_t*
