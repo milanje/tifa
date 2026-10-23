@@ -47,6 +47,12 @@
 
 //-----------------------------------------------------------------------------
 byte_array_t* alloc_byte_array(uint32_t length) {
+    //
+    // free_byte_array leaves an array with nothing allocated alone.
+    //
+    if (length == 0) {
+        length = 1;
+    }
 
     byte_array_t* array = tifa_malloc(sizeof(byte_array_t));
 
@@ -73,6 +79,9 @@ void free_byte_array(byte_array_t* array) {
 }
 //-----------------------------------------------------------------------------
 void resize_byte_array(byte_array_t* array, uint32_t alloced) {
+    if (alloced == 0) {
+        alloced = 1;
+    }
 
     if (alloced < array->length) {
         array->length = alloced;
@@ -227,6 +236,12 @@ uint32_t index_in_sorted_byte_array(unsigned char to_find,
 
 //-----------------------------------------------------------------------------
 uint32_array_t* alloc_uint32_array(uint32_t length) {
+    //
+    // free_uint32_array leaves an array with nothing allocated alone.
+    //
+    if (length == 0) {
+        length = 1;
+    }
 
     uint32_array_t* array = tifa_malloc(sizeof(uint32_array_t));
 
@@ -253,6 +268,9 @@ void free_uint32_array(uint32_array_t* array) {
 }
 //-----------------------------------------------------------------------------
 void resize_uint32_array(uint32_array_t* array, uint32_t alloced) {
+    if (alloced == 0) {
+        alloced = 1;
+    }
 
     if (alloced < array->length) {
         array->length = alloced;
@@ -406,6 +424,12 @@ uint32_t index_in_sorted_uint32_array(uint32_t to_find,
 
 //-----------------------------------------------------------------------------
 int32_array_t* alloc_int32_array(uint32_t length) {
+    //
+    // free_int32_array leaves an array with nothing allocated alone.
+    //
+    if (length == 0) {
+        length = 1;
+    }
 
     int32_array_t* array = tifa_malloc(sizeof(int32_array_t));
 
@@ -432,6 +456,9 @@ void free_int32_array(int32_array_t* array) {
 }
 //-----------------------------------------------------------------------------
 void resize_int32_array(int32_array_t* array, uint32_t alloced) {
+    if (alloced == 0) {
+        alloced = 1;
+    }
 
     if (alloced < array->length) {
         array->length = alloced;
@@ -561,6 +588,12 @@ uint32_t index_in_sorted_int32_array(int32_t to_find,
 
 //-----------------------------------------------------------------------------
 mpz_array_t* alloc_mpz_array(uint32_t length) {
+    //
+    // free_mpz_array leaves an array with nothing allocated alone.
+    //
+    if (length == 0) {
+        length = 1;
+    }
 
     mpz_array_t* array = tifa_malloc(sizeof(mpz_array_t));
 
@@ -600,6 +633,9 @@ void free_mpz_array(mpz_array_t* array) {
 }
 //-----------------------------------------------------------------------------
 void resize_mpz_array(mpz_array_t* const array, uint32_t alloced) {
+    if (alloced == 0) {
+        alloced = 1;
+    }
     if (alloced < array->alloced) {
         //
         // Don't forget to free the memory used by the mpz_t's that will be
@@ -614,7 +650,9 @@ void resize_mpz_array(mpz_array_t* const array, uint32_t alloced) {
         for (uint32_t i = alloced; i < array->alloced; i++) {
             mpz_clear(array->data[i]);
         }
-        array->length = alloced;
+        if (alloced < array->length) {
+            array->length = alloced;
+        }
     }
     if (array->alloced > 0) {
         array->data = tifa_realloc(array->data, alloced * sizeof(mpz_t));
@@ -781,6 +819,9 @@ binary_array_t* alloc_binary_array(uint32_t length) {
     // smallest number of TIFA_BITSTRING_T needed to store length bits.
     //
     array->alloced = ceil(((float)length)/BITSTRING_T_BITSIZE);
+    if (array->alloced == 0) {
+        array->alloced = 1;
+    }
     array->length  = 0U;
 
 #if USE_CALLOC_MEMSET
@@ -812,6 +853,9 @@ void free_binary_array(binary_array_t* array) {
 void resize_binary_array(binary_array_t* array, uint32_t alloced) {
 
     uint32_t nalloc = ceil(((float)alloced)/BITSTRING_T_BITSIZE);
+    if (nalloc == 0) {
+        nalloc = 1;
+    }
 
     if (alloced < array->length) {
         array->length = alloced;

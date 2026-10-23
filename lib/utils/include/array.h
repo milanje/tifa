@@ -126,7 +126,7 @@ typedef struct struct_byte_array_t byte_array_t;
     * \brief Allocates and returns a new <tt>byte_array_t</tt>.
     *
     * Allocates and returns a new <tt>byte_array_t</tt> such that:
-    * \li its \c alloced field is set to the parameter length.
+    * \li its \c alloced field is set to the parameter length (at least 1).
     * \li its \c length field is set to zero.
     * \li its \c data array is completely filled with zeroes.
     *
@@ -387,7 +387,7 @@ typedef struct struct_uint32_array_t uint32_array_t;
     * \brief Allocates and returns a new <tt>uint32_array_t</tt>.
     *
     * Allocates and returns a new <tt>uint32_array_t</tt> such that:
-    * \li its \c alloced field is set to the parameter length.
+    * \li its \c alloced field is set to the parameter length (at least 1).
     * \li its \c length field is set to zero.
     * \li its \c data array is completely filled with zeroes.
     *
@@ -648,7 +648,7 @@ typedef struct struct_int32_array_t int32_array_t;
     * \brief Allocates and returns a new <tt>int32_array_t</tt>.
     *
     * Allocates and returns a new <tt>int32_array_t</tt> such that:
-    * \li its \c alloced field is set to the parameter length.
+    * \li its \c alloced field is set to the parameter length (at least 1).
     * \li its \c length field is set to zero.
     * \li its \c data array is completely filled with zeroes.
     *
@@ -891,7 +891,7 @@ typedef struct struct_mpz_array_t mpz_array_t;
     * \brief Allocates and returns a new <tt>mpz_array_t</tt>.
     *
     * Allocates and returns a new <tt>mpz_array_t</tt> such that:
-    * \li its \c alloced field is set to the parameter length.
+    * \li its \c alloced field is set to the parameter length (at least 1).
     * \li its \c length field is set to zero.
     * \li its \c data array is fully \c mpz_init'ed.
     *
@@ -1161,7 +1161,7 @@ typedef struct struct_binary_array_t binary_array_t;
     *
     * Allocates and returns a new <tt>binary_array_t</tt> such that:
     * \li its \c alloced field is set to the minimum number of
-    * \c TIFA_BITSTRING_T variables needed to store length bits.
+    * \c TIFA_BITSTRING_T variables needed to store length bits (at least 1).
     * \li its \c length field is set to zero.
     * \li its \c data array is completely filled with zeroes.
     *
