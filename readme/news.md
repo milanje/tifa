@@ -1,5 +1,21 @@
 # TIFA news
 
+## 23 October 2026 &mdash; cleanups (for 0.3.0)
+
+- Every allocation is checked: out of memory, the library prints an error
+  and aborts, as GMP does, instead of writing through a NULL pointer
+  (`tifa_alloc.h`).
+- Arrays allocated or resized to 0 elements no longer leak, shrinking an
+  `mpz_array_t` no longer exposes unused entries, the sorted-array searches
+  no longer read one element past the end, and the early-abort filter frees
+  its arrays' data.
+- Dead code is gone, which changes the ABI (hence 0.3.0 next): the
+  `nsteps_early_abort` field of `cfrac_params_t` and its tuning column
+  (`cfrac.tuning` files now have 4 columns), the unused `bern_21*`
+  functions, and the unused SIQS variant of `smooth_filter_t`.
+- CI builds with `-Werror` under GCC too; source packages leave out every
+  build directory and local files; the tests have license headers.
+
 ## 22 October 2026 &mdash; version 0.2.0
 
 Version 0.2.0 gathers all the October 2026 work below: the rework for
