@@ -18,6 +18,13 @@ sorting and GMP allocations. The results are unchanged.
 `tifa_cofactor` in its exact mode is 2 to 3.5% faster on the sets of the
 October tables.
 
+Relations and candidates then keep an index of their polynomial's `a`
+instead of a copy (a quarter fewer GMP allocations per run, 2.7% faster at
+66-70 bits), and the number of primes in `a` can be raised by one or two
+(`extra_primes_in_a`): `tifa_tune` tunes it, in a seventh column of
+`siqs.tuning` (files with six columns are refused). Tuned from 85 to 105
+bits, it runs 2.4 to 6.2% faster than the defaults, which do not use it.
+
 ## 23 October 2026 &mdash; cleanups (for 0.3.0)
 
 The version is now 0.3.0 (`libtifa.so.0.3`), not released yet: builds of
