@@ -316,6 +316,26 @@ uint32_t sqrtm(uint32_t a, uint32_t p) {
         //
         return NO_SQRT_MOD_P;
     }
+    if (kronecker_ui(a, p) != 1) {
+        return NO_SQRT_MOD_P;
+    }
+    //
+    // For p = 3 (mod 4) and p = 5 (mod 8), a single exponentiation, giving
+    // the root the general algorithm below would (2 is the non-residue it
+    // finds for p = 5 mod 8).
+    //
+    if ((p & 3) == 3) {
+        return p - powm(a, (p + 1) / 4, p);
+    }
+    if ((p & 7) == 5) {
+        const uint32_t q  = (p - 1) / 4;
+        const uint64_t y  = powm(a, q / 2, p);
+        const uint64_t x0 = (y * a) % p;
+        if ((((y * y) % p) * a) % p == 1) {
+            return p - (uint32_t) x0;
+        }
+        return (uint32_t) ((x0 * powm(2, q, p)) % p);
+    }
     //
     // Find n such that p = q.2^n + 1 with q odd
     //
