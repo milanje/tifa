@@ -61,12 +61,14 @@ ecode_t  fast_poly_init(siqs_poly_t* const poly);
 siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
                              mpz_t n,
                              uint32_array_t* const factor_base,
-                             uint32_array_t* const sqrtm_pi)
+                             uint32_array_t* const sqrtm_pi,
+                             uint32_t extra)
 {    
     siqs_poly_t* const poly = tifa_malloc(sizeof(siqs_poly_t));
         
     poly->nfullpolyinit = 0;
-    poly->nprimes_in_a  = determine_nprimes(mpz_sizeinbase(target_a, 2));
+    poly->nprimes_in_a  = determine_nprimes(mpz_sizeinbase(target_a, 2))
+                          + extra;
     poly->idx_of_a      = tifa_malloc(poly->nprimes_in_a * sizeof(uint32_t));
     
     poly->factor_base = factor_base;

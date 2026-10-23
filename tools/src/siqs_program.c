@@ -39,7 +39,7 @@
 //
 // The number of arguments accepted is either 0, 1, 2, or (QS_F_MAX_ARGC-1)
 //
-#define SIQS_F_MAX_ARGC 10
+#define SIQS_F_MAX_ARGC 11
 
 //------------------------------------------------------------------------------
 static void print_usage(factoring_program_t* const program) {
@@ -50,7 +50,8 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s\t<nrelations>\n", "");
     fprintf(stderr, "%15s\t<linalg_method>\n", "");
     fprintf(stderr, "%15s\t<use_large_primes>\n", "");
-    fprintf(stderr, "%15s\t<sieve_threshold>\n", "");    
+    fprintf(stderr, "%15s\t<sieve_threshold>\n", "");
+    fprintf(stderr, "%15s\t<extra_primes_in_a>\n", "");
     fprintf(stderr, "%15s\t<nprimes_tdiv>\n", "");
     fprintf(stderr, "%15s\t<number_to_factor>\n", "");
     fprintf(stderr, "or:\n");
@@ -153,11 +154,12 @@ static void process_args(factoring_program_t* const program) {
         params->nrelations       = strtoul(argv[4], endptr, 10);
         params->linalg_method    = strtoul(argv[5], endptr, 10);
         use_lp_variation         = strtoul(argv[6], endptr, 10);
-        params->threshold        = strtoul(argv[7], endptr, 10);
-        *nprimes_tdiv            = strtoul(argv[8], endptr, 10);
+        params->threshold         = strtoul(argv[7], endptr, 10);
+        params->extra_primes_in_a = strtoul(argv[8], endptr, 10);
+        *nprimes_tdiv             = strtoul(argv[9], endptr, 10);
         *nfactors                = params->nrelations;
 
-        mpz_init_set_str(program->n, argv[9], 10);
+        mpz_init_set_str(program->n, argv[10], 10);
 
         if (0 == use_lp_variation) {
             params->use_large_primes = false;
@@ -200,6 +202,7 @@ static void print_params(factoring_program_t* const program) {
         printf("\tuse_large_primes     : no\n");
     }
     printf("\tthreshold            : %u\n", params->threshold);
+    printf("\textra_primes_in_a    : %u\n", params->extra_primes_in_a);
 
 }
 //------------------------------------------------------------------------------

@@ -100,6 +100,11 @@
 //
 #define MAX_NRELATIONS      1024
 //
+// Largest number of primes added to 'a': each one doubles the polynomials
+// per 'a', and 2 already tested worse than none at every size.
+//
+#define MAX_EXTRA_PRIMES_IN_A 2
+//
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
@@ -413,9 +418,11 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
     // 'a' is the product of determine_nprimes(...) odd-indexed primes of the
     // base, for a target below sqrt(2kn), with k <= LARGEST_MULTIPLIER < 2^7.
     //
-    const uint32_t min_base = 2 * determine_nprimes(
-                                      (mpz_sizeinbase(n, 2) + 10) / 2
-                                  ) + 1;
+    own_params.extra_primes_in_a = MIN(own_params.extra_primes_in_a,
+                                       MAX_EXTRA_PRIMES_IN_A);
+    const uint32_t min_base = 2 * (determine_nprimes(
+                                       (mpz_sizeinbase(n, 2) + 10) / 2
+                                   ) + own_params.extra_primes_in_a) + 1;
     own_params.nprimes_in_base  = MAX(own_params.nprimes_in_base, min_base);
     own_params.nprimes_in_base  = MIN(own_params.nprimes_in_base,
                                       MAX_NPRIMES_IN_BASE);
@@ -525,6 +532,7 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->linalg_method    = SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = (mpz_sizeinbase(n, 2)
                                 >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
+    params->extra_primes_in_a = 0;
 
     //
     // Override the tabulated/interpolated defaults with machine-tuned values if
@@ -541,7 +549,8 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
         params->threshold        = row.cols[2];
         params->nprimes_tdiv     = row.cols[3];
         params->nrelations       = row.cols[4];
-        params->use_large_primes = (row.cols[5] != 0);
+        params->use_large_primes  = (row.cols[5] != 0);
+        params->extra_primes_in_a = row.cols[6];
     }
 }
 //------------------------------------------------------------------------------
@@ -653,7 +662,8 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
                              context->factor_base,
                              context->log_factor_base,
                              context->sqrtm_pi,
-                             params->sieve_half_width
+                             params->sieve_half_width,
+                             params->extra_primes_in_a
                          );
 
     params->sieve_half_width = context->sieve->nchunks

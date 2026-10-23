@@ -171,11 +171,11 @@ static void test_siqs_params(void) {
     uint32_array_t* m = alloc_uint32_array(4);
 
     // The last case needs more than 255 sieve chunks and bucket sieving.
-    struct { uint32_t npb, hw, tdiv, nrel; } cases[] = {
-        { 0,    0,          0,    0          },
-        { 1,    1,          1,    1          },
-        { 400,  0xFFFFFFFF, 400,  0xFFFFFFFF },
-        { 2500, 17000000,   2500, 24         },
+    struct { uint32_t npb, hw, tdiv, nrel, extra; } cases[] = {
+        { 0,    0,          0,    0,          0          },
+        { 1,    1,          1,    1,          1          },
+        { 400,  0xFFFFFFFF, 400,  0xFFFFFFFF, 0xFFFFFFFF },
+        { 2500, 17000000,   2500, 24,         2          },
     };
     for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         siqs_params_t p;
@@ -184,6 +184,7 @@ static void test_siqs_params(void) {
         p.sieve_half_width = cases[i].hw;
         p.nprimes_tdiv     = cases[i].tdiv;
         p.nrelations       = cases[i].nrel;
+        p.extra_primes_in_a = cases[i].extra;
         f->length = 0;
         m->length = 0;
         if (siqs(f, m, n, &p, FIND_COMPLETE_FACTORIZATION)

@@ -105,8 +105,8 @@ extern "C" {
 #define TIFA_TUNING_COLS_CFRAC       "nprimes_in_base nprimes_tdiv nrelations use_large_primes"
 #define TIFA_TUNING_INTERP_CFRAC     0x7
 
-#define TIFA_TUNING_NCOLS_SIQS       6
-#define TIFA_TUNING_COLS_SIQS        "nprimes_in_base sieve_half_width threshold nprimes_tdiv nrelations use_large_primes"
+#define TIFA_TUNING_NCOLS_SIQS       7
+#define TIFA_TUNING_COLS_SIQS        "nprimes_in_base sieve_half_width threshold nprimes_tdiv nrelations use_large_primes extra_primes_in_a"
 // Not sieve_half_width: the sieve's cost jumps past each multiple of its
 // cache-sized chunk, so a width between two good ones can be much worse.
 #define TIFA_TUNING_INTERP_SIQS      0x1D

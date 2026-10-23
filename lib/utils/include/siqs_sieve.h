@@ -190,6 +190,8 @@ typedef struct struct_siqs_sieve_t siqs_sieve_t;
     * \param sqrtm_pi    modular square roots of \tt{n} for each prime in
     *                    the base
     * \param half_width  the half_width of the sieving interval
+    * \param extra_primes_in_a the number of primes added to the
+    *                    polynomials' coefficient \c a (see siqs_poly.h)
     *
     * \return A pointer to the newly allocated \c siqs_sieve_t.
     */
@@ -198,7 +200,8 @@ siqs_sieve_t* alloc_siqs_sieve(
     uint32_array_t* const factor_base,
     byte_array_t*   const log_primes,
     uint32_array_t* const sqrtm_pi,
-    uint32_t half_width
+    uint32_t half_width,
+    uint32_t extra_primes_in_a
 );
 
    /**

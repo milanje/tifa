@@ -309,6 +309,7 @@ static void build_grid_siqs(uint32_t bitsize, grid_t* g) {
     grid_add_axis_fixed(g, d.nprimes_tdiv);                                         // nprimes_tdiv
     grid_add_axis_fixed(g, d.nrelations);                                           // nrelations
     grid_add_axis_list(g, BOOL01, 2);                                               // use_large_primes
+    grid_add_axis_list(g, BOOL01, 2);                                               // extra_primes_in_a
 }
 
 static bool run_siqs(const mpz_t n, const mpz_t p, const uint32_t cols[],
@@ -321,7 +322,8 @@ static bool run_siqs(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.threshold        = cols[2];
     params.nprimes_tdiv     = cols[3];
     params.nrelations       = cols[4];
-    params.use_large_primes = (cols[5] != 0);
+    params.use_large_primes  = (cols[5] != 0);
+    params.extra_primes_in_a = cols[6];
 
     bool ok;
     TIME_RUN(siqs(_f, _m, n, &params, SINGLE_RUN), secs, &ok);

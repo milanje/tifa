@@ -105,6 +105,13 @@ struct struct_siqs_params_t {
         * False otherwise.
         */
     bool use_large_primes;
+       /**
+        * Number of primes added to the polynomials' coefficient \c a, beyond
+        * the usual number for its size (at most 2). Each added prime doubles
+        * the number of polynomials sharing an \c a, whose setup is costly,
+        * but makes these primes smaller. 0 by default.
+        */
+    uint32_t extra_primes_in_a;
 };
 
    /**

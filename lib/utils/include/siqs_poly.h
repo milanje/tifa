@@ -161,6 +161,8 @@ uint32_t determine_nprimes(uint32_t bitsize);
     * \param n           the number to factor (or a small multiple).
     * \param factor_base the factor base.
     * \param sqrtm_pi    the modular square roots of n.
+    * \param extra       the number of primes added to the coefficient \c a,
+    *                    beyond <tt>determine_nprimes</tt>'s.
     *
     * \return A pointer to the newly allocated \c siqs_poly_t.
     */
@@ -168,7 +170,8 @@ siqs_poly_t* alloc_siqs_poly(
   mpz_t target_a,
   mpz_t n,
   uint32_array_t* const factor_base,
-  uint32_array_t* const sqrtm_pi
+  uint32_array_t* const sqrtm_pi,
+  uint32_t extra
 );
 
    /**

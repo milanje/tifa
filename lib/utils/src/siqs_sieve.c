@@ -161,7 +161,8 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const factor_base,
                                byte_array_t*   const log_primes,
                                uint32_array_t* const sqrtm_pi,
-                               uint32_t half_width)
+                               uint32_t half_width,
+                               uint32_t extra_primes_in_a)
 {
     siqs_sieve_t* const sieve = tifa_malloc(sizeof(siqs_sieve_t));
 
@@ -216,7 +217,8 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
 
     mpz_fdiv_q_ui(target_a, target_a, half_width);
 
-    sieve->poly = alloc_siqs_poly(target_a, n, factor_base, sqrtm_pi);
+    sieve->poly = alloc_siqs_poly(target_a, n, factor_base, sqrtm_pi,
+                                  extra_primes_in_a);
 
     mpz_clear(target_a);
 
