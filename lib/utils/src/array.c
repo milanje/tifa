@@ -25,7 +25,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 
 #include "tifa_config.h"
 
@@ -822,7 +821,8 @@ binary_array_t* alloc_binary_array(uint32_t length) {
     // Remember now that array->alloced is not the number of bits but the
     // smallest number of TIFA_BITSTRING_T needed to store length bits.
     //
-    array->alloced = ceil(((float)length)/BITSTRING_T_BITSIZE);
+    array->alloced = (uint32_t) (((uint64_t) length + BITSTRING_T_BITSIZE - 1)
+                                 / BITSTRING_T_BITSIZE);
     if (array->alloced == 0) {
         array->alloced = 1;
     }
@@ -856,7 +856,8 @@ void free_binary_array(binary_array_t* array) {
 //-----------------------------------------------------------------------------
 void resize_binary_array(binary_array_t* array, uint32_t alloced) {
 
-    uint32_t nalloc = ceil(((float)alloced)/BITSTRING_T_BITSIZE);
+    uint32_t nalloc = (uint32_t) (((uint64_t) alloced + BITSTRING_T_BITSIZE - 1)
+                                  / BITSTRING_T_BITSIZE);
     if (nalloc == 0) {
         nalloc = 1;
     }

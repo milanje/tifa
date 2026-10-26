@@ -210,6 +210,7 @@ void insert_in_linked_list(linked_list_t* const list, void* const data) {
             return;
         }
     }
+    to_insert->next  = NULL;
     list->tail->next = to_insert;
     list->tail       = to_insert;
     list->length++;

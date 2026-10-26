@@ -343,10 +343,8 @@ extern "C" {
 #define MPN_ADD(A, B, C)                                            \
     do {                                                            \
        if (mpn_add(PTR(A), PTR(B), SIZ(B), PTR(C), SIZ(C))) {       \
-           SIZ(A) = SIZ(B);                                         \
-           MPN_NORMALIZE(PTR(A), SIZ(A));                           \
-           PTR(A)[SIZ(A)] = 1;                                      \
-           SIZ(A)++;                                                \
+           PTR(A)[SIZ(B)] = 1;                                      \
+           SIZ(A) = SIZ(B) + 1;                                     \
        } else {                                                     \
            SIZ(A) = SIZ(B);                                         \
            MPN_NORMALIZE(PTR(A), SIZ(A));                           \
@@ -449,6 +447,9 @@ extern "C" {
             MPN_NORMALIZE(PTR(Q), SIZ(Q));                                   \
             SIZ(R) = SIZ(D);                                                 \
             MPN_NORMALIZE(PTR(R), SIZ(R));                                   \
+        } else {                                                             \
+            SIZ(Q) = 0;                                                      \
+            mpz_set((R), (N));                                               \
         }                                                                    \
     } while (0)
 
@@ -565,7 +566,8 @@ extern "C" {
     */
 #define DECLARE_MPZ_SWAP_VARS                                       \
     mp_ptr __TMPPTR__MACROS_H__a9b3c01__;                           \
-    mp_size_t __TMPSIZ__MACROS_H__a9b3c01__;
+    mp_size_t __TMPSIZ__MACROS_H__a9b3c01__;                        \
+    int __TMPALLOC__MACROS_H__a9b3c01__;
 
    /**
     * \def MPZ_SWAP(A, B)
@@ -578,12 +580,15 @@ extern "C" {
     */
 #define MPZ_SWAP(A, B)                                              \
     do {                                                            \
-        __TMPPTR__MACROS_H__a9b3c01__ = PTR(A);                     \
-        __TMPSIZ__MACROS_H__a9b3c01__ = SIZ(A);                     \
+        __TMPPTR__MACROS_H__a9b3c01__   = PTR(A);                   \
+        __TMPSIZ__MACROS_H__a9b3c01__   = SIZ(A);                   \
+        __TMPALLOC__MACROS_H__a9b3c01__ = (A)->_mp_alloc;           \
         PTR(A) = PTR(B);                                            \
         SIZ(A) = SIZ(B);                                            \
+        (A)->_mp_alloc = (B)->_mp_alloc;                            \
         PTR(B) = __TMPPTR__MACROS_H__a9b3c01__;                     \
         SIZ(B) = __TMPSIZ__MACROS_H__a9b3c01__;                     \
+        (B)->_mp_alloc = __TMPALLOC__MACROS_H__a9b3c01__;           \
     } while (0)
 
    /**

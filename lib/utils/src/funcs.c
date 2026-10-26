@@ -790,46 +790,24 @@ unsigned long int modinv_ui(unsigned long int num, unsigned long int p) {
     return r;
 }
 //-----------------------------------------------------------------------------
-unsigned long int sqrtm_p2(uint32_t n, uint32_t p) {
-    //
-    // _NOTE_: Now this is getting a bit messy. Indeed, the code now mixes
-    //         apparently randomly (unsigned) long ints with C99 integer types
-    //         like uint32_t. This can be seen as bad pratice and indeed, it is
-    //         not very pretty. The reason for this is to convey an idea of
-    //         the size of the numbers involved. Maybe only using long ints and
-    //         clearly documenting the expected range of the variables would
-    //         have been better.
-    //
-    long int s = 0;
-
-    uint32_t np = n % p;
-    uint32_t sp = sqrtm(np, p);
+unsigned long int sqrtm_p2(unsigned long int n, uint32_t p) {
+    const uint32_t sp = sqrtm((uint32_t) (n % p), p);
 
     if (sp == NO_SQRT_MOD_P) {
-        //
-        // No solution
-        //
         return NO_SQRT_MOD_P2;
     }
-
-    s = sp * sp;
-    s = n - s;
-
-    uint32_t inv = modinv_ui(sp << 1, p);
-
-    s /= (long int)p;
-    s *= inv;
-
-    if (s < 0) {
-        s = p - ((-s) % p);
-    } else {
-        s = s % p;
+    //
+    // Hensel lifting: s = sp + t.p, with t = (n - sp^2)/p / (2.sp) (mod p).
+    // In 64 bits, as n may exceed 2^32 (and sp^2, 2^31).
+    //
+    int64_t t = ((int64_t) n - (int64_t) sp * sp) / (int64_t) p;
+    t %= (int64_t) p;
+    if (t < 0) {
+        t += p;
     }
+    const uint64_t inv = modinv_ui((unsigned long int) ((2ULL * sp) % p), p);
 
-    s *= p;
-    s += sp;
-
-    return (unsigned long int)s;
+    return (unsigned long int) (((uint64_t) t * inv) % p) * p + sp;
 }
 //-----------------------------------------------------------------------------
 #define KS_ANY_RESIDUE_BITSIZE 100
@@ -1115,7 +1093,12 @@ uint32_t hash_pjw(const void* const keyptr) {
     return hash;
 }
 //-----------------------------------------------------------------------------
-#define GET_16_BITS(d) (*((const uint16_t *) (d)))
+static inline uint32_t get_16_bits(const char* const d) {
+    uint16_t v;
+    memcpy(&v, d, sizeof(v));   // d may be misaligned
+    return v;
+}
+#define GET_16_BITS(d) get_16_bits(d)
 //-----------------------------------------------------------------------------
 uint32_t hash_sfh_ph(const void* const keyptr) {
     //
@@ -1157,7 +1140,7 @@ uint32_t hash_sfh_ph(const void* const keyptr) {
         case 3:
             hash += GET_16_BITS(data);
             hash ^= hash << 16;
-            hash ^= data[sizeof(uint16_t)] << 18;
+            hash ^= (uint32_t) (signed char) data[sizeof(uint16_t)] << 18;
             hash += hash >> 11;
             break;
         case 2:
@@ -1166,7 +1149,7 @@ uint32_t hash_sfh_ph(const void* const keyptr) {
             hash += hash >> 17;
             break;
         case 1:
-            hash += *data;
+            hash += (uint32_t) (signed char) *data;
             hash ^= hash << 10;
             hash += hash >> 1;
     }

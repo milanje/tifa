@@ -60,6 +60,7 @@ void empty_mpzpair_htable(hashtable_t* const htable) {
         htable->buckets[i].tail   = NULL;
         htable->buckets[i].length = 0;
     }
+    htable->nentries = 0;
 }
 //-----------------------------------------------------------------------------
 float mpz_log10(mpz_t n) {
@@ -86,7 +87,7 @@ float mpz_log10(mpz_t n) {
     float res = LOG10_GMP_NUMB_MAX * (size - 1);
     
     res += log10((double)(tmp));
-    res -= log10((unsigned long int)1 << shift);
+    res -= shift * log10(2.0);
     
     return res;
 }

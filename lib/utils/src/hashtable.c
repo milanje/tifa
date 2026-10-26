@@ -49,9 +49,11 @@ hashtable_t* alloc_init_hashtable(
     // Make sure that htable->alloced is a power of 2 so that we can just use
     // the binary & operator instead of computing a modulo...
     //
+    if (size == 0) {
+        size = 1;
+    }
     if (!IS_POWER_OF_2_UI(size)) {
-        size = ceil_log2(size);
-        size = 1 << size;
+        size = (size > (1U << 31)) ? (1U << 31) : (1U << ceil_log2(size));
     }
     htable->alloced  = size;
     htable->nentries = 0;

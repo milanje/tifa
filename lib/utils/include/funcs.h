@@ -181,7 +181,12 @@ inline static uint32_t ceil_log2_mp_limb(mp_limb_t limb) {
 #if GMP_LIMB_BITS == 64
     uint64_t tmp = limb & GMP_NUMB_MASK;
     if (tmp >> 32) {
-        return 32 + ceil_log2((uint32_t)(tmp >> 32));
+        const uint32_t high = (uint32_t)(tmp >> 32);
+        uint32_t       res  = 32 + ceil_log2(high);
+        if (IS_POWER_OF_2_UI(high) && ((uint32_t) tmp != 0)) {
+            res++;
+        }
+        return res;
     } else {
         return ceil_log2((uint32_t)tmp);
     }
@@ -457,7 +462,7 @@ unsigned long int modinv_ui(unsigned long int n, unsigned long int p);
     * \returns The modular square root of <tt>a</tt> (mod <tt>p*p</tt>) if it
     *          exists. <tt>NO_SQRT_MOD_P2</tt> otherwise.
     */
-unsigned long int sqrtm_p2(uint32_t a, uint32_t p);
+unsigned long int sqrtm_p2(unsigned long int a, uint32_t p);
 
    /**
     * \brief Find best multiplier using the Knuth-Schroeppel function.

@@ -183,13 +183,14 @@ static void add_stage2_prime(const uint32_t q, void* const data) {
     stage2_builder_t* const sb   = (stage2_builder_t*) data;
     mont_ecm_plan_t*  const plan = sb->plan;
 
-    const uint32_t m = (q + plan->d / 2) / plan->d;
+    // In 64 bits: q may be within d of 2^32.
+    const uint32_t m = (uint32_t) (((uint64_t) q + plan->d / 2) / plan->d);
     while (sb->cur_m < m) {
         flush_giant_step(sb);
         sb->cur_m++;
     }
-    const uint32_t c = m * plan->d;
-    const uint32_t j = (q > c) ? (q - c) : (c - q);
+    const uint64_t c = (uint64_t) m * plan->d;
+    const uint32_t j = (uint32_t) ((q > c) ? (q - c) : (c - q));
     sb->needed[plan->jslot[j]] = 1;
 }
 
