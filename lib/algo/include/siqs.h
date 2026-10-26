@@ -82,7 +82,7 @@ struct struct_siqs_params_t {
         */
     uint32_t nprimes_in_base;
       /**
-       * Sieve threshold.
+       * Sieve threshold (at most 127).
        */
    uint32_t threshold;
        /**

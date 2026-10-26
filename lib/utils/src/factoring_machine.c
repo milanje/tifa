@@ -62,6 +62,7 @@ ecode_t compute_multiplicities(
 
 //------------------------------------------------------------------------------
 ecode_t run_machine(factoring_machine_t* machine) {
+    machine->success = false;
     if (mpz_cmp_ui(machine->n, 1) <= 0) {
         return NO_FACTOR_FOUND;
     }

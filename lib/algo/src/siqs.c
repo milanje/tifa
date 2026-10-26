@@ -100,6 +100,11 @@
 //
 #define MAX_NRELATIONS      1024
 //
+// Largest sieve threshold: the sieve bytes start at it, and a position is a
+// candidate once the logs subtracted from it set the top bit.
+//
+#define MAX_THRESHOLD 127
+//
 // Largest number of primes added to 'a': each one doubles the polynomials
 // per 'a', and 2 already tested worse than none at every size.
 //
@@ -440,6 +445,7 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
     own_params.sieve_half_width = MIN(own_params.sieve_half_width,
                                       MAX_HALF_WIDTH);
     own_params.nrelations       = MIN(own_params.nrelations, MAX_NRELATIONS);
+    own_params.threshold        = MIN(own_params.threshold, MAX_THRESHOLD);
 
     factoring_machine_t machine;
 

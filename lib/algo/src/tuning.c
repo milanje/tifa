@@ -229,12 +229,6 @@ int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
         return 1;
     }
 
-    tuning_table_t* table = malloc(sizeof(tuning_table_t));
-    if (table == NULL) {
-        free(rows);
-        return 1;
-    }
-
     qsort(rows, nrows, sizeof(tuning_row_t), cmp_rows);
     for (uint32_t i = 1; i < nrows; i++) {
         if (rows[i].min_bitsize == rows[i - 1].min_bitsize) {
@@ -243,6 +237,12 @@ int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
             free(rows);
             return 1;
         }
+    }
+
+    tuning_table_t* table = malloc(sizeof(tuning_table_t));
+    if (table == NULL) {
+        free(rows);
+        return 1;
     }
 
     table->ncols = expect_ncols;
