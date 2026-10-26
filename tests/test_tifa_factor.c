@@ -123,6 +123,26 @@ int main(void) {
     mpz_set_str(n, "3308912282058341325890884", 10);
     factor_and_check("2^2*909520791689^2 (82 bits)", n);
 
+    // Other powers: no congruence of squares splits a prime power
+    mpz_set_str(n, "48703862963609784559", 10);
+    factor_and_check("3651919^3 (66 bits)", n);
+    mpz_set_str(n, "1329227995839317534787207543490874671", 10);
+    factor_and_check("(2^40+15)^3 (121 bits)", n);
+    mpz_set_str(n, "1329231983523305052739811905113505143624013", 10);
+    factor_and_check("1000003*(2^40+15)^3 (141 bits)", n);
+    mpz_set_str(n, "1766847064923008753571539193567776624376842367262499964598644648629358241", 10);
+    factor_and_check("(2^40+15)^6 (241 bits)", n);
+
+    // Primes, including those within the trial division bound
+    static const unsigned long primes[] = { 3, 997, 8191, 10007, 1000003 };
+    for (unsigned i = 0; i < sizeof(primes) / sizeof(primes[0]); i++) {
+        mpz_set_ui(n, primes[i]);
+        mpz_array_t* factors = alloc_mpz_array(4);
+        CHECK(tifa_factor(factors, NULL, n, FIND_SOME_FACTORS)
+                  == NO_FACTOR_FOUND, "a prime has no factor");
+        free_mpz_array(factors);
+    }
+
     // 128 bits, p - 1 is 2000-smooth: found by the p-1 pre-stage
     mpz_set_str(n, "206010655745875572166197184221848916071", 10);
     factor_and_check("340730379077795843*604614875560711445197 (128 bits)", n);

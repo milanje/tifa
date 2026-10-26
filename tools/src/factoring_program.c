@@ -132,16 +132,23 @@ ecode_t run_program(factoring_program_t* const program) {
         gmp_printf("\t%Zd\n\n", unfactored);
     }
 
-    unsigned int shift = 0;
     //
-    // First, check if the unfactored part is not a perfect square.
+    // First, replace a perfect power by its root: no congruence of squares
+    // splits a prime power. The largest exponent leaves a root that is no
+    // power.
     //
-    while (MPZ_IS_SQUARE(unfactored)) {
-        mpz_sqrt(unfactored, unfactored);
-        shift++;
-        if (mpz_cmp_ui(unfactored, 1) == 0) {
-            break;
+    uint32_t power = 1;
+    if (mpz_perfect_power_p(unfactored)) {
+        mpz_t root;
+        mpz_init(root);
+        for (uint32_t k = (uint32_t) mpz_sizeinbase(unfactored, 2); k > 1; k--) {
+            if (mpz_root(root, unfactored, k)) {
+                mpz_set(unfactored, root);
+                power = k;
+                break;
+            }
         }
+        mpz_clear(root);
     }
     //
     // The programs take their algorithm's parameters only beyond 3 arguments:
@@ -160,7 +167,7 @@ ecode_t run_program(factoring_program_t* const program) {
         // We have found the complete factorization!
         //
         append_mpz_to_array(factors, unfactored);
-        append_uint32_to_array(multis, 1 << shift);
+        append_uint32_to_array(multis, power);
 
         rcode = COMPLETE_FACTORIZATION_FOUND;
         goto clear_sqt_and_return;
@@ -238,7 +245,7 @@ ecode_t run_program(factoring_program_t* const program) {
     switch (ecode) {
         case COMPLETE_FACTORIZATION_FOUND: {
             //
-            // These factor unfactored, the 2^shift-th root of what was left.
+            // These factor unfactored, the power-th root of what was left.
             //
             const uint32_t first = factors->length;
             append_mpz_array(factors, progfa);
@@ -247,7 +254,7 @@ ecode_t run_program(factoring_program_t* const program) {
                 append_uint32_to_array(multis, 1);
             }
             for (uint32_t i = first; i < multis->length; i++) {
-                multis->data[i] <<= shift;
+                multis->data[i] *= power;
             }
             rcode = COMPLETE_FACTORIZATION_FOUND;
             break;
@@ -272,14 +279,14 @@ ecode_t run_program(factoring_program_t* const program) {
             break;
         }
         default:
-            if ((factors->length != 0) || (shift != 0)) {
+            if ((factors->length != 0) || (power != 1)) {
                 //
                 // We found some factors via trial divisions, or a power. Add
                 // the unfactored part in the list of factors so that it will
                 // be printed.
                 //
                 append_mpz_to_array(factors, unfactored);
-                append_uint32_to_array(multis, 1U << shift);
+                append_uint32_to_array(multis, power);
                 rcode = PARTIAL_FACTORIZATION_FOUND;
             }
             break;

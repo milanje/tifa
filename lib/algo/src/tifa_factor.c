@@ -227,20 +227,28 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
                                            const mpz_t n,
                                            const factoring_mode_t mode) {
     //
-    // Perfect squares can be problematic for some algorithms (i.e. SQUFOF).
-    // Note that we can not (conveniently) rely on the client code to perform
-    // such a check since tifa_factor(...) is indirectly and recursively called
-    // with a factoring_machine_t when using the FIND_*_FACTORIZATION modes.
+    // Perfect powers can be problematic for some algorithms (i.e. SQUFOF), and
+    // a congruence of squares never splits a prime power. Note that we can not
+    // (conveniently) rely on the client code to perform such a check since
+    // tifa_factor(...) is indirectly and recursively called with a
+    // factoring_machine_t when using the FIND_*_FACTORIZATION modes.
     //
-    if (MPZ_IS_SQUARE(n)) {
+    if (mpz_perfect_power_p(n)) {
         mpz_t rootn;
         mpz_init(rootn);
-        mpz_sqrt(rootn, n);
+        //
+        // The largest k with n a k-th power, so that the root is no power.
+        // With no prime factor below 1000 > 2^9, k is at most bits(n) / 9.
+        //
+        uint32_t k = (uint32_t) mpz_sizeinbase(n, 2) / 9 + 1;
+        while (0 == mpz_root(rootn, n, k)) {
+            k--;
+        }
 
         if (MPZ_IS_PRIME(rootn)) {
             append_mpz_to_array(factors, rootn);
             if (mode == FIND_COMPLETE_FACTORIZATION) {
-                append_uint32_to_array(multis, 2);
+                append_uint32_to_array(multis, k);
             }
             mpz_clear(rootn);
             //
@@ -258,7 +266,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
 
         if (mode == FIND_COMPLETE_FACTORIZATION) {
             for (uint32_t i = old_length; i < multis->length; i++) {
-                multis->data[i] <<= 1;
+                multis->data[i] *= k;
             }
         }
         mpz_clear(rootn);
@@ -360,7 +368,13 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
     ecode_t ecode = tdiv(tfactors, tmultis, n,
                          tdiv_only ? TFACTOR_NPRIMES_TDIV
                                    : TFACTOR_NPRIMES_PRE_TDIV);
-
+    //
+    // A prime within the trial division bound "divides" itself.
+    //
+    if ((ecode == COMPLETE_FACTORIZATION_FOUND) && (tfactors->length == 1)
+            && (tmultis->data[0] == 1)) {
+        ecode = NO_FACTOR_FOUND;
+    }
     if (ecode == NO_FACTOR_FOUND) {
         if (!tdiv_only && !MPZ_IS_PRIME(n)) {
             ecode = factor_without_small_primes(factors, multis, n, mode);
