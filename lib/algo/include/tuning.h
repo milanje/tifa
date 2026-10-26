@@ -230,12 +230,15 @@ bool tifa_tuning_interpolate(const tuning_table_t* table, uint32_t bitsize,
     * Overrides, for the rest of the process, the directory in which
     * \c tifa_tuning_row_for looks for <tt>&lt;algo&gt;.tuning</tt> files. This
     * takes precedence over the \c TIFA_TUNING_DIR environment variable and the
-    * compiled-in default directory. Passing NULL clears the override.
+    * compiled-in default directory. Passing NULL clears the override; passing
+    * an empty string disables tuning: no file and no baked table, only the
+    * built-in defaults.
     *
     * \note Calling this function invalidates the internal cache so a subsequent
     * lookup reloads from the new directory.
     *
-    * \param[in] dir The directory to search, or NULL to clear the override.
+    * \param[in] dir The directory to search, NULL to clear the override, or
+    *                "" to use the built-in defaults only.
     */
 void tifa_tuning_set_dir(const char* dir);
 

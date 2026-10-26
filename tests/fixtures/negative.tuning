@@ -1,0 +1,3 @@
+# A negative value, which strtoul would wrap to 4294967295.
+columns: min_bitsize b1 b2 base
+40   -1    40000    2

@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <errno.h>
@@ -118,6 +119,12 @@ static void write_license(FILE* f) {
 // expose tifa_tuning_baked_table(). Mirrors the offline genprimes.pl model.
 //
 static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
+    // The output may overwrite committed tables: refuse a mistyped --in.
+    struct stat st;
+    if ((stat(indir, &st) != 0) || !S_ISDIR(st.st_mode)) {
+        fprintf(stderr, "tifa_tune: '%s' is not a directory\n", indir);
+        return 1;
+    }
     FILE* h = fopen(hpath, "w");
     if (h == NULL) {
         fprintf(stderr, "tifa_tune: cannot open '%s' for writing\n", hpath);
@@ -215,6 +222,10 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
     fprintf(c, "}\n");
     fclose(c);
 
+    if (nloaded == 0) {
+        fprintf(stderr, "tifa_tune: no tuning file in '%s': no baked table\n",
+                indir);
+    }
     printf("wrote %s and %s (%u baked table(s))\n", cpath, hpath, nloaded);
     return 0;
 }
@@ -249,6 +260,36 @@ static int make_dirs(const char* path) {
         return -1;
     }
     return 0;
+}
+
+//------------------------------------------------------------------------------
+//
+// Parses an unsigned decimal option value: strtoul alone would take a sign
+// (wrapping "-1" to UINT_MAX) and ignore trailing junk.
+//
+static bool parse_unsigned(const char* v, unsigned int* out) {
+    if ((v[0] < '0') || (v[0] > '9')) {
+        return false;
+    }
+    char* end = NULL;
+    errno = 0;
+    unsigned long x = strtoul(v, &end, 10);
+    if ((*end != '\0') || (errno == ERANGE) || (x > UINT_MAX)) {
+        return false;
+    }
+    *out = (unsigned int) x;
+    return true;
+}
+
+//------------------------------------------------------------------------------
+static bool parse_double_in(const char* v, double lo, double hi, double* out) {
+    char* end = NULL;
+    double x = strtod(v, &end);
+    if ((end == v) || (*end != '\0') || !isfinite(x) || (x < lo) || (x > hi)) {
+        return false;
+    }
+    *out = x;
+    return true;
 }
 
 //------------------------------------------------------------------------------
@@ -629,8 +670,9 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
     // The last step stops at hi, so the table covers the whole range: past
     // its last row, the library keeps using that row.
     for (unsigned int bits = lo; bits <= hi && nrows < TUNE_MAX_ROWS;
-         bits = ((bits < hi) && (bits + opt->step > hi)) ? hi
-                                                          : bits + opt->step) {
+         bits = (bits == hi) ? hi + 1
+                             : ((hi - bits < opt->step) ? hi
+                                                        : bits + opt->step)) {
 
         // Use more test composites for small (cheap) numbers to beat down
         // timing noise.
@@ -717,7 +759,7 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
                     break;
                 }
             }
-            if (pruned) {
+            if (pruned || (succ == 0)) {
                 continue;
             }
             double p_success = (double) succ / (double) setlen;
@@ -776,6 +818,8 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
                     sticky_wins = 0;   // an "off" win breaks the streak
                 }
             }
+        } else {
+            printf("  %3u bits: no point factored any number, no row\n", bits);
         }
 
         for (unsigned int t = 0; t < setlen; t++) {
@@ -820,6 +864,10 @@ int main(int argc, char** argv) {
                 }                                                             \
                 *(dstptr) = argv[++i];                                        \
             } while (0)
+        #define BAD_VAL() do {                                                \
+                fprintf(stderr, "tifa_tune: bad value for %s\n", a);         \
+                return 2;                                                     \
+            } while (0)
 
         if (strcmp(a, "--help") == 0) {
             usage(stdout, argv[0]);
@@ -836,21 +884,32 @@ int main(int argc, char** argv) {
         } else if (strcmp(a, "--out") == 0) {
             NEXT_VAL(&opt.outdir);
         } else if (strcmp(a, "--min") == 0) {
-            const char* v; NEXT_VAL(&v); opt.min_bits = (unsigned) strtoul(v, NULL, 10);
+            const char* v; NEXT_VAL(&v);
+            if (!parse_unsigned(v, &opt.min_bits)) { BAD_VAL(); }
         } else if (strcmp(a, "--max") == 0) {
-            const char* v; NEXT_VAL(&v); opt.max_bits = (unsigned) strtoul(v, NULL, 10);
+            const char* v; NEXT_VAL(&v);
+            if (!parse_unsigned(v, &opt.max_bits)) { BAD_VAL(); }
         } else if (strcmp(a, "--step") == 0) {
-            const char* v; NEXT_VAL(&v); opt.step = (unsigned) strtoul(v, NULL, 10);
+            const char* v; NEXT_VAL(&v);
+            if (!parse_unsigned(v, &opt.step)) { BAD_VAL(); }
         } else if (strcmp(a, "--trials") == 0) {
-            const char* v; NEXT_VAL(&v); opt.trials = (unsigned) strtoul(v, NULL, 10);
+            const char* v; NEXT_VAL(&v);
+            if (!parse_unsigned(v, &opt.trials)) { BAD_VAL(); }
         } else if (strcmp(a, "--threshold") == 0) {
-            const char* v; NEXT_VAL(&v); opt.threshold = strtod(v, NULL);
+            const char* v; NEXT_VAL(&v);
+            if (!parse_double_in(v, 0.0, 1.0, &opt.threshold)) { BAD_VAL(); }
         } else if (strcmp(a, "--min-success") == 0) {
-            const char* v; NEXT_VAL(&v); opt.min_success = strtod(v, NULL);
+            const char* v; NEXT_VAL(&v);
+            if (!parse_double_in(v, 0.0, 1.0, &opt.min_success)) { BAD_VAL(); }
         } else if (strcmp(a, "--timeout") == 0) {
-            const char* v; NEXT_VAL(&v); opt.timeout_s = strtod(v, NULL);
+            // select() refuses timeouts above about 1e8 s.
+            const char* v; NEXT_VAL(&v);
+            if (!parse_double_in(v, 0.0, 1.0e6, &opt.timeout_s)) { BAD_VAL(); }
         } else if (strcmp(a, "--seed") == 0) {
-            const char* v; NEXT_VAL(&v); opt.seed = strtoul(v, NULL, 10);
+            const char* v; NEXT_VAL(&v);
+            unsigned int seed;
+            if (!parse_unsigned(v, &seed)) { BAD_VAL(); }
+            opt.seed = seed;
         } else if (strcmp(a, "--emit-c") == 0) {
             NEXT_VAL(&opt.emit_c);
         } else if (strcmp(a, "--emit-h") == 0) {
@@ -863,6 +922,7 @@ int main(int argc, char** argv) {
             return 2;
         }
         #undef NEXT_VAL
+        #undef BAD_VAL
     }
 
     // Code-generation mode: read existing tuning files and emit baked tables.
@@ -887,6 +947,16 @@ int main(int argc, char** argv) {
                 opt.outdir, strerror(errno));
         return 1;
     }
+    struct stat st;
+    if ((stat(opt.outdir, &st) != 0) || !S_ISDIR(st.st_mode)
+            || (access(opt.outdir, W_OK) != 0)) {
+        fprintf(stderr, "tifa_tune: '%s' is not a writable directory\n",
+                opt.outdir);
+        return 1;
+    }
+    // Center the grids on the built-in defaults, not on tuning files or baked
+    // tables from an earlier run.
+    tifa_tuning_set_dir("");
 
     gmp_randstate_t rng;
     gmp_randinit_default(rng);

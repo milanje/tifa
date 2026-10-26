@@ -1,0 +1,3 @@
+# A value above 2^32 - 1.
+columns: min_bitsize b1 b2 base
+40   4294967296    40000    2

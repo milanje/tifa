@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <pthread.h>
@@ -116,10 +118,15 @@ static bool parse_row(const char* p, uint32_t expect_ncols,
     uint32_t values[1 + TIFA_TUNING_MAX_COLS];
 
     for (uint32_t i = 0; i < nvals; i++) {
+        p = skip_blanks(p);
+        // strtoul would take a sign, and negate a '-' value into a huge one.
+        if (!isdigit((unsigned char) *p)) {
+            return false;
+        }
         char* end = NULL;
+        errno = 0;
         unsigned long v = strtoul(p, &end, 10);
-        if (end == p) {
-            // Not enough integers on the line.
+        if ((errno == ERANGE) || (v > UINT32_MAX)) {
             return false;
         }
         values[i] = (uint32_t) v;
@@ -182,6 +189,13 @@ int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
     char     line[TUNING_LINE_MAX];
 
     while (fgets(line, (int) sizeof(line), file) != NULL) {
+        const size_t len = strlen(line);
+        if ((len == sizeof(line) - 1) && (line[len - 1] != '\n')
+                && !feof(file)) {
+            PRINT_ERROR("%s: line too long\n", path);
+            bad = true;
+            break;
+        }
         const char* p = skip_blanks(line);
 
         if (is_ignorable(p)) {
@@ -222,6 +236,14 @@ int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
     }
 
     qsort(rows, nrows, sizeof(tuning_row_t), cmp_rows);
+    for (uint32_t i = 1; i < nrows; i++) {
+        if (rows[i].min_bitsize == rows[i - 1].min_bitsize) {
+            PRINT_ERROR("%s: two rows for %" PRIu32 " bits\n", path,
+                        rows[i].min_bitsize);
+            free(rows);
+            return 1;
+        }
+    }
 
     table->ncols = expect_ncols;
     table->nrows = nrows;
@@ -391,6 +413,9 @@ void tifa_tuning_set_dir(const char* dir) {
 //
 static const tuning_table_t* table_for(const char* algo,
                                        uint32_t expect_ncols) {
+    if ((tuning_dir_override != NULL) && (tuning_dir_override[0] == '\0')) {
+        return NULL;
+    }
     tuning_cache_entry_t* entry = tuning_cache_entry(algo);
     if (entry == NULL) {
         return NULL;

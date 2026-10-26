@@ -1,0 +1,4 @@
+# Two rows for the same size.
+columns: min_bitsize b1 b2 base
+40   2000    40000    2
+40   3000    60000    2

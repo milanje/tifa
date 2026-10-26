@@ -46,6 +46,9 @@ static void make_path(char* buf, size_t buflen, const char* name) {
     snprintf(buf, buflen, "%s/%s", TIFA_TEST_FIXTURE_DIR, name);
 }
 
+// A directory with no tuning file.
+#define NO_TUNING_DIR TIFA_TEST_FIXTURE_DIR "/none"
+
 int main(void) {
     TIFA_TEST_BEGIN("tuning loader");
 
@@ -122,6 +125,20 @@ int main(void) {
     CHECK(rc != 0, "malformed file should fail to load");
     CHECK(bad == NULL, "malformed file yields NULL table");
 
+    // --- Values strtoul would misread, and ambiguous files. --------------
+    static const char* const rejected[] = {
+        "negative.tuning", "overflow.tuning", "duplicate.tuning",
+        "long_line.tuning"
+    };
+    for (unsigned i = 0; i < sizeof(rejected) / sizeof(rejected[0]); i++) {
+        make_path(path, sizeof(path), rejected[i]);
+        tuning_table_t* t = NULL;
+        rc = tifa_tuning_load_file(path, TIFA_TUNING_NCOLS_P_MINUS_1, &t);
+        CHECK(rc != 0, rejected[i]);
+        CHECK(t == NULL, rejected[i]);
+        tifa_tuning_free(t);
+    }
+
     // --- A missing file must fail cleanly. ------------------------------
     make_path(path, sizeof(path), "does_not_exist.tuning");
     tuning_table_t* missing = NULL;
@@ -144,14 +161,14 @@ int main(void) {
         tifa_tuning_row_for("nonexistent_algo", TIFA_TUNING_NCOLS_P_MINUS_1, 60);
     CHECK(none == NULL, "resolver returns NULL for a missing algorithm file");
 
-    // Clearing the override must make the resolver miss again (unless baked
-    // tables are compiled in, in which case the baked layer answers, or the
-    // compiled-in tuning directory has the file).
-    tifa_tuning_set_dir(NULL);
+    // A directory without the file must make the resolver miss again (unless
+    // baked tables are compiled in, in which case the baked layer answers).
+    // Not NULL: that falls back to the installed tuning directory, if any.
+    tifa_tuning_set_dir(NO_TUNING_DIR);
 #if !TUNING_BAKED_IN
     const tuning_row_t* cleared =
         tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 60);
-    CHECK(cleared == NULL, "resolver misses after the directory is cleared");
+    CHECK(cleared == NULL, "resolver misses without the file");
 #endif
 
     // --- Fallback proof via set_p_minus_1_params_to_default. ------------
@@ -163,11 +180,10 @@ int main(void) {
 
     p_minus_1_params_t params;
 
-    // With the override cleared (and no p_minus_1.tuning in the compiled-in
-    // tuning directory), the compiled-in defaults must be used.
+    // With no tuning file, the compiled-in defaults must be used.
     // (Only meaningful when the baked tables are not compiled in.)
 #if !TUNING_BAKED_IN
-    tifa_tuning_set_dir(NULL);
+    tifa_tuning_set_dir(NO_TUNING_DIR);
     set_p_minus_1_params_to_default(n, &params);
     CHECK_EQ_UI(params.b1, 50000, "default b1 when no tuning file");
     CHECK_EQ_UI(params.base, 2, "default base when no tuning file");
@@ -181,12 +197,13 @@ int main(void) {
     CHECK_EQ_UI(params.b2, 480000, "tuned b2 overrides default");
     CHECK_EQ_UI(params.base, 2, "tuned base");
 
-    // Clearing the override restores the default behavior (same assumption).
+    // Leaving the fixture directory restores the default behavior.
 #if !TUNING_BAKED_IN
-    tifa_tuning_set_dir(NULL);
+    tifa_tuning_set_dir(NO_TUNING_DIR);
     set_p_minus_1_params_to_default(n, &params);
-    CHECK_EQ_UI(params.b1, 50000, "default b1 restored after clearing dir");
+    CHECK_EQ_UI(params.b1, 50000, "default b1 restored after leaving dir");
 #endif
+    tifa_tuning_set_dir(NULL);
 
     mpz_clear(n);
 
