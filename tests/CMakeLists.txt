@@ -23,6 +23,7 @@ endfunction()
 
 tifa_add_test(test_funcs)
 tifa_add_test(test_matrix)
+tifa_add_test(test_containers)
 tifa_add_test(test_tifa_factor)
 tifa_add_test(test_algorithms)
 tifa_add_test(test_siqs)
