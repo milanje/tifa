@@ -2,13 +2,48 @@
 
 ## 26 October 2026 &mdash; fixes and documentation (for 0.3.0)
 
-- ECM no longer leaks 11 GMP integers each time it moves to larger bounds
-  (outside the Montgomery engine, i.e. above 4 limbs).
-- SQUFOF no longer frees an uninitialised GMP integer, nor leaks another,
-  for the racers whose multiplier makes them too large.
-- The `ecm` program checks that the number to factor is a number; `rho`'s
-  usage message lists its `<method>` argument.
-- `test_tuning` passes with `TIFA_TUNING_DIR` set.
+A review for latent defects, with a test for most fixes.
+
+Wrong results, hangs and missed factors:
+
+- `tifa_factor` takes apart any perfect power, not only squares: p^3 and
+  most higher powers of a prime above 64 bits gave up (no congruence of
+  squares splits a prime power), and so did `tifa_cofactor` on them.
+- `cfrac` gives up instead of looping forever when k.n = m^2 + 1, or when
+  the continued fraction has a short period without smooth residues.
+- `squfof` no longer hangs on even n = k.t^2 (a racer divided by 0), and
+  no longer returns n itself as a factor of a few small primes; `ecm`
+  no longer returns n and 1 when n divides its curve's discriminant.
+- `sqrtm_p2` was wrong for every p > 65535: a single run of `fermat` now
+  factors 20 of 20 balanced semiprimes of 70 bits instead of 1.
+- `cfrac`'s trial division filters dropped every negative smooth residue,
+  and the early-abort one also its base's largest prime and composite
+  cofactors; the SIQS approximer could put 2 in `a`, which repeats
+  polynomials; p+1's GMP stage 2 skipped the primes in (b1, 104].
+- Without `__int128`, `tifa_factor` reported a prime below 8192 as its
+  own factor.
+
+Memory and undefined behaviour: an ECM leak at each larger bound, a SQUFOF
+clear of an uninitialised integer, an out-of-bounds read in the early-abort
+filter, a sieve threshold above 127 (now capped), and latent bugs in helpers
+the library rarely or never calls (bit clearing, byte sorting, hash tables,
+lists, product trees, binary array sizes, `MPN_ADD`, `MPN_TDIV_QR`,
+`MPZ_SWAP`, a ceiling log2).
+
+Programs, tuning and build:
+
+- The programs print the right exponents for perfect powers, fit their
+  default parameters to what trial division leaves, and check their
+  arguments (`cfrac`'s method numbers crashed it); `rho`'s usage lists its
+  `<method>` argument.
+- Tuning files with negative, out-of-range or duplicate rows, or overlong
+  lines, are rejected; `tifa_tuning_set_dir("")` selects the built-in
+  defaults only, which `tifa_tune` now centres its search on; `tifa_tune`
+  checks its options and output directory before tuning.
+- `-DTIFA_USE_CALLOC_MEMSET=OFF` compiles; `tifa.pc` is relocatable (and
+  works on macOS); the exported CMake targets name `m` instead of a path;
+  source packages build from a checkout under `/build...`; `rho.h`,
+  `p_minus_1.h` and `p_plus_1.h` compile on their own.
 - The comments and documentation were checked against the code throughout.
 
 ## 26 October 2026 &mdash; number of primes in `a` retuned (for 0.3.0)

@@ -171,6 +171,7 @@ built-in defaults always as the final fallback:
    consulted when no runtime file is found (see below).
 3. **The built-in defaults** — used whenever neither of the above applies, so an
    untouched build behaves exactly as before this feature existed.
+   `tifa_tuning_set_dir("")` selects them alone, skipping 1 and 2.
 
 A tuning file lists rows of parameters for increasing bit-sizes. Between two
 rows, most quantities (bounds, sizes, counts) are interpolated; the flags,
