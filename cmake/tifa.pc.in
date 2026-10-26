@@ -1,4 +1,4 @@
-prefix=@CMAKE_INSTALL_PREFIX@
+prefix=@TIFA_PC_PREFIX@
 exec_prefix=${prefix}
 libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
 includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
@@ -7,6 +7,6 @@ Name: TIFA
 Description: Tools for Integer FActorization
 Version: @PROJECT_VERSION@
 Requires: @TIFA_PC_REQUIRES@
-Libs: -L${libdir} -ltifa@TIFA_PC_LIBS_EXTRA@
+Libs: -L${libdir}@TIFA_PC_RPATH@ -ltifa@TIFA_PC_LIBS_EXTRA@
 Libs.private: @TIFA_PC_LIBS_PRIVATE@
 Cflags: -I${includedir}/tifa@TIFA_PC_CFLAGS_EXTRA@

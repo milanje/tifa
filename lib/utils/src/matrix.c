@@ -25,13 +25,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "matrix.h"
-
-#if TIFA_USE_CALLOC_MEMSET
-    #include <string.h>
-#endif
 
 #include "bitstring_t.h"
 #include "tifa_alloc.h"

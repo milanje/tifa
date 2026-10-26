@@ -28,7 +28,11 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY
         STRINGS Debug Release RelWithDebInfo MinSizeRel)
 endif()
-set(CMAKE_C_FLAGS_RELEASE "-O3")
+if(CMAKE_C_FLAGS_RELEASE STREQUAL "-O3 -DNDEBUG")
+    # CMake's own default, not a user's choice.
+    set(CMAKE_C_FLAGS_RELEASE "-O3" CACHE STRING
+        "Flags used by the C compiler during RELEASE builds." FORCE)
+endif()
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -276,6 +280,20 @@ else()
     set(TIFA_PC_CFLAGS_EXTRA " -I${GMP_INCLUDE_DIR}")
 endif()
 set(TIFA_PC_LIBS_PRIVATE "-lm ${CMAKE_THREAD_LIBS_INIT}")
+# Relative to the .pc file, so that `cmake --install --prefix` keeps it right.
+if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(TIFA_PC_PREFIX "${CMAKE_INSTALL_PREFIX}")
+else()
+    file(RELATIVE_PATH _tifa_pc_up "/_/${CMAKE_INSTALL_LIBDIR}/pkgconfig" "/_")
+    string(REGEX REPLACE "/$" "" _tifa_pc_up "${_tifa_pc_up}")
+    set(TIFA_PC_PREFIX "\${pcfiledir}/${_tifa_pc_up}")
+endif()
+# The dylib's install name is @rpath-relative.
+if(APPLE)
+    set(TIFA_PC_RPATH " -Wl,-rpath,\${libdir}")
+else()
+    set(TIFA_PC_RPATH "")
+endif()
 configure_file(
     "${PROJECT_SOURCE_DIR}/cmake/tifa.pc.in"
     "${PROJECT_BINARY_DIR}/tifa.pc"
@@ -350,10 +368,14 @@ endif()
 set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "tifa-${PROJECT_VERSION}")
 set(CPACK_VERBATIM_VARIABLES YES)
+# Matched against absolute paths: anchor the build directories to the source
+# tree, which may itself sit under a /build... directory (CI checkouts).
+string(REGEX REPLACE "([][+.*()^$?|\\\\])" "\\\\\\1" _tifa_src_re
+       "${PROJECT_SOURCE_DIR}")
 set(CPACK_SOURCE_IGNORE_FILES
     "/\\.git$"
     "/\\.git/"
-    "/build[^/]*/"
+    "^${_tifa_src_re}/build[^/]*/"
     "/\\.claude/"
     "\\.DS_Store$"
     "/\\.sconf_temp/"

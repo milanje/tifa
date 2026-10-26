@@ -43,6 +43,7 @@ extern "C" {
 #include <gmp.h>
 
 #include "array.h"
+#include "factoring_machine.h"
 #include "exit_codes.h"
 
    /**

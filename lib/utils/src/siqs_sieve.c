@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #if defined(__APPLE__)
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -95,7 +96,6 @@
 // Resets the sieve DEST of length LEN to the threshold value VAL
 //
 #if TIFA_USE_CALLOC_MEMSET
-    #include <string.h>
     #define TIFA_MEMSET(DEST, VAL, LEN) do {      \
         memset((DEST), (VAL), (LEN));             \
     } while (0)

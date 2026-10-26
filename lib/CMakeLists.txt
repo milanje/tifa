@@ -87,7 +87,8 @@ foreach(_t tifa_static tifa_shared)
     )
     target_link_libraries(${_t} PUBLIC GMP::GMP Threads::Threads)
     if(TIFA_M_LIBRARY)
-        target_link_libraries(${_t} PUBLIC "${TIFA_M_LIBRARY}")
+        # By name: the found path would end up in the exported targets.
+        target_link_libraries(${_t} PUBLIC m)
     endif()
 endforeach()
 
