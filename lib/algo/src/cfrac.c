@@ -281,9 +281,9 @@ static ecode_t recurse(
     factoring_mode_t
 );
 //------------------------------------------------------------------------------
-static void collect_xi_yi_pairs(cfrac_context_t* context);
+static ecode_t collect_xi_yi_pairs(cfrac_context_t* context);
 //------------------------------------------------------------------------------
-static void generate_xi_yi_pairs(
+static uint32_t generate_xi_yi_pairs(
     cont_frac_state_t* const cfstate,
     mpz_array_t* const xi_array,
     mpz_array_t* const yi_array,
@@ -678,7 +678,9 @@ static ecode_t perform_cfrac(factoring_machine_t* const machine) {
     //
     // Collect xi^2 = yi (mod kn) relations with yi smooth
     //
-    collect_xi_yi_pairs(context);
+    if (collect_xi_yi_pairs(context) != SUCCESS) {
+        return GIVING_UP;
+    }
 
     STOP_TIMER;
     PRINT_COLLECT_RELS_DONE_MSG;
@@ -798,7 +800,7 @@ static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
  */
 
 //------------------------------------------------------------------------------
-static void collect_xi_yi_pairs(cfrac_context_t* context) {
+static ecode_t collect_xi_yi_pairs(cfrac_context_t* context) {
     //
     // Collect relations xi^2 = yi (mod kn) with yi smooth.
     //
@@ -827,6 +829,9 @@ static void collect_xi_yi_pairs(cfrac_context_t* context) {
     context->new_accepted_yi.data = &(context->all_accepted_yi->data[accepted]);
     context->new_accepted_xi.data = &(context->all_accepted_xi->data[accepted]);
 
+    uint32_t nkept_at_period_end = 0;
+    uint32_t idle_periods        = 0;
+
     while (context->new_accepted_yi.length != context->nrows_to_collect) {
         //
         // If context->candidate_yi->length != 0, it means that not all
@@ -841,12 +846,12 @@ static void collect_xi_yi_pairs(cfrac_context_t* context) {
         //
         // Compute candidate yi and xi such that yi = xi^2 (mod kn)...
         //
-        generate_xi_yi_pairs(
-            context->cfstate,
-            context->candidate_xi,
-            context->candidate_yi,
-            1 << ceil_log2(context->nrows_to_collect)
-        );
+        const uint32_t nperiods = generate_xi_yi_pairs(
+                                      context->cfstate,
+                                      context->candidate_xi,
+                                      context->candidate_yi,
+                                      1 << ceil_log2(context->nrows_to_collect)
+                                  );
 
         STOP_NAMED_TIMER(generation);
         START_NAMED_TIMER(selection);
@@ -858,6 +863,20 @@ static void collect_xi_yi_pairs(cfrac_context_t* context) {
         filter_new_relations(&(context->filter));
 
         STOP_NAMED_TIMER(selection);
+        //
+        // The residues repeat with the period of the expansion: a whole
+        // period after the first one without a relation means none will come.
+        //
+        if (nperiods != 0) {
+            if (context->new_accepted_yi.length == nkept_at_period_end) {
+                if (++idle_periods == 2) {
+                    return GIVING_UP;
+                }
+            } else {
+                idle_periods = 0;
+            }
+            nkept_at_period_end = context->new_accepted_yi.length;
+        }
 
         PRINT_NRELS_FOUND(
             context->new_accepted_yi.length,
@@ -873,9 +892,10 @@ static void collect_xi_yi_pairs(cfrac_context_t* context) {
     //
     context->all_accepted_xi->length += context->nrows_to_collect;
     context->all_accepted_yi->length += context->nrows_to_collect;
+    return SUCCESS;
 }
 //------------------------------------------------------------------------------
-static void generate_xi_yi_pairs(
+static uint32_t generate_xi_yi_pairs(
                         cont_frac_state_t* const cfstate,
                         mpz_array_t* const xi_array,
                         mpz_array_t* const yi_array,
@@ -892,6 +912,7 @@ static void generate_xi_yi_pairs(
     uint32_t const from = xi_array->length;
     uint32_t const to   = xi_array->length + npairs;
     uint32_t       i    = from;
+    uint32_t nperiods   = 0;
 
     while (i < to) {
 
@@ -919,10 +940,19 @@ static void generate_xi_yi_pairs(
             i++;
 
             //}
+        } else {
+            //
+            // |q| = 1 ends a period of the expansion.
+            //
+            nperiods++;
+            if ((nperiods > 1) && (i == from)) {
+                break;
+            }
         }
     }
-    xi_array->length += npairs;
-    yi_array->length += npairs;
+    xi_array->length += i - from;
+    yi_array->length += i - from;
+    return nperiods;
 }
 //------------------------------------------------------------------------------
 
@@ -991,12 +1021,19 @@ static void choose_multiplier(cfrac_context_t* const context) {
         i = context->multiplier_index - 1;
     }
 
+    mpz_t s, r;
+    mpz_init(s);
+    mpz_init(r);
     mpz_mul_ui(context->kn, context->n, context->mult_data[i].multiplier);
+    mpz_sqrtrem(s, r, context->kn);
 
-    while ((0 != mpz_perfect_square_p(context->kn)) && (i != 0)) {
+    while ((mpz_cmp_ui(r, 1) <= 0) && (i != 0)) {
         i--;
         mpz_mul_ui(context->kn, context->n, context->mult_data[i].multiplier);
+        mpz_sqrtrem(s, r, context->kn);
     }
+    mpz_clear(s);
+    mpz_clear(r);
     context->multiplier       = context->mult_data[i].multiplier;
     context->multiplier_index = i;
     context->nmult_used++;

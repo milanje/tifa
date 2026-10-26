@@ -101,6 +101,26 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- CFRAC on short periods ---- k*n = m^2 + 1 makes every residue 1,
+    // and 1005679*1005681 has a short period without smooth residues: both
+    // used to loop forever. Any outcome will do, as long as it ends.
+    {
+        static const char* const ns[] = { "1487813", "1011392262399" };
+        for (unsigned i = 0; i < 2; i++) {
+            mpz_set_str(n, ns[i], 10);
+            mpz_array_t* f = alloc_mpz_array(8);
+            cfrac_params_t params;
+            set_cfrac_params_to_default(n, &params);
+            cfrac(f, NULL, n, &params, FIND_SOME_FACTORS);
+            bool ok = true;
+            for (uint32_t j = 0; j < f->length; j++) {
+                ok = ok && mpz_divisible_p(n, f->data[j]);
+            }
+            CHECK(ok, "cfrac on a short period: factors divide n");
+            free_mpz_array(f);
+        }
+    }
+
     // ---- SIQS ---- (~2^60 semiprime, SIQS's intended range)
     {
         mul2(n, 1000000007UL, 1000000009UL);
