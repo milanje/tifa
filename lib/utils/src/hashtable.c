@@ -99,6 +99,7 @@ void add_entry_in_hashtable(hashtable_t* const htable,
     uint32_t ind = htable->hash_func(key) & (htable->alloced - 1);
 
     append_to_linked_list(&(htable->buckets[ind]), (void*)entry);
+    htable->nentries++;
 }
 //-----------------------------------------------------------------------------
 void* get_entry_in_hashtable(hashtable_t* const htable,

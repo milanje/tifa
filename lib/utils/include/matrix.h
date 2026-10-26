@@ -245,7 +245,7 @@ inline static void set_matrix_bit_to_zero(uint32_t row, uint32_t col,
     col_offset = BITSTRING_T_BITSIZE - 1 - col_offset;
     col       /= BITSTRING_T_BITSIZE;
 #endif
-    matrix->data[row][col] &= !(((TIFA_BITSTRING_T)1)<<col_offset);
+    matrix->data[row][col] &= ~(((TIFA_BITSTRING_T)1)<<col_offset);
 }
 
    /**

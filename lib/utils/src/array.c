@@ -29,7 +29,7 @@
 
 #include "tifa_config.h"
 
-#if USE_CALLOC_MEMSET
+#if TIFA_USE_CALLOC_MEMSET
     #include <string.h>
 #endif
 
@@ -59,7 +59,7 @@ byte_array_t* alloc_byte_array(uint32_t length) {
     array->alloced = length;
     array->length  = 0U;
 
-#if USE_CALLOC_MEMSET
+#if TIFA_USE_CALLOC_MEMSET
     array->data = tifa_calloc(array->alloced, sizeof(unsigned char));
 #else
     array->data = tifa_malloc(array->alloced * sizeof(unsigned char));
@@ -164,11 +164,15 @@ void ins_sort_byte_array(byte_array_t* const array) {
     }
 }
 //-----------------------------------------------------------------------------
+static int byte_cmp_func(const void* const a, const void* const b) {
+    return (int) *(const unsigned char*) a - (int) *(const unsigned char*) b;
+}
+//-----------------------------------------------------------------------------
 void qsort_byte_array(byte_array_t* const array) {
     //
     // Quick sort using the qsort function from the standard C library...
     //
-    qsort(array->data, array->length, sizeof(unsigned char), uint32_cmp_func);
+    qsort(array->data, array->length, sizeof(unsigned char), byte_cmp_func);
 }
 //-----------------------------------------------------------------------------
 uint32_t index_in_byte_array(unsigned char to_find,
@@ -248,7 +252,7 @@ uint32_array_t* alloc_uint32_array(uint32_t length) {
     array->alloced = length;
     array->length  = 0U;
 
-#if USE_CALLOC_MEMSET
+#if TIFA_USE_CALLOC_MEMSET
     array->data = tifa_calloc(array->alloced, sizeof(uint32_t));
 #else
     array->data = tifa_malloc(array->alloced * sizeof(uint32_t));
@@ -436,7 +440,7 @@ int32_array_t* alloc_int32_array(uint32_t length) {
     array->alloced = length;
     array->length  = 0U;
 
-#if USE_CALLOC_MEMSET
+#if TIFA_USE_CALLOC_MEMSET
     array->data = tifa_calloc(array->alloced, sizeof(int32_t));
 #else
     array->data = tifa_malloc(array->alloced * sizeof(int32_t));
@@ -824,7 +828,7 @@ binary_array_t* alloc_binary_array(uint32_t length) {
     }
     array->length  = 0U;
 
-#if USE_CALLOC_MEMSET
+#if TIFA_USE_CALLOC_MEMSET
     array->data = tifa_calloc(array->alloced, sizeof(TIFA_BITSTRING_T));
 #else
     array->data = tifa_malloc(array->alloced * sizeof(TIFA_BITSTRING_T));

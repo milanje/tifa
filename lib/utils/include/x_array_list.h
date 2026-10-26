@@ -207,7 +207,8 @@ mpz_array_list_t* alloc_mpz_array_list(uint32_t alloced);
     * \brief Adds an entry to a <tt>mpz_array_list_t</tt>.
     *
     * Adds the \c entry pointer to \c list and increments its
-    * \c length field.
+    * \c length field. If \c list is full, \c entry is not added and stays
+    * the caller's.
     *
     * \warning This function tranfers the ownership of the \c mpz_array_t
     * pointed to by \c entry to <tt>list</tt>. This means that any client code
@@ -225,8 +226,10 @@ add_entry_in_mpz_array_list(mpz_array_t* const entry,
     // _WARNING_: Ownership of the mpz_array_t pointed by entry is
     //            transfered to the mpz_array_list_t
     //
-    list->data[list->length] = entry;
-    list->length++;
+    if (list->length != list->alloced) {
+      list->data[list->length] = entry;
+      list->length++;
+    }
 }
 
    /**

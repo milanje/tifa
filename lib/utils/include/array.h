@@ -1306,7 +1306,7 @@ set_array_bit_to_zero(uint32_t index, binary_array_t* const array) {
     index /= BITSTRING_T_BITSIZE;
 #endif
     offset = BITSTRING_T_BITSIZE - 1 - offset;
-    array->data[index] &= !(((TIFA_BITSTRING_T)1)<<offset);
+    array->data[index] &= ~(((TIFA_BITSTRING_T)1)<<offset);
 }
 
    /**

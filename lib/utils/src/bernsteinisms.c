@@ -329,9 +329,6 @@ void bern_71(uint32_array_list_t* const decomp_list,
     // Bootstrap. Step 1
     //
     if (0U == to_be_factored->length) {
-        for (uint32_t i = 0; i < to_be_factored->length; i++) {
-            add_entry_in_uint32_array_list(NULL, decomp_list);
-        }
         return;
     }
     //
