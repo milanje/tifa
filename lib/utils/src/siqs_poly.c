@@ -137,14 +137,16 @@ determine_nprimes(uint32_t bitsize)
     // Determines the number of factors in the leading coefficient according
     // to the size 'bitsize' of the target in bits.
     //
+    // Six primes never measured clearly faster than five or seven.
+    //
     if (bitsize < 15)  { return 2; }
-    if (bitsize < 32)  { return 3; }
-    if (bitsize < 44)  { return 4; }
-    if (bitsize < 59)  { return 5; }
-    if (bitsize < 75)  { return 6; }
-    if (bitsize < 88)  { return 7; }
-    
-    return (8 + (bitsize - 88) / 11);
+    if (bitsize < 26)  { return 3; }
+    if (bitsize < 36)  { return 4; }
+    if (bitsize < 60)  { return 5; }
+    if (bitsize < 70)  { return 7; }
+    if (bitsize < 99)  { return 8; }
+
+    return (9 + (bitsize - 99) / 11);
 }
 //-----------------------------------------------------------------------------
 ecode_t

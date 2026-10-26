@@ -1,5 +1,19 @@
 # TIFA news
 
+## 26 October 2026 &mdash; number of primes in `a` retuned (for 0.3.0)
+
+`determine_nprimes`, which picks the number of primes in `a` from the size of
+its target, now follows the best number measured for each size: three primes
+below 26 bits, four up to 35, five up to 59, seven up to 69 and eight up to 98
+(six were never clearly best). The defaults no longer add primes for some
+sizes of n, which the thresholds now cover. Against the previous defaults:
+
+| Bits | 77 | 83 | 85 | 86 | 88 | 95 | 96 | 98 | 145 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.97 | 0.97 | 0.92 | 0.95 | 0.97 | 0.97 | 0.97 | 0.94 | 0.97 |
+
+The other sizes from 66 to 200 bits are within 1.5% of before.
+
 ## 26 October 2026 &mdash; SIQS defaults retuned (for 0.3.0)
 
 `tifa_tune` retuned SIQS from 65 to 200 bits, the number of primes in `a`
