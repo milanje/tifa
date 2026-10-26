@@ -816,7 +816,12 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
 
         mpn_tdiv_qr(quotdata, remdata, 0, numdata, numalloc, dendata, denalloc);
 
-        if (numsize < 0) {
+        //
+        // For a negative z, d - (|z| mod d), unless |z| mod d is 0.
+        //
+        mp_size_t rsize = remalloc;
+        MPN_NORMALIZE(remdata, rsize);
+        if ((numsize < 0) && (rsize != 0)) {
             mpn_sub(remdata, dendata, denalloc, remdata, denalloc);
         }
         MPN_NORMALIZE(remdata, remalloc);
@@ -855,7 +860,12 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
             mpn_tdiv_qr(quotdata, remdata, 0,
                         numdata, numalloc, dendata, denalloc);
 
-            if (numsize < 0) {
+            //
+            // For a negative z, d - (|z| mod d), unless |z| mod d is 0.
+            //
+            mp_size_t rsize = remalloc;
+            MPN_NORMALIZE(remdata, rsize);
+            if ((numsize < 0) && (rsize != 0)) {
                 mpn_sub(remdata, dendata, denalloc, remdata, denalloc);
             }
             MPN_NORMALIZE(remdata, remalloc);
@@ -887,7 +897,12 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
             mpn_tdiv_qr(quotdata, remdata, 0,
                         numdata, numalloc, dendata, denalloc);
 
-            if (numsize < 0) {
+            //
+            // For a negative z, d - (|z| mod d), unless |z| mod d is 0.
+            //
+            mp_size_t rsize = remalloc;
+            MPN_NORMALIZE(remdata, rsize);
+            if ((numsize < 0) && (rsize != 0)) {
                 mpn_sub(remdata, dendata, denalloc, remdata, denalloc);
             }
             MPN_NORMALIZE(remdata, remalloc);
@@ -900,7 +915,9 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
 }
 //-----------------------------------------------------------------------------
 void free_mpz_tree(mpz_tree_t* tree) {
-    free(PTR(tree->data[0]));
+    if (tree->length != 0) {
+        free(PTR(tree->data[0]));
+    }
     free(tree->data);
     free(tree);
 }

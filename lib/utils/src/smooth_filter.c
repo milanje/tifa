@@ -84,7 +84,7 @@ void complete_filter_init(smooth_filter_t* const filter,
         
         filter->factor_base[1]          = tifa_malloc(sizeof(uint32_array_t));
         filter->factor_base[1]->data    = &(base->data[ip + 1]);
-        filter->factor_base[1]->length  = nprimes - ip - 2;
+        filter->factor_base[1]->length  = nprimes - ip - 1;
         filter->factor_base[1]->alloced = 0;
         
         mpz_init_set(filter->bounds[0], filter->kn);

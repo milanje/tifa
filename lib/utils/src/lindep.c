@@ -365,7 +365,11 @@ uint32_array_list_t*
 find_dependencies(binary_matrix_t* const matrix, linalg_method_t method) {
 
     uint32_array_list_t* relations;
-    relations = alloc_uint32_array_list(matrix->nrows - matrix->ncols);
+    //
+    // There are nrows - rank dependencies: at least nrows - ncols, but possibly
+    // more, and some even when nrows <= ncols.
+    //
+    relations = alloc_uint32_array_list(matrix->nrows);
 
     switch (method) {
         case SMART_GAUSS_ELIM:
