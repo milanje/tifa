@@ -260,6 +260,8 @@ static ecode_t choose_curve(ecm_context_t* const context);
 //------------------------------------------------------------------------------
 static ecode_t perform_precomputations(ecm_context_t* const context);
 //------------------------------------------------------------------------------
+static void clear_precomputations(ecm_context_t* const context);
+//------------------------------------------------------------------------------
 static ecode_t recurse(
     mpz_array_t* const,
     uint32_array_t* const,
@@ -587,38 +589,7 @@ static ecode_t clear_ecm_context(factoring_machine_t* const machine) {
     mpz_clear(context->tmp_mul_3);
     mpz_clear(context->tmp_mul_4);
 
-    if (context->precomputations_done) {
-        for (unsigned int ij = 0; ij < context->njs; ij++) {
-            unsigned int j = context->Js[ij];
-            mpz_clear(context->SX[j]);
-            mpz_clear(context->SZ[j]);
-        }
-        free(context->SX);
-        free(context->SZ);
-
-        unsigned int nrows = context->m_max - context->m_min + 1;
-        for (unsigned int i = 0U; i < nrows; i++) {
-            free(context->prime_table[i]);
-        }
-        free(context->prime_table);
-        free(context->Js);
-        free(context->gcd_table);
-
-#if PHASE_2_GLOBALS
-        mpz_clear(context->tmp_phase2_1);
-        mpz_clear(context->tmp_phase2_2);
-        mpz_clear(context->tmp_phase2_3);
-        mpz_clear(context->tmp_phase2_4);
-        mpz_clear(context->tmp_phase2_5);
-        mpz_clear(context->tmp_phase2_6);
-        mpz_clear(context->tmp_phase2_7);
-        mpz_clear(context->tmp_phase2_8);
-        mpz_clear(context->tmp_phase2_9);
-        mpz_clear(context->tmp_phase2_10);
-        mpz_clear(context->tmp_phase2_11);
-#endif
-
-    }
+    clear_precomputations(context);
 #if TIFA_HAVE_MONT_ECM
     free_mont_ecm_plan(context->mplan);
 #endif
@@ -661,6 +632,42 @@ static ecode_t update_ecm_context(factoring_machine_t* const machine) {
     return ecode;
 }
 //------------------------------------------------------------------------------
+static void clear_precomputations(ecm_context_t* const context) {
+    if (!context->precomputations_done) {
+        return;
+    }
+    for (unsigned int ij = 0; ij < context->njs; ij++) {
+        unsigned int j = context->Js[ij];
+        mpz_clear(context->SX[j]);
+        mpz_clear(context->SZ[j]);
+    }
+    free(context->SX);
+    free(context->SZ);
+
+    unsigned int nrows = context->m_max - context->m_min + 1;
+    for (unsigned int i = 0U; i < nrows; i++) {
+        free(context->prime_table[i]);
+    }
+    free(context->prime_table);
+    free(context->Js);
+    free(context->gcd_table);
+
+#if PHASE_2_GLOBALS
+    mpz_clear(context->tmp_phase2_1);
+    mpz_clear(context->tmp_phase2_2);
+    mpz_clear(context->tmp_phase2_3);
+    mpz_clear(context->tmp_phase2_4);
+    mpz_clear(context->tmp_phase2_5);
+    mpz_clear(context->tmp_phase2_6);
+    mpz_clear(context->tmp_phase2_7);
+    mpz_clear(context->tmp_phase2_8);
+    mpz_clear(context->tmp_phase2_9);
+    mpz_clear(context->tmp_phase2_10);
+    mpz_clear(context->tmp_phase2_11);
+#endif
+    context->precomputations_done = false;
+}
+//------------------------------------------------------------------------------
 static void switch_to_level(factoring_machine_t* const machine,
                             const uint32_t level) {
     //
@@ -674,29 +681,12 @@ static void switch_to_level(factoring_machine_t* const machine,
     params->b2      = ECM_B2_RATIO * ecm_levels[level].b1;
     params->ncurves = ecm_levels[level].ncurves;
 
-    if (context->precomputations_done) {
-        //
-        // _TO_DO_: Actually these clear_* are not needed here (except for
-        //          prime_table). We can bypass this memory cleaning by
-        //          adding a little bit of logic in perform_precomputations.
-        //
-        for (unsigned int ij = 0; ij < context->njs; ij++) {
-            unsigned int j = context->Js[ij];
-            mpz_clear(context->SX[j]);
-            mpz_clear(context->SZ[j]);
-        }
-        free(context->SX);
-        free(context->SZ);
-
-        unsigned int nrows = context->m_max - context->m_min + 1;
-        for (unsigned int i = 0U; i < nrows; i++) {
-            free(context->prime_table[i]);
-        }
-        free(context->prime_table);
-        free(context->Js);
-        free(context->gcd_table);
-    }
-    context->precomputations_done = false;
+    //
+    // _TO_DO_: Actually these clear_* are not needed here (except for
+    //          prime_table). We can bypass this memory cleaning by adding a
+    //          little bit of logic in perform_precomputations.
+    //
+    clear_precomputations(context);
 
     set_stage1_bound(context, params);
 }

@@ -134,8 +134,8 @@ static void process_args(factoring_program_t* const program) {
             exit(-1);
         }
         *nprimes_tdiv = strtoul(argv[1], NULL, 10);
-        if (!is_a_number(argv[4], MAX_NDIGITS)) {
-            PRINT_NAN_ERROR(argv[4]);
+        if (!is_a_number(argv[5], MAX_NDIGITS)) {
+            PRINT_NAN_ERROR(argv[5]);
             exit(-1);
         }
         mpz_init_set_str(program->n, argv[5], 10);

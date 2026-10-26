@@ -1,5 +1,16 @@
 # TIFA news
 
+## 26 October 2026 &mdash; fixes and documentation (for 0.3.0)
+
+- ECM no longer leaks 11 GMP integers each time it moves to larger bounds
+  (outside the Montgomery engine, i.e. above 4 limbs).
+- SQUFOF no longer frees an uninitialised GMP integer, nor leaks another,
+  for the racers whose multiplier makes them too large.
+- The `ecm` program checks that the number to factor is a number; `rho`'s
+  usage message lists its `<method>` argument.
+- `test_tuning` passes with `TIFA_TUNING_DIR` set.
+- The comments and documentation were checked against the code throughout.
+
 ## 26 October 2026 &mdash; number of primes in `a` retuned (for 0.3.0)
 
 `determine_nprimes`, which picks the number of primes in `a` from the size of

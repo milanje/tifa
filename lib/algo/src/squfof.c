@@ -1404,10 +1404,10 @@ static ecode_t init_squfof_racer(squfof_racer_t* const racer, const mpz_t n,
 //-----------------------------------------------------------------------------
 static ecode_t clear_squfof_racer(squfof_racer_t* const racer) {
     mpz_clear(racer->D);
-    mpz_clear(racer->D_minus_P2);
+    mpf_clear(racer->sqrtD);
     if (false == racer->number_is_too_large) {
         mpz_clear(racer->P2);
-        mpf_clear(racer->sqrtD);
+        mpz_clear(racer->D_minus_P2);
     }
     return SUCCESS;
 }

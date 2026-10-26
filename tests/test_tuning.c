@@ -20,6 +20,7 @@
 // lib/algo/src/tuning.c).
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "tifa_config.h"
@@ -47,6 +48,9 @@ static void make_path(char* buf, size_t buflen, const char* name) {
 
 int main(void) {
     TIFA_TEST_BEGIN("tuning loader");
+
+    // The resolver falls back to it once the override is cleared.
+    unsetenv("TIFA_TUNING_DIR");
 
     char path[1024];
 
@@ -141,8 +145,8 @@ int main(void) {
     CHECK(none == NULL, "resolver returns NULL for a missing algorithm file");
 
     // Clearing the override must make the resolver miss again (unless baked
-    // tables are compiled in, in which case the baked layer answers, or
-    // $TIFA_TUNING_DIR or the installed tuning directory has the file).
+    // tables are compiled in, in which case the baked layer answers, or the
+    // compiled-in tuning directory has the file).
     tifa_tuning_set_dir(NULL);
 #if !TUNING_BAKED_IN
     const tuning_row_t* cleared =
@@ -159,8 +163,8 @@ int main(void) {
 
     p_minus_1_params_t params;
 
-    // With the override cleared (and no $TIFA_TUNING_DIR or installed
-    // p_minus_1.tuning), the compiled-in defaults must be used.
+    // With the override cleared (and no p_minus_1.tuning in the compiled-in
+    // tuning directory), the compiled-in defaults must be used.
     // (Only meaningful when the baked tables are not compiled in.)
 #if !TUNING_BAKED_IN
     tifa_tuning_set_dir(NULL);
