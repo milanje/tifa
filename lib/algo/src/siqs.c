@@ -108,7 +108,7 @@
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
-#define NRANGES             33
+#define NRANGES             35
 //
 // Set to non zero to perform additional timing measurements. Has no effect
 // if __TIMING__ if set to 0.
@@ -310,6 +310,10 @@ struct struct_u32triplet_t {
     // use thres as sieve threshold.
     //
     uint32_t thres;
+    //
+    // use extra as extra_primes_in_a (not interpolated: the row below's).
+    //
+    uint32_t extra;
 };
 //------------------------------------------------------------------------------
 typedef struct struct_u32triplet_t u32triplet_t;
@@ -330,20 +334,22 @@ static const u32triplet_t best_params[NRANGES] = {
     {.size_n =  50, .size_base =   50, .hwidth =  10000, .thres = 23},
     {.size_n =  60, .size_base =   60, .hwidth =  10000, .thres = 26},
     {.size_n =  70, .size_base =   92, .hwidth =  16800, .thres = 26},
-    {.size_n =  80, .size_base =  126, .hwidth =  24000, .thres = 30},
+    {.size_n =  75, .size_base =  109, .hwidth =  10200, .thres = 28, .extra = 1},
+    {.size_n =  80, .size_base =  126, .hwidth =  12000, .thres = 30, .extra = 1},
+    {.size_n =  85, .size_base =  144, .hwidth =   9750, .thres = 31},
     {.size_n =  90, .size_base =  163, .hwidth =  15000, .thres = 33},
-    {.size_n = 100, .size_base =  200, .hwidth =  10500, .thres = 35},
-    {.size_n = 105, .size_base =  244, .hwidth =  18000, .thres = 38},
-    {.size_n = 110, .size_base =  288, .hwidth =  21000, .thres = 40},
+    {.size_n = 100, .size_base =  200, .hwidth =  10500, .thres = 35, .extra = 1},
+    {.size_n = 105, .size_base =  244, .hwidth =  18000, .thres = 38, .extra = 1},
+    {.size_n = 110, .size_base =  288, .hwidth =  14700, .thres = 40, .extra = 1},
     {.size_n = 120, .size_base =  400, .hwidth =  30000, .thres = 44},
     {.size_n = 130, .size_base =  400, .hwidth =  30000, .thres = 44},
     {.size_n = 140, .size_base =  700, .hwidth =  49152, .thres = 48},
-    {.size_n = 150, .size_base =  800, .hwidth =  49152, .thres = 51},
-    {.size_n = 160, .size_base = 1300, .hwidth =  65536, .thres = 56},
-    {.size_n = 170, .size_base = 1900, .hwidth =  65536, .thres = 60},
-    {.size_n = 180, .size_base = 2100, .hwidth =  65536, .thres = 62},
-    {.size_n = 190, .size_base = 3200, .hwidth = 131072, .thres = 67},
-    {.size_n = 200, .size_base = 4600, .hwidth = 196608, .thres = 71},
+    {.size_n = 150, .size_base =  800, .hwidth =  49152, .thres = 51, .extra = 1},
+    {.size_n = 160, .size_base = 1300, .hwidth =  65536, .thres = 56, .extra = 1},
+    {.size_n = 170, .size_base = 1900, .hwidth =  65536, .thres = 60, .extra = 1},
+    {.size_n = 180, .size_base = 2100, .hwidth =  65536, .thres = 62, .extra = 1},
+    {.size_n = 190, .size_base = 3200, .hwidth =  65536, .thres = 67, .extra = 1},
+    {.size_n = 200, .size_base = 4600, .hwidth = 196608, .thres = 71, .extra = 1},
     //
     // The following parameters were optained by crude extrapolation... and
     // should thus be looked at with a very critical eye...
@@ -529,10 +535,10 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     }
     params->nprimes_tdiv     = params->nprimes_in_base;
     params->nrelations       = SIQS_DFLT_NRELATIONS;
+    params->extra_primes_in_a = best_params[i].extra;
     params->linalg_method    = SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = (mpz_sizeinbase(n, 2)
                                 >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
-    params->extra_primes_in_a = 0;
 
     //
     // Override the tabulated/interpolated defaults with machine-tuned values if

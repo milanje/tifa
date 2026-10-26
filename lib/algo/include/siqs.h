@@ -109,7 +109,8 @@ struct struct_siqs_params_t {
         * Number of primes added to the polynomials' coefficient \c a, beyond
         * the usual number for its size (at most 2). Each added prime doubles
         * the number of polynomials sharing an \c a, whose setup is costly,
-        * but makes these primes smaller. 0 by default.
+        * but makes these primes smaller. The defaults add one from 75 to 84,
+        * from 100 to 119 and from 150 to 209 bits.
         */
     uint32_t extra_primes_in_a;
 };
