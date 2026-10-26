@@ -25,10 +25,9 @@
  * \brief Smooth integer filter.
  *
  * The \c smooth_filter_t structure and its associated functions implement the
- * multi-step early abort strategy in a way reminiscent of Pomerance's 
- * suggestion in "Analysis and Comparison of Some Integer Factoring Algorithm" 
- * with the exception that the smoothness tests are performed by batch 
- * (see bernsteinisms.h) instead of trial division.
+ * smoothness tests of residues: by trial division, optionally with early abort
+ * in a way reminiscent of Pomerance's suggestion in "Analysis and Comparison
+ * of Some Integer Factoring Algorithm", or by batch (see bernsteinisms.h).
  * 
  * <h3>How to use a \c smooth_filter_t structure?</h3>
  *
@@ -77,7 +76,7 @@
       filter_new_relations(&filter);
   }
   //
-  // This clears _only_ the memory allocated by complete_init_filter.
+  // This clears _only_ the memory allocated by complete_filter_init.
   //
   clear_smooth_filter(&filter);
   
@@ -157,11 +156,10 @@ typedef enum smooth_filter_method_enum smooth_filter_method_t;
     * \brief Structure grouping variables needed for multi-step early abort
     * strategy.
     *
-    * This structure and its associated functions implement the multi-step
-    * early abort strategy in a way reminiscent of Pomerance's suggestion
-    * in "Analysis and Comparison of Some Integer Factoring Algorithm" with
-    * the exception that the smoothness tests are performed by batch instead
-    * of trial division.
+    * This structure and its associated functions implement the smoothness
+    * tests of residues: by trial division, optionally with early abort in a
+    * way reminiscent of Pomerance's suggestion in "Analysis and Comparison
+    * of Some Integer Factoring Algorithm", or by batch.
     *
     * \See C. Pomerance, <i>Analysis and Comparison of Some Integer Factoring
     * Algorithm</i>, in Mathematical Centre Tracts 154.
@@ -235,7 +233,7 @@ struct struct_smooth_filter_t {
         */
     mpz_array_t* filtered_xi[MAX_NSTEPS];
        /**
-        * The \c filtered_yi[s] array gives the filtered x's after \c s 
+        * The \c filtered_yi[s] array gives the filtered y's after \c s 
         * early abort steps. See filtered_xi.
         */
     mpz_array_t* filtered_yi[MAX_NSTEPS];
@@ -251,8 +249,8 @@ struct struct_smooth_filter_t {
         */
     mpz_t bounds[MAX_NSTEPS];
        /**
-        * \c prod_pj[s] is the product of all the elements in the partial
-        * factor base at the \c s-th early abort step.
+        * \c prod_pj[0] is the product of the primes of the complete base
+        * (\c DJB_BATCH only).
         */
     mpz_t prod_pj[MAX_NSTEPS + 1];
        /**
@@ -318,12 +316,10 @@ void clear_smooth_filter(smooth_filter_t* const filter);
    /**
     * \brief Filters new relations to keep 'good' ones.
     *
-    * Filters the relations given by <tt>filter->candidate_*</tt> via
-    * a smoothness detecting batch using a <tt>filter->nsteps</tt> steps
-    * early abort strategy and stores the 'good' relations in
-    * <tt>filter->accepted_*</tt>. Has no effect if the
-    * <tt>filter->candidate_*</tt> are not full since we need
-    * <tt>filter->batch_size</tt> relations to perform a batch.
+    * Filters the relations given by <tt>filter->candidate_*</tt> via the
+    * filter's method (trial division or batch) with <tt>filter->nsteps</tt>
+    * early abort steps and stores the 'good' relations in
+    * <tt>filter->accepted_*</tt>.
     *
     * \param filter a pointer to the \c smooth_filter_t used
     */

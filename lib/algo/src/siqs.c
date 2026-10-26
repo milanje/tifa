@@ -63,7 +63,7 @@
 //
 // In order to not degrade too much the performance of the hashtable used
 // for the large prime variation (due to too many collisions), we set its size
-// to the size of the factor base multiplied by HTABLE_SIZE_MULTIPLIER.
+// to the number of rows of the matrix multiplied by HTABLE_SIZE_MULTIPLIER.
 //
 #define HTABLE_SIZE_MULTIPLIER  16
 //
@@ -421,8 +421,9 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
     //
     siqs_params_t own_params = *params;
     //
-    // 'a' is the product of determine_nprimes(...) odd-indexed primes of the
-    // base, for a target below sqrt(2kn), with k <= LARGEST_MULTIPLIER < 2^7.
+    // 'a' is the product of determine_nprimes(...) + extra_primes_in_a
+    // odd-indexed primes of the base, for a target below sqrt(2kn), with
+    // k <= LARGEST_MULTIPLIER < 2^7.
     //
     own_params.extra_primes_in_a = MIN(own_params.extra_primes_in_a,
                                        MAX_EXTRA_PRIMES_IN_A);
@@ -490,18 +491,15 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
 //------------------------------------------------------------------------------
 void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     //
-    // _TO_DO_: For the time being these default values are a bit crude.
-    //          Gather more data to provide better parameter values depending
-    //          on the size of the number to factor.
-    //
     // Size of number to factor = size,
     //
-    // If:    optimal_base_sizes[i].size_n <= size
-    // And:   size(n) < optimal_base_sizes[i+1].size_n
+    // If:    best_params[i].size_n <= size
+    // And:   size < best_params[i+1].size_n
     // Then:  use best_params[i].size_base as size of factor base
     //        and best_params[i].hwidth as sieve half width
-    //        and best_params[i].thresh as sieve threshold
+    //        and best_params[i].thres as sieve threshold
     // And:   Linear interpolation with best_params[i + 1].*
+    //        (but best_params[i].extra as extra_primes_in_a)
     //
     uint32_t size = mpz_sizeinbase(n, 2);
     uint32_t i    = NRANGES - 1;
@@ -544,7 +542,7 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     // Override the tabulated/interpolated defaults with machine-tuned values if
     // a tuning file supplies a row for this bit-size. The linear-algebra method
     // is not tuned and keeps its default. Note that the local `size` was
-    // clobbered by the interpolation above, so the true bit-size is recomputed.
+    // clamped to the last row above, so the true bit-size is recomputed.
     //
     tuning_row_t row;
     if (tifa_tuning_get_row(
@@ -616,7 +614,7 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
 
     //
     // The number of columns is indeed factor_base->length + 1 since the first
-    // row is used to keep track of the sign of the residue.
+    // column is used to keep track of the sign of the residue.
     //
     context->matrix_ncols  = params->nprimes_in_base + 1;
     context->matrix_nrows  = context->matrix_ncols;
@@ -632,8 +630,7 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     uint32_t e             = most_significant_bit(context->npairs_wanted);
     //
     // We'll collect more than the number of relations needed before attempting
-    // a batch smoothness test a la Bernstein. See remark in the init_qs_context
-    // function of QS in the file qs.c.
+    // a batch smoothness test a la Bernstein.
     //
     context->to_collect = 1 << (e + 1);
 
@@ -1009,7 +1006,7 @@ static void init_factor_base_data(siqs_context_t* const context,
         }
         if (nmodp == 0) {
             //
-            // This prime divides n (extremely unlikely) or the divisor. There
+            // This prime divides n (extremely unlikely) or the multiplier. There
             // is only one (trivial) root to x^2 = nmodp = 0 (mod prime). To
             // keep the code simple we'll do as if there were two (identical)
             // solutions but we divide the contribution from log(prime) by two.

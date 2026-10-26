@@ -18,8 +18,9 @@
 
 // Per-algorithm correctness tests: each algorithm is driven directly through
 // its public interface on a composite suited to it, asking for a COMPLETE
-// factorization and verifying the result. The ECM case sets b2 > 105 to run
-// the second phase, exercising the precompute loop that held the abs() bug.
+// factorization and verifying the result. The ECM case runs stage 2 (b2 > b1);
+// where the Montgomery engine handles n, it does not reach the GMP stage-2
+// precompute that held the abs() bug.
 
 #include "tifa_test.h"
 
@@ -303,14 +304,14 @@ int main(void) {
         free_uint32_array(m);
     }
 
-    // ---- ECM ---- small factor; b2 > 105 forces the second phase
+    // ---- ECM ---- small factor; b2 > b1 runs the second phase
     {
         mul2(n, 101UL, 1000000007UL);
         mpz_array_t*    f = alloc_mpz_array(8);
         uint32_array_t* m = alloc_uint32_array(8);
         ecm_params_t params;
         params.b1      = 2000U;
-        params.b2      = 50000U;   // > 105 -> second phase runs (fixed abs path)
+        params.b2      = 50000U;   // > b1: second phase runs
         params.ncurves = 200U;
         params.seed    = 1U;
         ecode_t rc = ecm(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);

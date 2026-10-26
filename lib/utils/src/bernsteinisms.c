@@ -689,8 +689,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                                   const mpz_t z) {
 
     //
-    // _NOTE_: The coefficient "a" of the SIQS polynomial of each relation is
-    //         stored along with it.
+    // _NOTE_: Each relation carries the index of its 'a' in a_values.
     //
     if (smooth_yi->length == smooth_yi->alloced) {
         return 0;
@@ -773,19 +772,10 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                 
                 //
                 // cand_yi->data[k] is the product of a smooth number with
-                // the prime number first_primes_array->data[ind]
+                // the cofactor nsp_ui
                 //
                 uint32_t *key = tifa_malloc(sizeof(uint32_t));
                 *key  = nsp_ui;
-                
-                //
-                // _NOTE_: Actually it may be possible to leave the pair
-                //         in the hashtable...
-                //
-                // _TO_DO: Try to keep the entry in the hashtable...
-                //
-                //mpz_pair_t *found = remove_entry_in_hashtable(htable,
-                //key);
                 
                 mpz_pair_t *found = get_entry_in_hashtable(htable,key);
                 
@@ -824,8 +814,6 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                         // cumbersome, so we just ignore it...
                         //
                         free(key);
-                        //clear_mpz_pair(found);
-                        //free(found);
                         goto next_candidate;
                     }
                     smooth_yi->length++;
@@ -837,8 +825,6 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                     matching_a++;
                 
                     free(key);
-                    //clear_mpz_pair(found);
-                    //free(found);
                 
                     if (smooth_yi->length == smooth_yi->alloced) {
                         retval = k + 1;
@@ -846,8 +832,8 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                     }
                 } else {
                     //
-                    // Add this pair in the hashtable with the position
-                    // of the prime in first_primes_array as key...
+                    // Add this pair in the hashtable with the cofactor as
+                    // key...
                     //
                     mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
                     mpz_init_set(pair->x, *candidate_x);
@@ -994,15 +980,6 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                     uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
             
-                    //
-                    // _NOTE_: Actually it may be possible to leave the pair
-                    //         in the hashtable...
-                    //
-                    // _TO_DO: Try to keep the entry in the hashtable...
-                    //
-
-                //mpz_pair_t *found = remove_entry_in_hashtable(htable, key);
-      
                     mpz_pair_t *found = get_entry_in_hashtable(htable,key);
             
                     if (found != NULL) {
@@ -1042,8 +1019,6 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                             //
                             free(key);
                             
-                            //clear_mpz_pair(found);
-                            //free(found);
                             
                             continue;
                         }
@@ -1052,8 +1027,6 @@ uint32_t djb_batch_rt_no_ea(smooth_filter_t* const filter) {
                         
                         free(key);
                     
-                        //clear_mpz_pair(found);
-                        //free(found);
             
                         if (acc_yi->length == acc_yi->alloced) {
                             retval = in_yi->length - k;

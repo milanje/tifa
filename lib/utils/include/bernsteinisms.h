@@ -123,8 +123,8 @@ uint32_array_t* bern_63(const mpz_t x, const mpz_array_t* const tree);
     * set of integers n_i given by \c to_be_factored, determines, for each
     * n_i, the list of odd primes p_j such that (n_i mod p_j = 0) and stores
     * them in <tt>decomp_list</tt>. Each entry in \c decomp_list->data[i]
-    * is a pointer to a \c mpz_array_t listing the p_j for the integer
-    * <tt>to_be_factored->data[i]</tt>.
+    * is a pointer to a \c uint32_array_t listing the p_j for the integer
+    * <tt>to_be_factored->data[i]</tt>, or NULL if none divides it.
     *
     * This is the algorithm 7.1 described in Daniel J. Bernstein's paper: "How
     * to find small factors of integers".
@@ -151,8 +151,8 @@ void bern_71(
    /**
     * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS (with a
     * remainder tree only when \c z has more than
-    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, each y_i is reduced
-    * modulo \c z directly).
+    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, \c z is reduced
+    * modulo each y_i directly).
     *
     * Given <tt>z</tt>, the product of prime numbers p_j and the positive
     * integers y_i listed by <tt>cand_yi</tt>, determines the y_i that are
@@ -165,8 +165,8 @@ void bern_71(
     *
     * The function stops when each integer from \c cand_yi has been checked for
     * smoothness or when the \c smooth_yi array is completely filled. It then
-    * returns the index of the last integer in \c cand_yi that has been checked
-    * for smoothness.
+    * returns the number of integers of \c cand_yi checked for smoothness (0 if
+    * \c smooth_yi was already full).
     *
     * This function uses the algorithm 2.1 described in Daniel J. Bernstein's
     * paper: "How to find smooth parts of integers" except that this function
@@ -189,8 +189,7 @@ void bern_71(
     * \param[in] cand_a The indexes of the \c a of the \c y_i.
     * \param[in] z The product of the the \c p_j prime numbers in the factor
     *              base.
-    * \return  The index of the last integer in \c cand_yi that has been checked
-    *          for smoothness.
+    * \return  The number of integers of \c cand_yi checked for smoothness.
     */
 uint32_t bern_21_rt_pairs_siqs(
     mpz_array_t* const xi,
@@ -205,8 +204,8 @@ uint32_t bern_21_rt_pairs_siqs(
    /**
     * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS, with large
     * primes variation (with a remainder tree only when \c z has more than
-    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, each y_i is reduced
-    * modulo \c z directly).
+    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, \c z is reduced
+    * modulo each y_i directly).
     *
     * Given <tt>z</tt>, the product of prime numbers p_j and the positive
     * integers y_i listed by <tt>cand_yi</tt>, determines the y_i that are
@@ -221,14 +220,15 @@ uint32_t bern_21_rt_pairs_siqs(
     * If a given y_i is not {p_j}-smooth but is the product of a prime \c p by
     * a {p_j}-smooth number, it is stored in the hashtable <tt>htable</tt>.
     * Subsequently, if another y_j is the product of a {p_j}-smooth number
-    * by the same prime number \c p, then <tt>y_i*y_j/(p^2)</tt> is stored in
-    * \c smooth_yi and <tt>x_i*x_j*pinv</tt> is stored in \c xi where
-    * \c pinv is the inverse of \c p in Z/<tt>c</tt>Z.
+    * by the same prime number \c p, then <tt>y_i*y_j*a_j/(p^2)</tt> (a_j the
+    * \c a of y_j) is stored in \c smooth_yi with the index of y_i's \c a, and
+    * <tt>x_i*x_j*pinv</tt> is stored in \c xi where \c pinv is the inverse
+    * of \c p in Z/<tt>n</tt>Z.
     *
     * The function stops when each integer from \c cand_yi has been checked for
     * smoothness or when the \c smooth_yi array is completely filled. It then
-    * returns the index of the last integer in \c cand_yi that has been checked
-    * for smoothness.
+    * returns the number of integers of \c cand_yi checked for smoothness (0 if
+    * \c smooth_yi was already full).
     *
     * This function uses the algorithm 2.1 described in Daniel J. Bernstein's
     * paper: "How to find smooth parts of integers" except that this function
@@ -255,8 +255,7 @@ uint32_t bern_21_rt_pairs_siqs(
     * \param[in] a_values The coefficients \c a the indexes refer to.
     * \param[in] z The product of the the \c p_j prime numbers in the factor
     *              base.
-    * \return  The index of the last integer in \c cand_yi that has been checked
-    *          for smoothness.
+    * \return  The number of integers of \c cand_yi checked for smoothness.
     */
 uint32_t bern_21_rt_pairs_lp_siqs(
     const mpz_t n,

@@ -17,7 +17,7 @@ set(TIFA_SOURCES
     algo/src/tdiv.c
     algo/src/tifa_factor.c
     algo/src/tuning.c
-    # Precomputed data (generated prime table)
+    # Precomputed data (generated tables)
     data/src/first_primes.c
     data/src/z2z8_curves.c
     # Structures, utilities, etc.
@@ -91,8 +91,8 @@ foreach(_t tifa_static tifa_shared)
     endif()
 endforeach()
 
-# Below 1.0, a minor version may break the ABI (0.2 added a field to
-# ecm_params_t, for one), so it is part of the soname.
+# Below 1.0, a minor version may break the ABI (0.3 removed a field from
+# cfrac_params_t, for one), so it is part of the soname.
 if(PROJECT_VERSION_MAJOR EQUAL 0)
     set(TIFA_SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 else()

@@ -47,8 +47,8 @@ extern "C" {
 
    /**
     * \def SIQS_DFLT_NRELATIONS
-    * Default number of congruence relations to find before attempting the
-    * factorization of the large integer.
+    * Default number of relations to collect beyond the size of the factor
+    * base (see \c nrelations).
     */
 #define SIQS_DFLT_NRELATIONS       24
    /**

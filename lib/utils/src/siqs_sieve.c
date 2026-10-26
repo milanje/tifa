@@ -326,10 +326,10 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve)
     // of the sieve at position (x + from).
     //
     // However, on the negative x-side the sieve array represents positions
-    // [from, to]
+    // [-to, -from]
     //
-    //     from = (next_chunkno_to_fill + 1) * chunk_size + 1
-    //       to = (next_chunkno_to_fill) * chunk_size
+    //     from = -(next_chunkno_to_fill + 1) * chunk_size + 1
+    //       to = -(next_chunkno_to_fill) * chunk_size
     //
     // with next_chunkno_to_fill < 0, in other words sieve[x] is the value
     // of the sieve at position -(x + from).
@@ -580,7 +580,7 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
 
 
     //
-    // (Re-)initialize the sieve array with the full log approximation...
+    // (Re-)initialize every byte of the sieve array to the threshold...
     //
     TIFA_MEMSET(sieve_data, sieve->threshold, sieve_length);
 
@@ -909,7 +909,7 @@ void fill_buckets(siqs_sieve_t* const sieve) {
     //
     // Hits on the negative side are stored in sieve->buckets_negative
     // such that buckets_negative->bin[i] covers the sieve interval
-    // [-(i+1)*chunk_size, -i*chunk_size + 1]
+    // [-(i+1)*chunk_size, -i*chunk_size - 1]
     //
     reset_buckets(sieve->buckets_positive);
     reset_buckets(sieve->buckets_negative);

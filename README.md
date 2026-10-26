@@ -174,8 +174,8 @@ built-in defaults always as the final fallback:
 
 A tuning file lists rows of parameters for increasing bit-sizes. Between two
 rows, most quantities (bounds, sizes, counts) are interpolated; the flags,
-seeds, choices and the SIQS sieve width (whose cost jumps at each multiple of
-the sieve chunk) are taken from the row below.
+seeds, choices, the SIQS sieve width (whose cost jumps at each multiple of the
+sieve chunk) and its extra primes in `a` are taken from the row below.
 
 ### Generating tuning files
 

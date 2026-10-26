@@ -179,7 +179,7 @@ struct struct_fermat_context_t {
     bool updated;
     //
     // Latest prime used in "simpler-precision" (sic!) version before failure.
-    // Full multi-precision implementation will start using this prime.
+    // The multi-precision implementation starts with the next prime.
     //
     unsigned long int latest_p;
     //
@@ -816,7 +816,7 @@ static ecode_t perform_fermat_mpz(factoring_machine_t* const machine) {
             if (retval != 0) {
                 //
                 // n doesn't have modular squareroot mod p^2. Try with the next
-                // prime.
+                // multiplier or prime.
                 //
                 continue;
             }

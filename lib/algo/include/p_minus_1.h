@@ -98,8 +98,8 @@ void set_p_minus_1_params_to_default(const mpz_t n, p_minus_1_params_t* const pa
    /**
     * \brief Integer factorization via Pollard's p-1 factorization algorithm.
     *
-    * Attempts to factor the non perfect square integer \c n with the first
-    * stage of Pollard's p-1 algorithm, using the factoring mode given by
+    * Attempts to factor the non perfect square integer \c n with Pollard's
+    * p-1 algorithm (stage 2 too when \c b2 > \c b1), using the factoring mode given by
     * <tt>mode</tt>. Found factors are then stored in \c factors. Additionally,
     * if the factoring mode used is set to FIND_COMPLETE_FACTORIZATION,
     * factors' multiplicities are stored in the array <tt>multis</tt>.

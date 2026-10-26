@@ -30,9 +30,8 @@ void grid_clear(grid_t* g) {
 }
 
 //
-// Appends v to the axis if it is within [0, TUNE_MAX_AXIS_VALUES) and not
-// already present (values are added in nondecreasing order so a duplicate can
-// only be the previous entry).
+// Appends v unless the axis is full or v repeats the previous entry (only
+// adjacent duplicates are caught: R_SIQS is not monotonic).
 //
 static void axis_push_unique(grid_axis_t* axis, uint32_t v) {
     if (axis->nvalues == TUNE_MAX_AXIS_VALUES) {

@@ -3,10 +3,11 @@
 ## 26 October 2026 &mdash; number of primes in `a` retuned (for 0.3.0)
 
 `determine_nprimes`, which picks the number of primes in `a` from the size of
-its target, now follows the best number measured for each size: three primes
-below 26 bits, four up to 35, five up to 59, seven up to 69 and eight up to 98
-(six were never clearly best). The defaults no longer add primes for some
-sizes of n, which the thresholds now cover. Against the previous defaults:
+its target, now follows the best number measured for each size: two primes
+below 15 bits, three below 26, four up to 35, five up to 59, seven up to 69
+and eight up to 98 (six were never clearly best). The defaults no longer add
+primes for some sizes of n, which the thresholds now cover. Against the
+previous defaults:
 
 | Bits | 77 | 83 | 85 | 86 | 88 | 95 | 96 | 98 | 145 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -34,10 +35,10 @@ Outside the sieve, a SIQS run spent a fifth of its time at 70 bits on its
 setup and per-run overheads. The factor base takes its residues from the
 multiplier choice (bitmaps of quadratic residues instead of Jacobi symbols,
 no GMP division or `log()` per prime), `sqrtm` rejects non-residues first and
-needs one exponentiation for three primes in four, the relations' trial
-division stops once the residue is below p^2, and the polynomial coefficient
-approximer and the batch smoothness test lost most of their libm calls,
-sorting and GMP allocations. The results are unchanged.
+needs one or two exponentiations for three primes in four, the relations'
+trial division stops once the residue is below p^2, and the polynomial
+coefficient approximer and the batch smoothness test lost most of their libm
+calls, sorting and GMP allocations. The results are unchanged.
 
 | `tifa_factor`, balanced semiprimes | 72 | 80 | 90 | 100 | 110 | 128 | 160 bits |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -79,7 +80,7 @@ speed, correctness and thread safety, `tifa_cofactor`, the review of
 invalid inputs and parameters, the `tifa_factor` program and the updated
 documentation. It requires GMP 6.0 or later.
 
-The ABI changes (`ecm_params_t` gained a `seed` field, among others), so
+The ABI changes (`tifa_rand` and `tifa_srand` are gone, among others), so
 the shared library's soname now carries the minor version while the major
 one is 0: `libtifa.so.0.2` (`libtifa.0.2.dylib` on macOS). Programs built
 against 0.1.5 must be rebuilt. Likewise, `find_package(Tifa 0.2)` accepts

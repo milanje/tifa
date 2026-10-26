@@ -21,7 +21,8 @@
 // Each composite is built from known primes, then asked for a COMPLETE
 // factorization; we verify the returned factors are all prime and multiply
 // back (with multiplicities) to n. This exercises the size-based dispatch to
-// trial division / SQUFOF / p-1 / SIQS, including inputs with small factors.
+// factor_u64 (trial division / SQUFOF without it) / ECM and p-1 pre-passes /
+// SIQS, including inputs with small factors.
 
 #include "tifa_test.h"
 #include "tifa_factor.h"
@@ -98,7 +99,7 @@ int main(void) {
     mpz_set_ui(n, 1000003UL); mpz_mul_ui(n, n, 1000033UL);
     factor_and_check("1000003*1000033 (~2^40)", n);
 
-    // ~2^60 = 1000000007 * 1000000009 (dispatches to SQUFOF)
+    // ~2^60 = 1000000007 * 1000000009 (factor_u64, or SQUFOF without it)
     mpz_set_ui(n, 1000000007UL); mpz_mul_ui(n, n, 1000000009UL);
     factor_and_check("1000000007*1000000009 (~2^60)", n);
 
@@ -132,7 +133,8 @@ int main(void) {
     mpz_set_str(n, "15318842556695263238", 10);
     some_factors_and_check("FIND_SOME_FACTORS, 2*7659421278347631619", n);
 
-    // Random composites over the trial division and SQUFOF ranges
+    // Random composites up to 64 bits (factor_u64; trial division and SQUFOF
+    // without it)
     gmp_randstate_t state;
     gmp_randinit_default(state);
     gmp_randseed_ui(state, 20261014UL);

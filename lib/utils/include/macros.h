@@ -241,7 +241,7 @@ extern "C" {
     * Macro returning True if both of the unsigned integers \c uia and \c uib
     * are odd, False otherwise.
     */
-#define ARE_ODD(uia, uib) ((((uia) | (uib)) & 1) != 0)
+#define ARE_ODD(uia, uib) ((((uia) & (uib)) & 1) != 0)
 
    /**
     * \def BIT(N, i)
@@ -251,11 +251,12 @@ extern "C" {
 #define BIT(N, i) ( ((N) & (1<<(i))) ? 1 : 0 )
 
    /**
-    * \def DUFF_DEVICE(COUNT, STATEMENTS)
+    * \def DUFF_DEVICE(COUNT, STATEMENT, ...)
     *
     * Implements the so-called "Duff device" which is a fairly well-known
     * (and so ugly looking!) loop unrolling technique. \c COUNT is the number
-    * of times to perform the operations given by STATEMENTS.
+    * of times to perform the operations given by STATEMENT and the extra
+    * arguments.
     *
     * \warning \c COUNT should be strictly positive. Using \c COUNT equals to
     * zero will yield wrong results.

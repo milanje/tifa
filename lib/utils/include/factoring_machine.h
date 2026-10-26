@@ -67,9 +67,10 @@ enum factoring_mode_enum {
         */
     FIND_SOME_COPRIME_FACTORS,
        /**
-        * Run the factorization algorithm until either some prime factors are
-        * found or the abort limit (defined on a per-algorithm basis) is
-        * reached.
+        * Run the factorization algorithm until either some factors are found
+        * or the abort limit (defined on a per-algorithm basis) is reached,
+        * then reduce them to a coprime base: succeeds only if all its
+        * elements are prime.
         *
         * \note This is probably not useful at all. Why would we discard found
         * factors even if they are not prime? This should better be left to
@@ -85,7 +86,7 @@ enum factoring_mode_enum {
 };
    /**
     * \typedef factoring_mode_t
-    * \brief Equivalent to <tt>struct factoring_mode_enum</tt>.
+    * \brief Equivalent to <tt>enum factoring_mode_enum</tt>.
     */
 typedef enum factoring_mode_enum factoring_mode_t;
 
@@ -103,7 +104,7 @@ static const int mode_to_outcome[5] = {
 
    /**
     * \struct struct_factoring_machine factoring_machine.h
-    *         tools/include/factoring_machine.h
+    *         lib/utils/include/factoring_machine.h
     *
     * \brief  Defines a structure to represent the logic behind all
     * factorization algorithms.

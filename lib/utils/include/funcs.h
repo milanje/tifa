@@ -174,7 +174,7 @@ inline static uint32_t ceil_log2(uint32_t n) {
     * \c mp_limb_t in essentially constant time. In other words, it
     * returns the smallest natural \c i such that <tt>2^i >= n</tt>.
     *
-    * \param[in] n A positive integer as an \c mp_limb_t.
+    * \param[in] limb A positive integer as an \c mp_limb_t.
     * \returns Ceil of log(<tt>n</tt>) in base 2.
     */
 inline static uint32_t ceil_log2_mp_limb(mp_limb_t limb) {
@@ -195,8 +195,9 @@ inline static uint32_t ceil_log2_mp_limb(mp_limb_t limb) {
     * \brief Find a coprime base from a list of factors.
     *
     * Finds a coprime base for the list of factors of \c n given by the
-    * array \c *factors and stores it in the allocated but \e uninitialized
-    * array \c base. After invocation, we know that \c n is smooth on the
+    * array \c *factors and appends it to \c base, an array from
+    * \c alloc_mpz_array (empty, or holding the base of a previous call).
+    * After invocation, we know that \c n is smooth on the
     * returned computed base and that all elements of the base are coprime
     * to each other.
     *
@@ -228,8 +229,6 @@ inline static uint32_t ceil_log2_mp_limb(mp_limb_t limb) {
     * \param[in, out] base The found coprime base.
     * \param[in] n A positive integer.
     * \param[in] factors A pointer to an array holding some factors of \c n.
-    * \param[in, out] A pointer to the \e unintialized \c mpz_array_t to hold
-    *                 the coprime base.
     */
 void find_coprime_base(mpz_array_t* const base, const mpz_t n,
                        const mpz_array_t* const factors);
@@ -282,18 +281,22 @@ int8_t kronecker_ui(uint32_t a, uint32_t b);
 uint32_t powm(uint32_t base, uint32_t power, uint32_t modulus);
 
    /**
-    * \brief Shanks' algorithm for modular square roots computation.
+    * \brief Modular square root modulo an odd prime.
     *
     * Returns the modular square root of <tt>a</tt> (mod <tt>p</tt>) (where
-    * \c p is an \em odd \em prime) using Shanks' algorithm, that is, returns
+    * \c p is an \em odd \em prime), that is, returns
     * the positive integer <tt>s</tt> such that <tt>s</tt>^2 = <tt>a</tt>
     * (mod <tt>p</tt>). If no such integer exists, returns
     * <tt>NO_SQRT_MOD_P</tt>.
     *
+    * Non-residues are rejected by a Jacobi symbol; \c p = 3 (mod 4) takes one
+    * exponentiation, \c p = 5 (mod 8) one or two, other \c p Shanks'
+    * algorithm.
+    *
     * \warning The primality of \c p is not checked by <tt>sqrtm</tt>.
     * It is the responsability of the caller to check whether \c p is
     * indeed prime. Failure to assure such a precondition will lead to
-    * an infinite loop.
+    * a wrong result or an infinite loop.
     *
     * \param[in] a The modular square.
     * \param[in] p The modulus.
@@ -447,7 +450,7 @@ unsigned long int modinv_ui(unsigned long int n, unsigned long int p);
     * \warning The primality of \c p is not checked by <tt>sqrtm_p2</tt>.
     * It is the responsability of the caller to check whether \c p is
     * indeed prime. Failure to assure such a precondition will lead to
-    * an infinite loop.
+    * a wrong result or an infinite loop.
     *
     * \param[in] a The modular square.
     * \param[in] p The square root of the modulus.
@@ -601,8 +604,9 @@ int uint32_cmp_func(const void* const uinta, const void* const uintb);
     *
     * \note This function is actually nothing more than a wrapper for \c strcmp.
     *
-    * \param[in] stra A pointer to a C-style character string.
-    * \param[in] strb A pointer to another C-style character string.
+    * \param[in] stra A pointer to a <tt>char*</tt> (an element of an array
+    *                 of strings).
+    * \param[in] strb A pointer to another <tt>char*</tt>.
     * \returns The lexicographical comparison between the two strings.
     */
 int string_cmp_func(const void* const stra, const void* const strb);
@@ -625,14 +629,14 @@ int string_cmp_func(const void* const stra, const void* const strb);
     *   <li> If \c a.count == <tt>b.count</tt>, returns:</li>
     *   <ul>
     *     <li> 1 if \c a.sum_inv_pi > <tt>b.sum_inv_pi</tt></li>
-    *     <li> -1 if \c a.sum_inv_pi > <tt>b.sum_inv_pi</tt></li>
+    *     <li> -1 if \c a.sum_inv_pi < <tt>b.sum_inv_pi</tt></li>
     *     <li> If \c a.sum_inv_pi == <tt>b.sum_inv_pi</tt>, returns:<li>
     *     <ul>
     *       <li> 1 if \c a.multiplier < <tt>b.multiplier</tt>
     *         (Indeed, we prefer smaller multipliers)
     *       </li>
     *       <li> -1 if \c a.multiplier > <tt>b.multiplier</tt></li>
-    *       <li> 0 if if \c a.multiplier > <tt>b.multiplier</tt></li>
+    *       <li> 0 if \c a.multiplier == <tt>b.multiplier</tt></li>
     *     </ul>
     *   </ul>
     * </ul>
@@ -705,7 +709,7 @@ void next_subset_lex(uint32_t n, uint32_t k, uint32_t* subset, bool* end);
     * <p>
     * Starting with a base set of cardinal <tt>n</tt>, constructs a subset
     * of cardinal <tt>k</tt> and rank <tt>r</tt> (in
-    * [0, c(<tt>n</tt>, <tt>k</tt>)]) where the rank is given by the
+    * [0, c(<tt>n</tt>, <tt>k</tt>) - 1]) where the rank is given by the
     * lexicographic order. The constructed subset is stored in <tt>subset</tt>
     * and thus overrides the previous data.
     * </p>
@@ -732,7 +736,7 @@ void unrank_subset_lex(uint32_t n, uint32_t k, uint32_t r, uint32_t* subset);
     * <p>
     * Starting with a base set of cardinal <tt>n</tt>, constructs a subset
     * of cardinal <tt>k</tt> and rank <tt>r</tt> (in
-    * [0, c(<tt>n</tt>, <tt>k</tt>)]) where the rank is given by the
+    * [0, c(<tt>n</tt>, <tt>k</tt>) - 1]) where the rank is given by the
     * minimal change order. The constructed subset is stored in <tt>subset</tt>
     * and thus overrides the previous data.
     * </p>

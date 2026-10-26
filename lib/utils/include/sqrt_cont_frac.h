@@ -157,7 +157,7 @@ typedef struct struct_cont_frac_state_t cont_frac_state_t;
     * Initializes a <tt>cont_frac_state_t</tt> to begin the computation of
     * a continued fraction. After invocation of this function, the fields
     * of \c state corresponds to the calculation of the second term of the
-    * computed fraction, the first term beeing of course <tt>ceil(sqrt(n))</tt>.
+    * computed fraction, the first term beeing of course <tt>floor(sqrt(n))</tt>.
     *
     *
     * \param[in] state A pointer to the <tt>cont_frac_state_t</tt> to

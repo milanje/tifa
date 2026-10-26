@@ -138,7 +138,7 @@ mpz_tree_t* prod_tree_mod(const mpz_array_t* const array, const mpz_t n);
     * allocated memory of the mpz_t's in the array can NOT be increased...
     *
     * \param[in] array Pointer to the \c uint32_array_t containing the
-    *                  \c mpz_t integers to multiply.
+    *                  \c uint32_t integers to multiply.
     * \return A pointer to a newly allocated \c mpz_tree_t holding the
     * computed product tree.
     */

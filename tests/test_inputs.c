@@ -33,8 +33,8 @@
 #include "squfof.h"
 #include "tdiv.h"
 
-// p60 * p68 (128 bits), 1000003 * 1000033 (40 bits), and an odd 300-bit
-// composite with a 20-bit factor: 1000003 * (p30 * p226).
+// p60 * p68 (128 bits), 1000003 * 1000033 (40 bits), and an odd 318-bit
+// composite with a 15-bit factor: 25589 * p303.
 static const char* N128 = "105550643491250938224431408772864108703";
 static const char* N40  = "1000036000099";
 static const char* N300 =

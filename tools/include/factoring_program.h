@@ -86,8 +86,7 @@ struct struct_factoring_program {
         */
     uint32_t nprimes_tdiv;
        /**
-        * The maximum number of factors to collect (excluding the factors
-        * found in the trial division stage).
+        * Set by the programs, never read.
         */
     uint32_t nfactors;
        /**
@@ -127,7 +126,7 @@ struct struct_factoring_program {
         * to use.
         *
         * \param factors An \c mpz_array_t to hold the found factors.
-        * \param factors A \c uint32_array_t to hold the found multiplicities.
+        * \param multis  A \c uint32_array_t to hold the found multiplicities.
         * \param n       The integer to factor.
         * \param params  A pointer to the parameters to be used in the
         *                factorization algorithm.

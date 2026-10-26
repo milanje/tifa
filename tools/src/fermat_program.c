@@ -37,7 +37,7 @@
 #include "common_funcs.h"
 
 //
-// The number of arguments accepted is either 0, or FERMAT_F_MAX_ARGC-1
+// The number of arguments accepted is either 0, 1, or FERMAT_F_MAX_ARGC-1
 //
 #define FERMAT_F_MAX_ARGC 3
 

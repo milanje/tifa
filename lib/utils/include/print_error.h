@@ -86,13 +86,12 @@ extern "C" {
         
             /**
              * \def PRINTF_STDERR(...)
-             * Print on the standard error. Messages are prefixed by
-             * \c _TIFA_ERR_PRFX_.
+             * Print on the standard error, unprefixed.
              */
         #define PRINTF_STDERR(...) fprintf(stderr, __VA_ARGS__); fflush(stdout)
         
             /**
-             * \def PRINTF_ERROR(...)
+             * \def PRINT_ERROR(...)
              * Print on the standard error. Messages are prefixed by
              * \c _TIFA_ERR_PRFX_ and the name of the function where
              * the error occured.

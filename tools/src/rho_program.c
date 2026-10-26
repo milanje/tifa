@@ -41,7 +41,7 @@ static void print_usage(factoring_program_t* const program) {
             program->argv[0]);
     fprintf(stderr, "or:\n");
     fprintf(stderr, "%15s <nprimes_tdiv> <a> <b> <max_niters> <acc_niters> "
-            "<number_to_factor>\n\n", program->argv[0]);
+            "<method> <number_to_factor>\n\n", program->argv[0]);
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {

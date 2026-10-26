@@ -40,12 +40,6 @@
 extern "C" {
 #endif
 
-//
-// _NOTE_: This header file defines symbol that should be kept internal to the
-//         TIFA code to avoid namespace pollution (or too many TIFA_* symbol
-//         that don't need to be external). Do not include this header
-//         in another TIFA header!
-//
 
 //
 // tifa_config.h is included to get the type TIFA_BITSTRING_T. This type

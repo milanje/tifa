@@ -124,13 +124,13 @@ struct struct_siqs_sieve_t {
      */
     siqs_poly_t*  poly;
      /**
-      * The first solution to the equation \b{P}(x) = 0 mod \b{pi} for
-      * each prime \b{pi} in the factor base
+      * Next hit, in the chunk to sieve, of the first root of \b{P} mod
+      * \b{pi}, for the primes sieved without buckets
       */
     int32_array_t *sol1;
      /**
-      * The first solution to the equation \b{P}(x) = 0 mod \b{pi} for
-      * each prime \b{pi} in the factor base
+      * Next hit, in the chunk to sieve, of the second root of \b{P} mod
+      * \b{pi}, for the primes sieved without buckets
       */
     int32_array_t *sol2;
      /**
@@ -144,8 +144,8 @@ struct struct_siqs_sieve_t {
       */
     bool       use_buckets;
      /**
-      * Index (in the factor base) of the largest prime for which a standard
-      * sieving procedure is use
+      * Number of primes sieved without buckets (index of the first
+      * bucket-sieved prime)
       */
     uint32_t   nprimes_no_buckets;
      /**

@@ -72,8 +72,8 @@ extern "C" {
     *
     * \warning The prime numbers are not computed but read from a table.
     * Consequently the number of primes \c nprimes should be less than or equal
-    * to \c NFIRST_PRIMES (defined in \link array.h \endlink). If \c nprimes is
-    * zero, then the default value \c DFLT_TDIV_NPRIMES will be used instead.
+    * to \c NFIRST_PRIMES (defined in \link first_primes.h \endlink). If \c nprimes is
+    * zero, then the default value \c TDIV_DFLT_NPRIMES_TDIV will be used instead.
     *
     * \param[out] factors Pointer to the found factors of <tt>n</tt>.
     * \param[out] multis  Pointer to the multiplicities of the found factors.

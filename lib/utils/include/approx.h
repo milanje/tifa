@@ -186,8 +186,8 @@ struct struct_approximer_t {
 };
 
     /**
-     * \typedef struct_approximer_t
-     * \brief Equivalent to \tt{approximer_t}.
+     * \typedef approximer_t
+     * \brief Equivalent to \tt{struct_approximer_t}.
      */
 typedef struct struct_approximer_t approximer_t;
 

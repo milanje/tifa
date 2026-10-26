@@ -62,7 +62,7 @@
 #define DEFAULT_B2_RATIO 20UL
 //
 // Half of the largest prime gap the stage-2 gap-power table covers. The
-// maximal gap between consecutive primes below LARGEST_PRIME (821641) is 148,
+// maximal gap between consecutive primes below LARGEST_PRIME (821641) is 114,
 // so gaps up to 200 are handled directly; any larger gap falls back to a
 // modular exponentiation.
 //

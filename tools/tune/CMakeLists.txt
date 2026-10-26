@@ -1,6 +1,6 @@
 #------------------------------------------------------------------------------
-# tifa_tune: the parameter-tuning tool. Links the static library and drives its
-# algorithms directly (no separate process per run).
+# tifa_tune: the parameter-tuning tool. Links the static library and calls its
+# algorithms directly; each run is forked under a watchdog unless --timeout 0.
 #------------------------------------------------------------------------------
 add_executable(tifa_tune
     tune.c

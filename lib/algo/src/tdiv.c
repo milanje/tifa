@@ -17,7 +17,7 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
 /**
- * \file    trial_div.c
+ * \file    tdiv.c
  * \author  Jerome Milan
  * \date    Tue Oct 11 2011
  * \version 2011-10-11

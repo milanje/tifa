@@ -167,16 +167,16 @@ void fill_trial_div_decomp(
     * The binary matrix is filled so that:
     *
     * \li There is a '1' in the (i-th row, 1st col) position in the matrix
-    * if <tt>smooth_factor->data[i]</tt> is negative.
+    * if <tt>smooth_array->data[i]</tt> is negative.
     * \li There is a '1' in the (i-th row, j-th col) position in the matrix
-    * if <tt>smooth_factor->data[i]</tt> is divisible by an odd power of
+    * if <tt>smooth_array->data[i]</tt> is divisible by an odd power of
     * <tt>list->data[i]->data[k]</tt>. Here j is found so that
     * <tt>factor_base->data[j] = list->data[i]->data[k]</tt>.
     * \li In all other cases, the (i-th row, j-th col) position in the matrix
     * contains a 0.
     *
     * \param[out] matrix A pointer to the binary matrix to fill.
-    * \param[out] smooth_array A pointer to the array giving the integers
+    * \param[in] smooth_array A pointer to the array giving the integers
     *                          to factor.
     * \param[in] list A pointer to the factor list for each integer to factor.
     * \param[in] factor_base  A pointer to the array listing the integers
@@ -209,9 +209,9 @@ void fill_matrix_from_list(
     * The binary matrix is filled so that:
     *
     * \li There is a '1' in the (i-th row, 1st col) position in the matrix
-    * if <tt>smooth_factor->data[i]</tt> is negative.
+    * if <tt>smooth_array->data[i]</tt> is negative.
     * \li There is a '1' in the (i-th row, j-th col) position in the matrix
-    * if <tt>smooth_factor->data[i]</tt> is divisible by an odd power of
+    * if <tt>smooth_array->data[i]</tt> is divisible by an odd power of
     * <tt>list->data[i]->data[k]</tt>. Here j is found so that
     * <tt>factor_base->data[j] = list->data[i]->data[k]</tt>.
     * \li In all other cases, the (i-th row, j-th col) position in the matrix
@@ -219,7 +219,7 @@ void fill_matrix_from_list(
     *
     * \param[out] matrix        A pointer to the binary matrix to fill.
     * \param[out] decomp_matrix A pointer to the byte matrix to fill.
-    * \param[out] smooth_array  A pointer to the array giving the integers
+    * \param[in] smooth_array  A pointer to the array giving the integers
     *                           to factor.
     * \param[in] list A pointer to the factor list for each integer to factor.
     * \param[in] factor_base  A pointer to the array listing the integers
@@ -306,8 +306,9 @@ ecode_t find_factors(
     * Upon termination, returns the following <tt>ecode_t</tt>:
     *
     * \li \c SOME_FACTORS_FOUND   if some factors were found
-    * \li \c NO_FACTOR FOUND      is no factor was found
-    * \li \c FATAL_INTERNAL_ERROR is case of... a really ugly error!
+    * \li \c COMPLETE_FACTORIZATION_FOUND if \c n was found to be a product
+    *     of two primes
+    * \li \c NO_FACTOR_FOUND      if no factor was found
     *
     * \param[out] factors The factors of \c n found.
     * \param[in] n The integer to factor.

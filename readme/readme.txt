@@ -284,8 +284,8 @@
       3. the built-in defaults (an untouched build behaves as before).
 
     Between two rows of a tuning file, most quantities (bounds, sizes,
-    counts) are interpolated; the flags, seeds, choices and the SIQS sieve
-    width are taken from the row below.
+    counts) are interpolated; the flags, seeds, choices, the SIQS sieve
+    width and its extra primes in 'a' are taken from the row below.
 
     Typical use:
 
@@ -322,7 +322,7 @@
 
   The Doxygen documentation covers the library and the headers the programs
   share, not how to run the programs: section 9 shows that, and each program
-  prints its usage when given a wrong argument.
+  prints its usage when given a wrong number of arguments.
 
 ------------------------------------------------------------------------------
 9. Quick start
@@ -350,9 +350,10 @@
 
       prompt> siqs 23283795980376989165117
 
-  They also take every parameter of the algorithm, before the number, in the
-  order their usage message gives (run a program with a wrong argument to see
-  it). Run without argument, a program asks for the number to factor.
+  They also take the algorithm's parameters (all but ecm's seed), before the
+  number, in the order their usage message gives (run a program with a wrong
+  number of arguments to see it). Run without argument, a program asks for
+  the number to factor.
 
   To choose better parameters for your machine, see the tifa_tune tool
   ("Parameter tuning" in section 7).

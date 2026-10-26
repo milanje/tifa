@@ -79,8 +79,9 @@ typedef struct {
                      double* cpu_seconds_out);
         /**
          * Column index of a "sticky-on" boolean parameter (e.g. the large-prime
-         * variation): once its value 1 wins at some bit-size, it is locked to 1
-         * for all larger sizes, so the tuner stops re-testing the "off" case
+         * variation): once its value 1 wins at TUNE_STICKY_HYSTERESIS
+         * consecutive bit-sizes, it is locked to 1 for all larger sizes, so the
+         * tuner stops re-testing the "off" case
          * where it can no longer win. -1 if the algorithm has no such column.
          */
     int sticky_col;

@@ -26,7 +26,7 @@
  *
  * This is the TIFA library's implementation of Shanks' square form
  * factorization algorithm (SQUFOF), based on the description given by Jason
- * Gower and Samuel Wagstaff in their paper "Square Form Factorization" to be
+ * Gower and Samuel Wagstaff in their paper "Square Form Factorization",
  * published in Mathematics of Computation.
  *
  * \note This implementation can only factor numbers whose size is less than

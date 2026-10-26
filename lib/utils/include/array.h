@@ -156,7 +156,7 @@ void free_byte_array(byte_array_t* array);
     * Resets the \c length field of \c array to zero.
     *
     * Note that its \c alloced field is left unchanged and that memory for
-    * \c alloced \c byte_t elements is still allocated.
+    * \c alloced bytes is still allocated.
     *
     * \param[in] array A pointer to the <tt>byte_array_t</tt> to reset.
     */
@@ -177,7 +177,7 @@ void free_byte_array(byte_array_t* array);
 void resize_byte_array(byte_array_t* const array, uint32_t alloced);
 
    /**
-    * \brief Appends a \c uint32_t to an <tt>byte_array_t</tt>.
+    * \brief Appends a byte to a <tt>byte_array_t</tt>.
     *
     * Appends the byte \c to_append to <tt>array</tt>.
     * If \c array has not enough capacity to accommodate this extra element it
@@ -1165,9 +1165,9 @@ typedef struct struct_binary_array_t binary_array_t;
     * \li its \c length field is set to zero.
     * \li its \c data array is completely filled with zeroes.
     *
-    * \param[in] length The maximum bitlength of the \c uint32_array_t to
+    * \param[in] length The maximum bitlength of the \c binary_array_t to
     * allocate.
-    * \return A pointer to the newly allocated \c uint32_array_t structure.
+    * \return A pointer to the newly allocated \c binary_array_t structure.
     * Note that this array may hold more that length bits if length is not a
     * multiple of 8 * <tt>sizeof(TIFA_BITSTRING_T)</tt>.
     */
@@ -1204,12 +1204,12 @@ void free_binary_array(binary_array_t* array);
     * \brief Resizes the allocated memory of a <tt>binary_array_t</tt>.
     *
     * Resizes the storage available to an <tt>binary_array_t</tt> to make room
-    * for \c alloced integers, while preserving its content. If \c alloced is
+    * for \c alloced bits, while preserving its content. If \c alloced is
     * less than the length of the array, then obviously some of its content
     * will be lost.
     *
-    * \param[in] alloced The new maximum length of the \c binary_array_t to
-    *                    resize.
+    * \param[in] alloced The new maximum length, in bits, of the
+    *                    \c binary_array_t to resize.
     * \param[in] array A pointer to the \c binary_array_t to resize.
     */
 void resize_binary_array(binary_array_t* const array, uint32_t alloced);
@@ -1310,7 +1310,7 @@ set_array_bit_to_zero(uint32_t index, binary_array_t* const array) {
 }
 
    /**
-    * \brief Flips a given bit to zero in a <tt>binary_array_t</tt>.
+    * \brief Flips a given bit in a <tt>binary_array_t</tt>.
     *
     * Flips the <tt>index</tt>-th bit of the
     * <tt>binary_array_t</tt> pointed to by \c array.

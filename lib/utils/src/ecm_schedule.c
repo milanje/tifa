@@ -31,7 +31,8 @@
 #if TIFA_HAVE_MONT_ECM
 
 //
-// ECM levels (as in ecm.c): the B1 for factors of fbits bits (so for the
+// ECM levels for Suyama's curves (ecm.c's are retuned for the Z/2 x Z/8
+// curves): the B1 for factors of fbits bits (so for the
 // range (fbits - 5, fbits]), the mean number of curves that takes, and the
 // time of one curve on two limbs (us, Apple M series), which only matters
 // relative to siqs_cost.

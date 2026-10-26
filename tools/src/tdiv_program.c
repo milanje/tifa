@@ -36,7 +36,7 @@
 #include "common_funcs.h"
 
 //
-// The number of arguments accepted is either 0, or TDIV_F_MAX_ARGC
+// The number of arguments accepted is either 0, 1, or TDIV_F_MAX_ARGC-1
 //
 #define TDIV_F_MAX_ARGC 3
 

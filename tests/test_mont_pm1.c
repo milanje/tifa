@@ -19,7 +19,8 @@
 // Fixed-limb Montgomery p-1 and p+1 (mont_ecm.h) against plain GMP
 // references: identical stage 1 outcomes, and every factor the reference
 // finds in stage 2 is found too. Moduli of 1 to 4 limbs, with factors p
-// chosen so that p - 1 (or p + 1) is smooth half of the time.
+// chosen so that p - 1 (or p + 1) is B1-smooth a third of the time, and
+// B2-smooth (one prime above B1) another third.
 
 #include <stdlib.h>
 

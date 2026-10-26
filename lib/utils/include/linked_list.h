@@ -171,7 +171,7 @@ void* pop_linked_list(linked_list_t* const list);
     * \brief Deletes the first node of a <tt>linked_list_t</tt>.
     *
     * Returns the data of the first node of the linked list <tt>list</tt>
-    * and deletes this node, similar to Perl's push function.
+    * and deletes this node, similar to Perl's shift function.
     *
     * \param[in] list A pointer to the <tt>linked_list_t</tt>.
     */
@@ -223,9 +223,8 @@ linked_list_node_t* remove_from_linked_list(linked_list_t* const list,
    /**
     * \brief Removes a given node from a <tt>linked_list_t</tt>.
     *
-    * Removes the node whose data is given by the pointer \c data
-    * from the linked list <tt>list</tt>. If the node is not found, the linked
-    * list is left unchanged.
+    * Removes \c node from the linked list <tt>list</tt>, without freeing it.
+    * If the node is not found, the linked list is left unchanged.
     *
     * \param[in] list A pointer to the <tt>linked_list_t</tt>.
     * \param[in] node A pointer to the node to remove from the list.

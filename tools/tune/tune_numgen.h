@@ -21,8 +21,7 @@
  * \brief   Test-composite generator for the tuning tool.
  *
  * Generates composites that are the product of \c nfactors primes of similar
- * bit-size (a balanced semiprime for <tt>nfactors == 2</tt>). This is the C
- * analogue of the Perl NumberGenerator module.
+ * bit-size (a balanced semiprime for <tt>nfactors == 2</tt>).
  */
 
 #if !defined(_TIFA_TUNE_NUMGEN_H_)

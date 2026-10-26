@@ -89,7 +89,7 @@ static void process_args(factoring_program_t* const program) {
     case 2: {
         //
         // Only one argument provided: the number to factor. Let the
-        // program choose the default CFRAC parameters.
+        // program choose the default ECM parameters.
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);

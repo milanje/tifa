@@ -25,7 +25,7 @@
  * \brief McKee's variant of the Fermat factorization algorithm.
  *
  * This is the TIFA library's implementation of James McKee's proposed speedup
- * of the Fermat factorization algorithm (SQUFOF), based on the description
+ * of the Fermat factorization algorithm, based on the description
  * given by McKee in its paper "Speeding Fermat's Factoring Method".
  *
  * \note This implementation can only factor numbers whose size is less than

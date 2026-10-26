@@ -16,7 +16,8 @@
 // along with this library; if not, write to the Free Software Foundation,
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
-// Unit tests for the runtime tuning-file loader (lib/algo/tuning.{h,c}).
+// Unit tests for the runtime tuning-file loader (lib/algo/include/tuning.h,
+// lib/algo/src/tuning.c).
 
 #include <stdio.h>
 #include <string.h>
@@ -140,7 +141,8 @@ int main(void) {
     CHECK(none == NULL, "resolver returns NULL for a missing algorithm file");
 
     // Clearing the override must make the resolver miss again (unless baked
-    // tables are compiled in, in which case the baked layer answers).
+    // tables are compiled in, in which case the baked layer answers, or
+    // $TIFA_TUNING_DIR or the installed tuning directory has the file).
     tifa_tuning_set_dir(NULL);
 #if !TUNING_BAKED_IN
     const tuning_row_t* cleared =
@@ -157,7 +159,8 @@ int main(void) {
 
     p_minus_1_params_t params;
 
-    // With no tuning directory, the compiled-in defaults must be used.
+    // With the override cleared (and no $TIFA_TUNING_DIR or installed
+    // p_minus_1.tuning), the compiled-in defaults must be used.
     // (Only meaningful when the baked tables are not compiled in.)
 #if !TUNING_BAKED_IN
     tifa_tuning_set_dir(NULL);
@@ -174,7 +177,7 @@ int main(void) {
     CHECK_EQ_UI(params.b2, 480000, "tuned b2 overrides default");
     CHECK_EQ_UI(params.base, 2, "tuned base");
 
-    // Clearing the directory restores the default behavior.
+    // Clearing the override restores the default behavior (same assumption).
 #if !TUNING_BAKED_IN
     tifa_tuning_set_dir(NULL);
     set_p_minus_1_params_to_default(n, &params);

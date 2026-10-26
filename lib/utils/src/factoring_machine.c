@@ -288,11 +288,11 @@ ecode_t find_some_prime_factors(factoring_machine_t* machine) {
     //
     // Compared to find_some_factors(), this involves some processing on the
     // found factors (to obtain a coprime base) and some compositeness checks.
-    // Note that we return FAILURE as soon as one of the found factor is NOT
-    // prime. SUCCESS is therefore restricted to the case where all found
-    // factors (after processing) are prime. It is debatable whether or not
-    // this is a suitable behaviour. Indeed we could return SUCCESS as soon as
-    // _one_ of the found factors is prime, which would actually better match
+    // Note that we fail (SOME_COPRIME_FACTORS_FOUND, success false) as soon as
+    // one of the found factors is NOT prime: success is restricted to the case
+    // where all found factors (after processing) are prime. It is debatable
+    // whether or not this is a suitable behaviour. Indeed we could succeed as
+    // soon as _one_ of the found factors is prime, which would actually better match
     // the name of the function. But then, what would be the point of such a
     // factoring mode? Heck, I'm "not even sure" (to put it mildly) that it
     // is useful at all the way it is...

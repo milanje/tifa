@@ -74,10 +74,8 @@ struct struct_binary_matrix_t {
         */
     uint32_t nrows_alloced;
        /**
-        * Maximum number of columns of the matrix.
-        * Since bits are packed in \c TIFA_BITSTRING_T elements, the maximum
-        * number of bits per column is 8 * <tt>sizeof(TIFA_BITSTRING_T)</tt> *
-        * \c nrows_alloced.
+        * Number of \c TIFA_BITSTRING_T elements per row: a row holds at most
+        * 8 * <tt>sizeof(TIFA_BITSTRING_T)</tt> * \c ncols_alloced bits.
         *
         * Hence the total allocated memory for the \c data field is
         * <tt>nrows_alloced * ncols_alloced</tt> *
@@ -124,7 +122,7 @@ typedef struct struct_binary_matrix_t binary_matrix_t;
     * \param[in] ncols The maximum number of bits per row of the \c
     *                    binary_matrix_t to allocate.
     * \return A pointer to the newly allocated \c binary_matrix_t structure.
-    * Note that this matrix may hold more that \c ncols bits per column if
+    * Note that this matrix may hold more that \c ncols bits per row if
     * \c ncols is not a multiple of 8 * <tt>sizeof(TIFA_BITSTRING_T)</tt>.
     */
 binary_matrix_t* alloc_binary_matrix(uint32_t nrows, uint32_t ncols);
@@ -152,10 +150,9 @@ void reset_binary_matrix(binary_matrix_t* const matrix);
    /**
     * \brief Clears a <tt>binary_matrix_t</tt>.
     *
-    * Clears a <tt>binary_matrix_t</tt>, or, more precisely, clears the memory
-    * space used by the arrays pointed by the \c data field of a
-    * <tt>binary_matrix_t</tt>. Also set its \c nrows_alloced ,
-    * \c ncols_alloced , \c nrows and \c ncols fields to zero.
+    * Frees the rows, the \c data array, then the structure itself.
+    *
+    * \warning Do not call \c free on \c matrix afterwards.
     *
     * \param[in] matrix A pointer to the <tt>binary_matrix_t</tt> to clear.
     */
@@ -174,8 +171,8 @@ void print_binary_matrix(const binary_matrix_t* const matrix);
     * \brief Returns the value of a given bit in a <tt>binary_matrix_t</tt>.
     *
     * Returns the value of the bit at the <tt>row</tt>-th row and the
-    * <tt>col</tt>-th column of the <tt>binary_array_t</tt> pointed by
-    * \c array, as either 0 or 1.
+    * <tt>col</tt>-th column of the <tt>binary_matrix_t</tt> pointed by
+    * \c matrix, as either 0 or 1.
     *
     * \param[in] row The row of the bit to read.
     * \param[in] col The column of the bit to read.
@@ -204,8 +201,8 @@ inline static uint8_t get_matrix_bit(uint32_t row, uint32_t col,
     * \brief Sets to one the value of a given bit in a <tt>binary_matrix_t</tt>.
     *
     * Sets to one the value of the bit at the <tt>row</tt>-th row and the
-    * <tt>col</tt>-th column of the <tt>binary_array_t</tt> pointed by
-    * \c array.
+    * <tt>col</tt>-th column of the <tt>binary_matrix_t</tt> pointed by
+    * \c matrix.
     *
     * \param[in] row The row of the bit to set.
     * \param[in] col The column of the bit to set.
@@ -230,8 +227,8 @@ inline static void set_matrix_bit_to_one(uint32_t row, uint32_t col,
     * <tt>binary_matrix_t</tt>.
     *
     * Sets to zero the value of the bit at the <tt>row</tt>-th row and the
-    * <tt>col</tt>-th column of the <tt>binary_array_t</tt> pointed by
-    * \c array.
+    * <tt>col</tt>-th column of the <tt>binary_matrix_t</tt> pointed by
+    * \c matrix.
     *
     * \param[in] row The row of the bit to set.
     * \param[in] col The column of the bit to set.
@@ -255,8 +252,8 @@ inline static void set_matrix_bit_to_zero(uint32_t row, uint32_t col,
     * \brief Flips the value of a given bit in a <tt>binary_matrix_t</tt>.
     *
     * Flips the value of the bit at the <tt>row</tt>-th row and the
-    * <tt>col</tt>-th column of the <tt>binary_array_t</tt> pointed by
-    * \c array.
+    * <tt>col</tt>-th column of the <tt>binary_matrix_t</tt> pointed by
+    * \c matrix.
     *
     * \param[in] row The row of the bit to flip.
     * \param[in] col The column of the bit to flip.
@@ -422,10 +419,9 @@ void reset_byte_matrix(byte_matrix_t* const matrix);
    /**
     * \brief Clears a <tt>byte_matrix_t</tt>.
     *
-    * Clears a <tt>byte_matrix_t</tt>, or, more precisely, clears the memory
-    * space used by the arrays pointed by the \c data field of a
-    * <tt>byte_matrix_t</tt>. Also set its \c nrows_alloced,
-    * \c ncols_alloced, \c nrows and \c ncols fields to zero.
+    * Frees the rows, the \c data array, then the structure itself.
+    *
+    * \warning Do not call \c free on \c matrix afterwards.
     *
     * \param[in] matrix A pointer to the <tt>byte_matrix_t</tt> to clear.
     */

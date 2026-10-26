@@ -56,8 +56,8 @@ extern "C" {
 
    /**
     * \def CFRAC_DFLT_NRELATIONS
-    * Default number of congruence relations to find before attempting the
-    * factorization of the large integer.
+    * Default number of relations to collect beyond the size of the factor
+    * base (see \c nrelations).
     */
 #define CFRAC_DFLT_NRELATIONS       32
    /**

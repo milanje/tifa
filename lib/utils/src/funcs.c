@@ -304,12 +304,6 @@ uint32_t powm(uint32_t base, uint32_t power, uint32_t modulus) {
 }
 //-----------------------------------------------------------------------------
 uint32_t sqrtm(uint32_t a, uint32_t p) {
-    //
-    // Shanks's algorithm for modular square roots.
-    //
-    // See for example algorithm 1.5.1 from the book "A Course in Computational
-    // Algebraic Number Theory" by Henri Cohen, Springer-Verlag 1993.
-    //
     if (a == 0) {
         //
         // a does not have a modular square root!
@@ -324,9 +318,9 @@ uint32_t sqrtm(uint32_t a, uint32_t p) {
 //-----------------------------------------------------------------------------
 uint32_t sqrtm_qr(uint32_t a, uint32_t p) {
     //
-    // For p = 3 (mod 4) and p = 5 (mod 8), a single exponentiation, giving
-    // the root the general algorithm below would (2 is the non-residue it
-    // finds for p = 5 mod 8).
+    // For p = 3 (mod 4) one exponentiation, and for p = 5 (mod 8) one or two,
+    // giving the root the general algorithm below would (2 is the non-residue
+    // it finds for p = 5 mod 8).
     //
     if ((p & 3) == 3) {
         return p - powm(a, (p + 1) / 4, p);
@@ -340,6 +334,10 @@ uint32_t sqrtm_qr(uint32_t a, uint32_t p) {
         }
         return (uint32_t) ((x0 * powm(2, q, p)) % p);
     }
+    //
+    // Shanks's algorithm for modular square roots. See for example algorithm
+    // 1.5.1 from the book "A Course in Computational Algebraic Number Theory"
+    // by Henri Cohen, Springer-Verlag 1993.
     //
     // Find n such that p = q.2^n + 1 with q odd
     //

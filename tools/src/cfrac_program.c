@@ -41,7 +41,7 @@
 //   0 : process semi-interactively
 //   1 : the argument is the number to factor
 //   2 : enter the <nprimes_tdiv> parameter then the number to factor
-//   CFRAC_F_MAX_ARGC : specify every parameters
+//   CFRAC_F_MAX_ARGC-1 : specify every parameter
 //
 #define CFRAC_F_MAX_ARGC 9
 

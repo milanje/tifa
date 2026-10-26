@@ -170,7 +170,7 @@ tifa_bool01(TIFA_CFG_USE_BAKED_TUNING       TIFA_USE_BAKED_TUNING)
 set(TIFA_CFG_BITSTRING_T "${TIFA_BITSTRING_T}")
 set(TIFA_CFG_TUNING_DIR "${TIFA_TUNING_DIR}")
 
-# Per-algorithm verbose/timing, gated by the master switches (matches SConstruct).
+# Per-algorithm verbose/timing, gated by the master switches.
 foreach(_a IN LISTS TIFA_ALGOS)
     if(TIFA_ALLOW_VERBOSE AND TIFA_VERBOSE_${_a})
         set(TIFA_CFG_VERBOSE_${_a} 1)

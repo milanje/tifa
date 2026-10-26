@@ -42,7 +42,7 @@ extern "C" {
 #include "hashtable.h"
 
    /**
-    * \struct struct_mpz_pair_t array.h lib/utils/include/gmp_utils.h
+    * \struct struct_mpz_pair_t gmp_utils.h lib/utils/include/gmp_utils.h
     * \brief  A pair of \c mpz_t integers.
     *
     * This very simple structure defines a pair of \c mpz_t integers.

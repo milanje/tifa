@@ -19,8 +19,9 @@ Here are some short term objectives:
       - the Gaussian elimination (12%). Gauss-Jordan on the transposed
         matrix was slower, and removing singleton columns would only remove
         2 to 7% of the matrix;
-      - each new 'a' (5 to 9% from 70 to 100 bits). determine_nprimes
-        follows the best number of primes measured for each size of the
-        target, but six primes were never clearly best (1.6 to 3.9% slower
-        than five or seven from 140 to 175 bits): how the approximer picks
-        six primes may be worth a look.
+      - each new 'a' (5 to 9% from 70 to 100 bits, measured before the
+        retunes of 26 October). determine_nprimes follows the best number
+        of primes measured for each size of the target, but six primes were
+        never clearly best (1.6 to 3.9% slower than five or seven from 140
+        to 175 bits): how the approximer picks six primes may be worth a
+        look.

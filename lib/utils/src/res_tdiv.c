@@ -229,14 +229,6 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
                     uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
-                    //
-                    // _NOTE_: Actually it may be possible to leave the pair
-                    //         in the hashtable...
-                    //
-                    // _TO_DO: Try to keep the entry in the hashtable...
-                    //
-                //mpz_pair_t *found = remove_entry_in_hashtable(htable, key);
-
                     mpz_pair_t *found = get_entry_in_hashtable(htable,key);
 
                     if (found != NULL) {
@@ -287,16 +279,12 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
                             // cumbersome, so we just ignore it...
                             //
                             free(key);
-                            //clear_mpz_pair(found);
-                            //free(found);
                             continue;
                         }
                         acc_yi->length++;
                         acc_xi->length++;
 
                         free(key);
-                        //clear_mpz_pair(found);
-                        //free(found);
 
                         if (acc_yi->length == acc_yi->alloced) {
                             break;
@@ -495,14 +483,6 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
                     uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
-                    //
-                    // _NOTE_: Actually it may be possible to leave the pair
-                    //         in the hashtable...
-                    //
-                    // _TO_DO: Try to keep the entry in the hashtable...
-                    //
-                  //mpz_pair_t *found = remove_entry_in_hashtable(htable, key);
-
                     mpz_pair_t *found = get_entry_in_hashtable(htable,key);
 
                     if (found != NULL) {
@@ -559,8 +539,6 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
                             // cumbersome, so we just ignore it...
                             //
                             free(key);
-                            //clear_mpz_pair(found);
-                            //free(found);
 
                             mpz_clear(acc_yi->data[next_acc]);
                             mpz_clear(acc_xi->data[next_acc]);
@@ -570,8 +548,6 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
                         acc_xi->length++;
 
                         free(key);
-                        //clear_mpz_pair(found);
-                        //free(found);
 
                         if (acc_yi->length == acc_yi->alloced) {
                             break;
@@ -797,14 +773,6 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
                     uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
-                    //
-                    // _NOTE_: Actually it may be possible to leave the pair
-                    //         in the hashtable...
-                    //
-                    // _TO_DO: Try to keep the entry in the hashtable...
-                    //
-                 //mpz_pair_t *found = remove_entry_in_hashtable(htable, key);
-
                     mpz_pair_t *found = get_entry_in_hashtable(htable,key);
 
                     if (found != NULL) {
@@ -852,8 +820,6 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
                             // cumbersome, so we just ignore it...
                             //
                             free(key);
-                            //clear_mpz_pair(found);
-                            //free(found);
 
                             mpz_clear(acc_yi->data[next_acc]);
                             mpz_clear(acc_xi->data[next_acc]);
@@ -863,8 +829,6 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
                         acc_xi->length++;
 
                         free(key);
-                        //clear_mpz_pair(found);
-                        //free(found);
 
                         if (acc_yi->length == acc_yi->alloced) {
                             break;
@@ -1077,14 +1041,6 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                     uint32_t *key = tifa_malloc(sizeof(uint32_t));
                     *key  = ind;
 
-                    //
-                    // _NOTE_: Actually it may be possible to leave the pair
-                    //         in the hashtable...
-                    //
-                    // _TO_DO: Try to keep the entry in the hashtable...
-                    //
-                //mpz_pair_t *found = remove_entry_in_hashtable(htable, key);
-
                     mpz_pair_t *found = get_entry_in_hashtable(htable,key);
 
                     if (found != NULL) {
@@ -1130,8 +1086,6 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                             // cumbersome, so we just ignore it...
                             //
                             free(key);
-                            //clear_mpz_pair(found);
-                            //free(found);
 
                             mpz_clear(acc_yi->data[next]);
                             mpz_clear(acc_xi->data[next]);
@@ -1141,8 +1095,6 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                         acc_xi->length++;
 
                         free(key);
-                        //clear_mpz_pair(found);
-                        //free(found);
 
                         if (acc_yi->length == acc_yi->alloced) {
                             break;

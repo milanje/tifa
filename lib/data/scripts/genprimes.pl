@@ -159,7 +159,7 @@ my $base_prefix  = basename($output_prefix);
 my $include_symb = "_TIFA_";
 $include_symb .= "\U$base_prefix";  # to upper-case
 $include_symb .= "_H_";
-$include_symb  =~ s/\W/_/;          # replace non word characters by "_"
+$include_symb  =~ s/\W/_/g;         # replace non word characters by "_"
 
 open(OF, "> $output_inc") or die("Error: cannot open file $output_inc\n");
 print OF << "EOF";
@@ -214,7 +214,7 @@ extern const uint32_t LARGEST_PRIME MAYBE_UNUSED;
  * \\c first_primes_array is merely a \\c uint32_array_t wrapper for
  * \\c first_primes, and as such, it has no real "alloced" memory. Setting
  * \\c first_primes_array.alloced to 0 will prevent errors
- * if \\c free_mpz_array is inadvertently called on \\c first_primes_array.
+ * if \\c free_uint32_array is inadvertently called on \\c first_primes_array.
  */
 extern const uint32_array_t first_primes_array MAYBE_UNUSED;
 

@@ -82,9 +82,8 @@ void gaussian_elim(uint32_array_list_t* relations,
         }
         //
         // _WARNING_: The following is completely omitted in the algorithm
-        //            description of P & W's paper. We need to keep the
-        //            icol-th bit of the row "row" to one but to zero
-        //            all the other bits in this row.
+        //            description of P & W's paper: clear the pivot row so
+        //            that no later column picks it.
         //
         for (uint32_t jcol = 0U; jcol < matrix->ncols_alloced; jcol++) {
             matrix->data[row][jcol] = 0U;

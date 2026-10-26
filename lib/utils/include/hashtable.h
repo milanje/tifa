@@ -89,7 +89,7 @@ struct struct_hashtable_t {
         *
         * Needless to say, the real type of the key handled by this function
         * should be the same as the one handled by the comparison function
-        * pointed by <tt>cmp_int</tt>.
+        * pointed by <tt>cmp_func</tt>.
         *
         */
     uint32_t (*hash_func) (const void* const key);

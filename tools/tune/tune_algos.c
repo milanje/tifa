@@ -47,8 +47,8 @@
 // Below this bit-size the factor-finding methods are tuned on 2 balanced primes
 // (a 3-prime composite would have degenerate, trivially-small factors); at or
 // above it they use 3 similar-size primes, which better models finding a
-// smaller factor of a larger n. Used both by the descriptors and by the rho
-// grid (whose cost depends on the smallest factor's size).
+// smaller factor of a larger n. Used by the descriptors and by the rho and ECM
+// grids (whose costs depend on the smallest factor's size).
 #define TUNE_MULTI_FACTOR_MIN_BITS 64
 
 // Common multiplicative ratio sets.
@@ -69,7 +69,8 @@ static const double R_UP[] = { 1.0, 1.5, 2.0 };
 // The default comes first, so the tuner prunes against it and keeps it on ties.
 static const double R_SIQS[] = { 1.0, 0.5, 0.7, 1.4, 2.0 };
 // Boolean axis (off, then on): "off" first so it wins exact ties, i.e. the
-// large-prime variation is only preferred when it is strictly better.
+// large-prime variation, or an extra prime in a, is only preferred when it is
+// strictly better.
 static const uint32_t BOOL01[] = { 0, 1 };
 
 //
@@ -241,7 +242,7 @@ static bool run_ecm(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.b1      = (cols[0] > LARGEST_PRIME) ? LARGEST_PRIME : cols[0];
     params.b2      = (cols[1] > LARGEST_PRIME) ? LARGEST_PRIME : cols[1];
     params.ncurves = cols[2];
-    // ECM requires b2 == 0 or b2 > 105.
+    // Below 105, ecm() would raise b1 to make room for stage 2: skip it.
     if ((params.b2 != 0) && (params.b2 <= 105)) {
         params.b2 = 0;
     }

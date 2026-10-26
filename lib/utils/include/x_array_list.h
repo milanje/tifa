@@ -51,7 +51,7 @@ extern "C" {
 
    /**
     * \struct struct_uint32_array_list_t x_array_list.h
-    *                                    lib/utils/include/x_array.h
+    *                                    lib/utils/include/x_array_list.h
     *
     * \brief  Defines a list of <tt>uint32_array_t</tt>.
     *
@@ -101,7 +101,8 @@ uint32_array_list_t* alloc_uint32_array_list(uint32_t alloced);
     * \brief Adds an entry to a <tt>uint32_array_list_t</tt>.
     *
     * Adds the \c entry pointer to \c list and increments its
-    * \c length field.
+    * \c length field. If \c list is full, \c entry is not added and stays
+    * the caller's.
     *
     * \warning This function tranfers the ownership of the \c uint32_array_t
     * pointed to by \c entry to <tt>list</tt>. This means that any client code
@@ -111,7 +112,6 @@ uint32_array_list_t* alloc_uint32_array_list(uint32_t alloced);
     *
     * \param[in] entry A pointer to the array to add.
     * \param[in] list A pointer to the <tt>uint32_array_list_t</tt>.
-    * \return A pointer to the newly allocated \c uint32_array_list_t structure.
     */
 inline static void
 add_entry_in_uint32_array_list(uint32_array_t* const entry,
@@ -129,10 +129,8 @@ add_entry_in_uint32_array_list(uint32_array_t* const entry,
    /**
     * \brief Clears a <tt>uint32_array_list_t</tt>.
     *
-    * Clears a <tt>uint32_array_list_t</tt>, or, more precisely, clears
-    * the memory space used by the array pointed by the \c data field of a
-    * <tt>uint32_array_list_t</tt>. Also set its \c alloced and \c length
-    * fields to zero.
+    * Frees the non-NULL entries, the \c data array, then the structure
+    * itself.
     *
     * \param[in] list A pointer to the <tt>uint32_array_list_t</tt> to clear.
     */
@@ -159,7 +157,7 @@ void print_uint32_array_list(const uint32_array_list_t* const list);
 
    /**
     * \struct struct_mpz_array_list_t x_array_list.h
-    *                                 lib/utils/include/x_array.h
+    *                                 lib/utils/include/x_array_list.h
     *
     * \brief  Defines a list of <tt>mpz_array_t</tt>.
     *
@@ -219,7 +217,6 @@ mpz_array_list_t* alloc_mpz_array_list(uint32_t alloced);
     *
     * \param[in] entry A pointer to the \c mpz_array_t to add in the list.
     * \param[in] list A pointer to the <tt>mpz_array_list_t</tt>.
-    * \return A pointer to the newly allocated \c mpz_array_list_t structure.
     */
 inline static void
 add_entry_in_mpz_array_list(mpz_array_t* const entry,
@@ -235,10 +232,8 @@ add_entry_in_mpz_array_list(mpz_array_t* const entry,
    /**
     * \brief Clears a <tt>mpz_array_list_t</tt>.
     *
-    * Clears a <tt>mpz_array_list_t</tt>, or, more precisely, clears
-    * the memory space used by the array pointed by the \c data field of a
-    * <tt>mpz_array_list_t</tt>. Also set its \c alloced and \c length
-    * fields to zero.
+    * Frees the non-NULL entries, the \c data array, then the structure
+    * itself.
     *
     * \param[in] list A pointer to the <tt>mpz_array_list_t</tt> to clear.
     */

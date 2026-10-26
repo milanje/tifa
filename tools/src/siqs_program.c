@@ -37,7 +37,7 @@
 #include "common_funcs.h"
 
 //
-// The number of arguments accepted is either 0, 1, 2, or (QS_F_MAX_ARGC-1)
+// The number of arguments accepted is either 0, 1, 2, or (SIQS_F_MAX_ARGC-1)
 //
 #define SIQS_F_MAX_ARGC 11
 

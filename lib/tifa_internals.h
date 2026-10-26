@@ -25,7 +25,7 @@
  * \brief Library wide include file (complete with internal structures /
  * functions).
  *
- * Includes all TIFA's structures and functions.
+ * Includes most of TIFA's structures and functions.
  *
  * \warning Usually, only the tifa.h include file is needed. tifa_internals.h
  * should only be included to access some internal structures or functions.

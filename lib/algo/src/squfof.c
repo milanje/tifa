@@ -28,7 +28,7 @@
   //------------------------------------------------------------------------
   // - For a thorough explanation of the SQUFOF algorithm:
   //         "Square Form Factorization",
-  //         Jason E. Gowen, Samuel S. Wagstaff Jr.,
+  //         Jason E. Gower, Samuel S. Wagstaff Jr.,
   //         Mathematics of Computation,
   //         S 0025-5718(07)02010-8,
   //         Article electronically published on May 14, 2007.
@@ -136,8 +136,8 @@ divide_trick(const unsigned long int N, const unsigned long int D);
 //
 // _NOTE_: We only implement here a simplified version of Williams &
 //         Wunderlich's large step algorithm. This is used in step 4 of the
-//         SQUFOF algorithm (using Gowen & Wagstaff's description) to achieve
-//         what Shanks calls the "fast return". Note that Gowen & Wagstaff's
+//         SQUFOF algorithm (using Gower & Wagstaff's description) to achieve
+//         what Shanks calls the "fast return". Note that Gower & Wagstaff's
 //         description does not include this "fast return".
 //
 
@@ -228,7 +228,7 @@ struct struct_squfof_racer_t {
     //
     ulint_pair_t       queue_data[MAX_QUEUE_ALLOC];
     //
-    // SQUFOF's working variables: notations follow the one given in Gowen and
+    // SQUFOF's working variables: notations follow the one given in Gower and
     // Wagstaff's paper.
     //
     mpz_t D;
@@ -570,7 +570,7 @@ static ecode_t update_squfof_context(factoring_machine_t* const machine) {
     if (!context->updated) {
         //
         // Initialize all the SQUFOF racers needed. For each racer, this will
-        // perform the step 1) of the SQUFOF algorithm as described by Gowen and
+        // perform the step 1) of the SQUFOF algorithm as described by Gower and
         // Wagstaff in their paper.
         //
         PRINT_UPDATE_RACE_MSG;
@@ -993,9 +993,9 @@ static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
     //
     // Step 2: cycle forward to find a proper form.
     //
-    // This is step 2) as described by Gowen and Wagstaff in their paper. Note
-    // that the step 1) has already been performed via the init_squfof_context
-    // function...
+    // This is step 2) as described by Gower and Wagstaff in their paper. Note
+    // that the step 1) has already been performed by update_squfof_context
+    // (see init_squfof_racer).
     //
 
     //
@@ -1301,7 +1301,7 @@ static ecode_t init_squfof_racer(squfof_racer_t* const racer, const mpz_t n,
                                  unsigned int multiplier) {
     //
     // Initialize the SQUFOF 'racer' and execute the Step 1) of the SQUFOF
-    // algorithm as described by Gowen and Wagstaff in their paper "Square Form
+    // algorithm as described by Gower and Wagstaff in their paper "Square Form
     // Factorization".
     //
 

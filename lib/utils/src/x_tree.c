@@ -710,7 +710,7 @@ mpz_tree_t* rem_tree(const mpz_t z, const mpz_tree_t* const ptree) {
     //
     // _WARNING_:
     //
-    //         Although the product tree returned is actually a pointer
+    //         Although the remainder tree returned is actually a pointer
     //         to an mpz_array_t structure, the array should NOT be modified
     //         later on since the memory it uses is allocated in one huge
     //         block to prevent overhead from multiple malloc calls. So the

@@ -262,7 +262,8 @@ static void usage(FILE* out, const char* prog) {
         "  --max <bits>        Largest composite bit-size (default: 200)\n"
         "  --step <bits>       Bit-size increment; --max is always tuned\n"
         "                      (default: 16)\n"
-        "  --trials <n>        Test composites per bit-size & factor-count (25)\n"
+        "  --trials <n>        Test composites per bit-size, x2 below 90 bits\n"
+        "                      and x4 below 64 (default: 25)\n"
         "  --threshold <p>     Min success rate for sieve algos (default: 0.90)\n"
         "  --min-success <p>   Min success rate for probabilistic algos (0.05)\n"
         "  --seed <u>          RNG seed for reproducible composites (default: 1)\n"
@@ -278,7 +279,8 @@ static void usage(FILE* out, const char* prog) {
         "\n"
         "The requested [min,max] range is intersected with each algorithm's own\n"
         "supported range. Composites are products of similar-size primes; the\n"
-        "factor-finding methods (p-1, p+1, ecm) also test 3-prime products.\n",
+        "factor-finding methods (p-1, p+1, rho, ecm) use 3-prime products from\n"
+        "64 bits.\n",
         prog);
 
     fprintf(out, "\nValid algorithm names for --algo:\n  all");
@@ -652,8 +654,9 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
 
         grid_t grid;
         desc->build_grid(bits, &grid);
-        // If the large-prime variation already won at a smaller size, collapse
-        // its axis to "on" so we don't re-benchmark the losing "off" case.
+        // If the large-prime variation won at TUNE_STICKY_HYSTERESIS consecutive
+        // smaller sizes, collapse its axis to "on" so we don't re-benchmark the
+        // losing "off" case.
         if (sticky_locked && (desc->sticky_col >= 0)
             && ((uint32_t) desc->sticky_col < grid.naxes)) {
             grid.axes[desc->sticky_col].nvalues  = 1;

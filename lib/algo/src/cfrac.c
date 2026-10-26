@@ -62,7 +62,7 @@
 //
 // In order to not degrade too much the performance of the hashtable used
 // for the large prime variation (due to too many collisions), we set its size
-// to the size of the factor base multiplied by HTABLE_SIZE_MULTIPLIER.
+// to the number of rows of the matrix multiplied by HTABLE_SIZE_MULTIPLIER.
 //
 #define HTABLE_SIZE_MULTIPLIER 8
 //
@@ -183,7 +183,7 @@ struct struct_cfrac_context_t {
     //
     hashtable_t* htable;
     //
-    // Smoothness filter with multi-step early abort.
+    // Smoothness filter.
     //
     smooth_filter_t filter;
     //
@@ -416,11 +416,11 @@ static ecode_t init_cfrac_context(factoring_machine_t* const machine) {
     context->factor_base   = alloc_uint32_array(params->nprimes_in_base);
     //
     // Number of columns is indeed params->nprimes_in_base + 1 since the first
-    // row is used to keep track of the sign of the residue.
+    // column is used to keep track of the sign of the residue.
     //
     context->matrix_ncols  = params->nprimes_in_base + 1;
     //
-    // Number of rows is context->matrix_ncols + MAX_NFIND_MORE_RELS *
+    // Number of rows is context->matrix_ncols + (MAX_NFIND_MORE_RELS + 1) *
     // params->nrelations. In other words, allocate _now_ extra memory space
     // in case the function fails and we want to try to find more relations
     // after updating the context.
@@ -978,13 +978,8 @@ static void sort_multipliers(cfrac_context_t* const context) {
 //------------------------------------------------------------------------------
 static void choose_multiplier(cfrac_context_t* const context) {
     //
-    // Chooses the multiplier to use for the CFRAC algorithm.
-    //
-    // _NOTE_: We should also check that k*n is NOT a square, otherwise
-    //         the CFRAC algorithm will fail. Such a check may not be needed
-    //         for rather "large" number since the probability for k*n to be
-    //         square is quite small. However for really tiny integers, such a
-    //         case can occur more often than desired...
+    // Chooses the multiplier to use for the CFRAC algorithm, skipping those
+    // for which k*n is a square: CFRAC fails on them.
     //
     uint32_t i = LARGEST_MULTIPLIER - 1;
     if (context->multiplier != 0) {

@@ -58,8 +58,8 @@ void grid_clear(grid_t* g);
     * \brief Appends an axis built from a center value and multiplicative ratios.
     *
     * Each candidate value is <tt>round(center * ratio)</tt>, clamped to the
-    * inclusive range <tt>[minval, maxval]</tt> and de-duplicated so repeated
-    * clamped values do not inflate the grid. Adds nothing (and does not fail)
+    * inclusive range <tt>[minval, maxval]</tt>; adjacent duplicates are
+    * dropped so repeated clamped values do not inflate the grid. Adds nothing (and does not fail)
     * if the grid already has \c TIFA_TUNING_MAX_COLS axes.
     *
     * \param[in,out] g       The grid to extend.
