@@ -1,5 +1,7 @@
 # TIFA &mdash; Tools for Integer FActorization
 
+<img src="readme/tifacube.png" align="left" width="160" hspace="12" alt="TIFA logo">
+
 `IDDN.FR.001.220019.000.S.A.2011.000.31235`
 
 `TIFA` (_Tools for Integer FActorization_) is a small C library that implements
@@ -14,6 +16,8 @@ of [Ecole Polytechnique](https://www.polytechnique.edu/en). The source code was
 uploaded "as is" to [GitHub](https://github.com) in April 2020. It was
 originally built with [SCons](https://scons.org); the build system has since
 been migrated to [CMake](https://cmake.org).
+
+<br clear="left">
 
 ## What's new
 
