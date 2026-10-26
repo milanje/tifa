@@ -19,7 +19,8 @@ Here are some short term objectives:
       - the Gaussian elimination (12%). Gauss-Jordan on the transposed
         matrix was slower, and removing singleton columns would only remove
         2 to 7% of the matrix;
-      - each new 'a' (5 to 9% from 70 to 100 bits). One more prime in 'a'
-        (extra_primes_in_a, which tifa_tune tunes) halves their number:
-        tuned, it gains 2 to 6% from 85 to 105 bits, but the defaults do
-        not use it yet.
+      - each new 'a' (5 to 9% from 70 to 100 bits). The defaults now add a
+        prime to 'a' where it pays, but its effect jumps where the target's
+        size crosses a threshold of determine_nprimes (one more prime helps
+        at 85 bits and costs 10 to 18% at 86 to 89): those thresholds,
+        rather than extra primes per size of n, are worth retuning.

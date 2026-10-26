@@ -1,5 +1,19 @@
 # TIFA news
 
+## 26 October 2026 &mdash; SIQS defaults retuned (for 0.3.0)
+
+`tifa_tune` retuned SIQS from 65 to 200 bits, the number of primes in `a`
+included. The defaults take its values only where they measured faster on
+other numbers: narrower sieves from 75 to 89 bits, at 110 and 190 bits, and
+one more prime in `a` from 75 to 84, 100 to 119 and 150 to 209 bits. Against
+the previous defaults:
+
+| Bits | 76 | 78 | 80 | 82 | 84 | 100 | 103 | 110 | 150 | 160 | 170 | 185 | 190 | 195 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.97 | 0.91 | 0.89 | 0.91 | 0.95 | 0.95 | 0.96 | 0.99 | 0.97 | 0.97 | 0.95 | 0.86 | 0.91 | 0.90 |
+
+The other sizes from 66 to 200 bits are within 1.5% of before.
+
 ## 23 October 2026 &mdash; faster SIQS setup (for 0.3.0)
 
 Outside the sieve, a SIQS run spent a fifth of its time at 70 bits on its
