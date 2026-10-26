@@ -81,6 +81,27 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- CFRAC with the trial division filters ---- they dropped every
+    // negative smooth residue, and early abort split its base off by one
+    // (reading past it with a three-prime base).
+    {
+        static const smooth_filter_method_t methods[] = {
+            TDIV, TDIV_EARLY_ABORT
+        };
+        for (unsigned i = 0; i < 2; i++) {
+            mul2(n, 15485863UL, 32452843UL);
+            mpz_array_t*    f = alloc_mpz_array(8);
+            uint32_array_t* m = alloc_uint32_array(8);
+            cfrac_params_t params;
+            set_cfrac_params_to_default(n, &params);
+            params.filter_method = methods[i];
+            ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+            check("cfrac trial division filters", rc, n, f, m);
+            free_mpz_array(f);
+            free_uint32_array(m);
+        }
+    }
+
     // ---- CFRAC without the large-prime variation ---- regression test for a
     // NULL-hashtable dereference: the filter backends read filter->htable
     // unconditionally, but cfrac only allocates it when use_large_primes is
@@ -99,6 +120,48 @@ int main(void) {
         check("cfrac no-large-primes", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
+    }
+
+    // ---- Proper factors only ---- SQUFOF on 3*9626^2 (k*n a square for a
+    // racer: it divided by 0 and hung), ECM on 110 (n divides 4u^3v: it
+    // returned 110 * 1), SQUFOF on the prime 103 (the race returned 103).
+    {
+        static const struct { const char* n; int algo; } cases[] = {
+            { "277979628", 0 }, { "110", 1 }, { "103", 0 }
+        };
+        for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+            mpz_set_str(n, cases[i].n, 10);
+            mpz_array_t* f = alloc_mpz_array(8);
+            if (cases[i].algo == 0) {
+                squfof_params_t params;
+                set_squfof_params_to_default(&params);
+                squfof(f, NULL, n, &params, FIND_SOME_FACTORS);
+            } else {
+                ecm_params_t params;
+                set_ecm_params_to_default(n, &params);
+                ecm(f, NULL, n, &params, SINGLE_RUN);
+            }
+            bool ok = true;
+            for (uint32_t j = 0; j < f->length; j++) {
+                ok = ok && (mpz_cmp_ui(f->data[j], 1) > 0)
+                        && (mpz_cmp(f->data[j], n) < 0)
+                        && mpz_divisible_p(n, f->data[j]);
+            }
+            CHECK(ok, cases[i].n);
+            free_mpz_array(f);
+        }
+    }
+
+    // ---- Fermat, one run, 70 bits ---- the square roots mod p^2 were wrong
+    // for p > 65535, so a single run found almost nothing above 64 bits.
+    {
+        mpz_set_str(n, "722091009885066927899", 10);
+        mpz_array_t* f = alloc_mpz_array(8);
+        fermat_params_t params;
+        set_fermat_params_to_default(&params);
+        CHECK(fermat(f, NULL, n, &params, SINGLE_RUN) == SOME_FACTORS_FOUND,
+              "fermat finds 23107307611 * 31249465409 in one run");
+        free_mpz_array(f);
     }
 
     // ---- CFRAC on short periods ---- k*n = m^2 + 1 makes every residue 1,

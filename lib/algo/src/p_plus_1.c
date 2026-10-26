@@ -171,6 +171,13 @@ ecode_t p_plus_1(mpz_array_t* const factors, uint32_array_t* const multis,
     p_plus_1_params_t own_params = *params;
     own_params.b1 = MIN(own_params.b1, LARGEST_PRIME);
     own_params.b2 = MIN(own_params.b2, LARGEST_PRIME);
+    //
+    // Stage 2 covers the primes from PP1_D/2 up, as m*D +- j with m >= 1:
+    // as for ECM, it needs b1 >= PP1_DO2.
+    //
+    if ((own_params.b2 > own_params.b1) && (own_params.b1 < PP1_DO2)) {
+        own_params.b1 = PP1_DO2;
+    }
 
     factoring_machine_t machine;
 

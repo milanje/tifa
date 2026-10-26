@@ -1140,7 +1140,7 @@ static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
     //
     factor /= gcd_ulint(factor, 2 * winner->multiplier);
 
-    if (factor ==  1) {
+    if ((factor == 1) || (mpz_cmp_ui(context->n, factor) == 0)) {
         return NO_FACTOR_FOUND;
     }
 
@@ -1351,6 +1351,13 @@ static ecode_t init_squfof_racer(squfof_racer_t* const racer, const mpz_t n,
     mpz_sub(racer->D_minus_P2, racer->D_minus_P2, racer->P2);
 
     racer->Q = mpz_get_ui(racer->D_minus_P2);
+    if (racer->Q == 0) {
+        //
+        // D = k.n is a square (n even): no reduced form to cycle through.
+        //
+        racer->status = STOPPED;
+        return SUCCESS;
+    }
 
     mpf_mul_2exp(racer->sqrtD, racer->sqrtD, 1);
     mpf_sqrt(racer->sqrtD, racer->sqrtD);

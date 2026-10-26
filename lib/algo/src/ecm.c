@@ -733,6 +733,9 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
             //
             break;
         }
+        if (exit_code != SUCCESS) {
+            continue;                   // no curve for this sigma
+        }
         //
         // Perform first phase of ECM...
         //
@@ -1017,6 +1020,12 @@ static ecode_t choose_curve(ecm_context_t* const context) {
 
     mpz_gcd(tmp, u3v4, n);
 
+    if (mpz_cmp(tmp, n) == 0) {
+        //
+        // n divides 4.u^3.v (n small or even): no factor, and no curve.
+        //
+        return NO_FACTOR_FOUND;
+    }
     if (mpz_cmp_ui(tmp, 1) != 0) {
         //
         // We have a factor (very unlikely)!
@@ -1061,8 +1070,8 @@ static ecode_t choose_curve(ecm_context_t* const context) {
         //
         exit_code = SOME_FACTORS_FOUND;
         append_mpz_to_array(context->factors, context->b);
-        mpz_divexact(context->b, n, tmp);
-        append_mpz_to_array(context->factors, context->b);
+        mpz_divexact(tmp, n, context->b);
+        append_mpz_to_array(context->factors, tmp);
         return exit_code;
     }
     mpz_invert(context->b, v, n);       // inv(v^3) mod n

@@ -477,6 +477,9 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
     //
     if (pmin > LARGEST_PRIME) {
         context->latest_p = LARGEST_PRIME;
+        mpz_clear(Q);
+        mpz_clear(gcd);
+        mpz_clear(ny2);
         return NO_FACTOR_FOUND;
     } else {
         uint32_t min   = - 1;
