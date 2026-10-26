@@ -35,8 +35,7 @@ tifa_add_test(test_inputs)
 
 # The tuning-loader test reads fixture files from the source tree; hand it their
 # location as a compile definition (no env var needed: the test unsets
-# $TIFA_TUNING_DIR, and assumes the compiled-in tuning directory holds no
-# p_minus_1.tuning).
+# $TIFA_TUNING_DIR and never falls back to the installed tuning directory).
 tifa_add_test(test_tuning)
 target_compile_definitions(test_tuning PRIVATE
     TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
@@ -58,3 +57,13 @@ add_test(NAME tifa_factor_program_powers
 set_tests_properties(tifa_factor_program_powers PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "2 \\^ 3[^0-9].*3 \\^ 2[^0-9].*1000000009 \\^ 1[^0-9].*1000000007 \\^ 2[^0-9].*Factorization is complete")
+# A square of a composite: the program factors its root, then squares.
+add_test(NAME tifa_factor_program_square
+         COMMAND tifa_factor 1000000032000000382000002016000003969)
+set_tests_properties(tifa_factor_program_square PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "1000000007 \\^ 2[^0-9].*1000000009 \\^ 2[^0-9].*Factorization is complete")
+# A pass regex alone ignores the exit status: fail on sanitizer reports too.
+set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
+                     tifa_factor_program_square PROPERTIES
+    FAIL_REGULAR_EXPRESSION "ERROR|Sanitizer|runtime error")

@@ -39,18 +39,19 @@
 //------------------------------------------------------------------------------
 bool is_a_number(const char* const str_n, uint32_t length) {
 
-    if (0 == isdigit(str_n[0])) {
+    if (0 == isdigit((unsigned char) str_n[0])) {
         return false;
     }
     for (uint32_t i = 1; i < length; i++) {
         if (str_n[i] == '\0') {
             return true;
         }
-        if (0 == isdigit(str_n[i])) {
+        if (0 == isdigit((unsigned char) str_n[i])) {
             return false;
         }
     }
-    return true;
+    // Longer than length: the rest was never checked.
+    return false;
 }
 //------------------------------------------------------------------------------
 char* read_number(char* const buffer, uint32_t length) {
@@ -61,6 +62,9 @@ char* read_number(char* const buffer, uint32_t length) {
     char* const newline = strchr(buffer, '\n');
     if (newline != NULL) {
         *newline = '\0';
+        if ((newline != buffer) && (newline[-1] == '\r')) {
+            newline[-1] = '\0';
+        }
     } else if (!feof(stdin)) {
         fprintf(stderr, "\nERROR: the number has more than %" PRIu32
                         " digits!\n", length - 2);

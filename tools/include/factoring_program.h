@@ -143,8 +143,10 @@ struct struct_factoring_program {
         *
         * \param A pointer to the \c factoring_program_t used by the actual
         * factoring program.
+        * \param The number the parameters are for.
         */
-    void (*set_params_to_default_func) (struct struct_factoring_program* const);
+    void (*set_params_to_default_func) (struct struct_factoring_program* const,
+                                        const mpz_t);
 
 };
    /**

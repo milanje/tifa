@@ -103,17 +103,6 @@ ecode_t run_program(factoring_program_t* const program) {
                 rcode = COMPLETE_FACTORIZATION_FOUND;
                 goto clear_tdiv_and_return;
 
-            case SOME_FACTORS_FOUND:
-                //
-                // Adjust the factoring algorithm's default parameters to account
-                // for the smaller unfactored part if default paramters were
-                // asked for.
-                //
-                if (program->argc == 1) {
-                    program->set_params_to_default_func(program);
-                }
-                break;
-
             default:
                 break;
         }
@@ -123,10 +112,6 @@ ecode_t run_program(factoring_program_t* const program) {
     // of program->n.
     //
     mpz_t unfactored;
-
-    printf("\nParameters used:\n");
-    printf("----------------\n");
-    program->print_params_func(program);
 
     if (ecode == NO_FACTOR_FOUND) {
         mpz_init_set(unfactored, program->n);
@@ -158,6 +143,17 @@ ecode_t run_program(factoring_program_t* const program) {
             break;
         }
     }
+    //
+    // The programs take their algorithm's parameters only beyond 3 arguments:
+    // otherwise fit the defaults to what is left to factor.
+    //
+    if (program->argc <= 3) {
+        program->set_params_to_default_func(program, unfactored);
+    }
+    printf("Parameters used:\n");
+    printf("----------------\n");
+    program->print_params_func(program);
+    printf("\n");
 
     if (MPZ_IS_PRIME(unfactored)) {
         //
@@ -240,11 +236,22 @@ ecode_t run_program(factoring_program_t* const program) {
 #endif
 
     switch (ecode) {
-        case COMPLETE_FACTORIZATION_FOUND:
+        case COMPLETE_FACTORIZATION_FOUND: {
+            //
+            // These factor unfactored, the 2^shift-th root of what was left.
+            //
+            const uint32_t first = factors->length;
             append_mpz_array(factors, progfa);
             append_uint32_array(multis, progmu);
+            while (multis->length < factors->length) {
+                append_uint32_to_array(multis, 1);
+            }
+            for (uint32_t i = first; i < multis->length; i++) {
+                multis->data[i] <<= shift;
+            }
             rcode = COMPLETE_FACTORIZATION_FOUND;
             break;
+        }
         case SOME_FACTORS_FOUND:
         case SOME_COPRIME_FACTORS_FOUND:
         case PARTIAL_FACTORIZATION_FOUND: {
@@ -265,14 +272,15 @@ ecode_t run_program(factoring_program_t* const program) {
             break;
         }
         default:
-            if (factors->length != 0) {
+            if ((factors->length != 0) || (shift != 0)) {
                 //
-                // We found some factors via trial divisions. Add the
-                // unfactored part in the list of factors so that it will be
-                // printed.
+                // We found some factors via trial divisions, or a power. Add
+                // the unfactored part in the list of factors so that it will
+                // be printed.
                 //
                 append_mpz_to_array(factors, unfactored);
-                append_uint32_to_array(multis, 1);
+                append_uint32_to_array(multis, 1U << shift);
+                rcode = PARTIAL_FACTORIZATION_FOUND;
             }
             break;
     }

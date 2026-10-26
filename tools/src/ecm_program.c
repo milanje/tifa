@@ -167,8 +167,9 @@ static void process_args(factoring_program_t* const program) {
     return;
 }
 //------------------------------------------------------------------------------
-static void set_params_to_default(factoring_program_t* const program) {
-    set_ecm_params_to_default(program->n, (ecm_params_t*) program->params);
+static void set_params_to_default(factoring_program_t* const program,
+                                  const mpz_t n) {
+    set_ecm_params_to_default(n, (ecm_params_t*) program->params);
 }
 //------------------------------------------------------------------------------
 static void print_params(factoring_program_t* const program) {

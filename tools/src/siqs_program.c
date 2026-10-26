@@ -183,8 +183,9 @@ static void process_args(factoring_program_t* const program) {
     }
 }
 //------------------------------------------------------------------------------
-static void set_params_to_default(factoring_program_t* const program) {
-    set_siqs_params_to_default(program->n, (siqs_params_t*) program->params);
+static void set_params_to_default(factoring_program_t* const program,
+                                  const mpz_t n) {
+    set_siqs_params_to_default(n, (siqs_params_t*) program->params);
 }
 //------------------------------------------------------------------------------
 static void print_params(factoring_program_t* const program) {

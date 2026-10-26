@@ -122,7 +122,8 @@ static void process_args(factoring_program_t* const program) {
 }
 //------------------------------------------------------------------------------
 static void set_params_to_default(factoring_program_t* const program
-                                  MAYBE_UNUSED) {
+                                  MAYBE_UNUSED,
+                                  const mpz_t n MAYBE_UNUSED) {
     return;
 }
 //------------------------------------------------------------------------------

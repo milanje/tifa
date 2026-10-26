@@ -45,10 +45,10 @@ extern "C" {
     * \brief Does a string \c str_n read as a number?
     *
     * Returns \c true if the string \c str_n represents a number in the
-    * decimal base, \c false otherwise.
+    * decimal base, of fewer than \c length digits, \c false otherwise.
     *
     * \param[in] str_n The string to check.
-    * \param[in] length The maximum length of the string to check.
+    * \param[in] length The bound on the length of the string.
     */
 bool is_a_number(const char* const str_n, uint32_t length);
 
