@@ -137,7 +137,8 @@ determine_nprimes(uint32_t bitsize)
     // Determines the number of factors in the leading coefficient according
     // to the size 'bitsize' of the target in bits.
     //
-    // Six primes never measured clearly faster than five or seven.
+    // Six primes, even since they stopped costing a sort of 18424 triples
+    // per run (see alloc_approximer), were best at 150 bits only, by 1.3%.
     //
     if (bitsize < 15)  { return 2; }
     if (bitsize < 26)  { return 3; }

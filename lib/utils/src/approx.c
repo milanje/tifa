@@ -224,6 +224,13 @@ approximer_t* alloc_approximer(mpz_t                 target,
         // The less the number of factors we can pick, the worse the obtained
         // approximation is.
         //
+        case 6:
+            //
+            // Pairs, as for five: the C(49, 3) = 18424 triples of a full pool
+            // took 0.5 ms per run to sort, 2.4% at 150 bits. From seven
+            // primes, triples give better 'a': pairs were 2 to 4% slower at
+            // 170 and 190 bits.
+            //
         case 5:
             aximer->keven = 2;
             aximer->dlog_tolerance = TINY_DLOG10_TOLERANCE;

@@ -1,5 +1,23 @@
 # TIFA news
 
+## 27 October 2026 &mdash; six primes in `a`
+
+Six primes in `a` were never clearly best, and even slower than both five and
+seven from 145 to 155 bits. The approximer, which picks the primes of each
+`a`, matched the last part of its target with a product of three primes, and
+for six it always precomputed and sorted all C(49, 3) = 18424 triples of its
+pool: 0.5 ms per run, 2.4% at 150 bits, against 1176 pairs for five. With
+pairs, six primes run 1.1% to 3.8% faster from 145 to 160 bits:
+
+| SIQS with six primes in `a`, bits | 145 | 150 | 155 | 160 |
+|---|---:|---:|---:|---:|
+| time, pairs over triples | 0.99 | 0.97 | 0.96 | 0.97 |
+
+The defaults are unchanged: six primes were then best at 150 bits only, by
+1.3% over five. Six primes come from `extra_primes_in_a` only, in tuning files
+or parameters. Pairs from seven primes up gave slower `a`
+(2 to 4% at 170 and 190 bits), so these keep triples.
+
 ## 27 October 2026 &mdash; SIQS collects fewer extra relations
 
 SIQS collected 24 relations beyond the size of its factor base, for 24
