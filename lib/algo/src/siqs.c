@@ -265,6 +265,11 @@ struct struct_siqs_context_t {
     mpz_array_t *a_values;
     uint32_t     a_values_npolyinit;
     //
+    // The indexes in the factor base of the primes of each 'a' of a_values,
+    // nprimes_in_a (of the polynomial) per 'a'.
+    //
+    uint32_array_t *a_primes;
+    //
     // Hashtable used in large primes variation. It will hold mpz_pair_t's
     // such as ((a.xi + b), g_{a,b}(xi)) with an index in first_primes_array
     // as key.
@@ -400,6 +405,9 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context);
 static ecode_t collect_relations(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
 static void multiply_by_smooth_a(siqs_context_t* const context);
+static void add_primes_of_a(siqs_context_t* const context,
+                            byte_matrix_t* const decomp_matrix,
+                            const uint32_t first_row);
 static void drop_duplicate_relations(
     siqs_context_t* const context,
     const uint32_t first_new
@@ -650,6 +658,7 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     context->a_idx_for_smooth   = alloc_uint32_array(context->matrix_nrows);
     context->a_values           = alloc_mpz_array(ELONGATION);
     context->a_values_npolyinit = 0;
+    context->a_primes           = alloc_uint32_array(ELONGATION);
     context->u                  = alloc_mpz_array(context->matrix_nrows);
 
     context->drop_duplicates = false;
@@ -712,6 +721,7 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
         free_mpz_array(context->smooth_redgx);
         free_uint32_array(context->a_idx_for_smooth);
         free_mpz_array(context->a_values);
+        free_uint32_array(context->a_primes);
 
         free_mpz_tree(context->ptree);
 
@@ -837,9 +847,11 @@ static ecode_t perform_siqs(factoring_machine_t* const machine) {
                                    );
 
     //
-    // Partly fill the matrix via trial divisions of the g_{a,b}...
+    // Partly fill the matrix via trial divisions of the g_{a,b}/a, then add
+    // the primes of their 'a', known: smaller numbers to divide (one limb
+    // instead of two at 70 bits), and no prime of 'a' to find again.
     //
-    multiply_by_smooth_a(context);
+    const uint32_t first_row = context->matrix->nrows;
     fill_trial_div_decomp(
         context->matrix,
         decomp_matrix,
@@ -847,6 +859,8 @@ static ecode_t perform_siqs(factoring_machine_t* const machine) {
         context->smooth_redgx,
         &primes_array
     );
+    add_primes_of_a(context, decomp_matrix, first_row);
+    multiply_by_smooth_a(context);
 
     if (params->nprimes_tdiv < params->nprimes_in_base) {
         //
@@ -1077,7 +1091,11 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
 
     const uint32_t npolyinit = context->sieve->poly->nfullpolyinit;
     if (npolyinit != context->a_values_npolyinit) {
+        const siqs_poly_t* const poly = context->sieve->poly;
         append_mpz_to_array(context->a_values, a);
+        for (uint32_t j = 0; j < poly->nprimes_in_a; j++) {
+            append_uint32_to_array(context->a_primes, poly->idx_of_a[j]);
+        }
         context->a_values_npolyinit = npolyinit;
     }
     const uint32_t a_idx = context->a_values->length - 1;
@@ -1121,6 +1139,27 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
     mpz_clear(rgx);
 }
 //-----------------------------------------------------------------------------
+static void add_primes_of_a(siqs_context_t* const context,
+                            byte_matrix_t* const decomp_matrix,
+                            const uint32_t first_row) {
+    //
+    // Each prime of a relation's 'a' divides it once more: one more in its
+    // decomposition, and its bit of the matrix flipped.
+    //
+    const uint32_t        npa      = context->sieve->poly->nprimes_in_a;
+    const uint32_t* const a_primes = context->a_primes->data;
+    const uint32_t* const a_idx    = context->a_idx_for_smooth->data;
+    const uint32_t        nrels    = context->matrix->nrows - first_row;
+
+    for (uint32_t i = 0; i < nrels; i++) {
+        const uint32_t* const q = &a_primes[a_idx[i] * npa];
+        for (uint32_t k = 0; k < npa; k++) {
+            decomp_matrix->data[i][q[k]]++;
+            flip_matrix_bit(first_row + i, q[k] + 1, context->matrix);
+        }
+    }
+}
+//------------------------------------------------------------------------------
 static void multiply_by_smooth_a(siqs_context_t* const context) {
     //
     // Multiply each of the smooth value of g_{a,b}/a in the smooth_redgx array
