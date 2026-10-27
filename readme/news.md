@@ -1,5 +1,13 @@
 # TIFA news
 
+## 27 October 2026 &mdash; `--help`, and function names in the documentation
+
+The programs print their usage and exit with status 0 on `-h` or `--help`;
+they took it for a number and exited with 3. The documentation writes the
+functions with parentheses (`tifa_factor()`), apart from the programs
+(`tifa-factor`), and `tifa-factor`'s banner names the `tifa_factor()`
+function.
+
 ## 27 October 2026 &mdash; six primes in `a`
 
 Six primes in `a` were never clearly best, and even slower than both five and
@@ -39,7 +47,7 @@ above):
 
 (At 180 bits, 1.02 in a first run, 1.00 in a second.)
 
-| `tifa_factor`, bits | 66 | 80 | 100 | 128 | 160 |
+| `tifa_factor()`, bits | 66 | 80 | 100 | 128 | 160 |
 |---|---:|---:|---:|---:|---:|
 | time | 0.88 | 0.91 | 0.94 | 0.96 | 1.00 |
 

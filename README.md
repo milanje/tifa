@@ -26,10 +26,10 @@ in a review of the whole library. Against 0.2.0, on one thread of an Apple M5
 Pro:
 
 - SIQS is 7% to 20% faster from 66 to 110 bits (a faster setup, retuned
-  defaults and number of primes in `a`), 1% to 10% above; `tifa_factor` is
-  10% to 15% faster from 66 to 100 bits.
-- `tifa_factor` takes apart any perfect power (p^3 gave up), `cfrac` and
-  `squfof` no longer hang on some inputs, and Fermat's square roots modulo
+  defaults and number of primes in `a`), 1% to 10% above; `tifa_factor()`
+  is 10% to 15% faster from 66 to 100 bits.
+- `tifa_factor()` takes apart any perfect power (p^3 gave up), `cfrac()` and
+  `squfof()` no longer hang on some inputs, and Fermat's square roots modulo
   p^2 are right for p above 65535.
 - ECM, p+1 and p-1 split small composites they gave up on (up to 25% of them
   near 10^5) when a stage caught every prime factor at once.
@@ -38,9 +38,9 @@ Pro:
   invalid input. The ABI changes: `libtifa.so.0.3`.
 
 Version 0.2.0 (October 2026) reworked most of the library for speed,
-correctness and thread safety: `tifa_factor` became 6x to 100x faster from 32
-to 110 bits, `tifa_cofactor` appeared, and the factorization functions can be
-called from several threads at once.
+correctness and thread safety: `tifa_factor()` became 6x to 100x faster from
+32 to 110 bits, `tifa_cofactor()` appeared, and the factorization functions
+can be called from several threads at once.
 
 [readme/news.md](./readme/news.md) has all the measurements and the list of
 changes.
@@ -108,7 +108,8 @@ function chooses:
 The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 `tifa-fermat`, `tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-p-minus-1`,
 `tifa-p-plus-1`, `tifa-tdiv`); given only the number, they
-use the algorithm's default parameters. All of them exit with status 0 for a
+use the algorithm's default parameters (`-h` or `--help` lists the others,
+which come before the number). All of them exit with status 0 for a
 complete factorization (or a prime, or 1), 1 for a partial one, 2 if no factor
 was found, and 3 for invalid input. Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
@@ -192,7 +193,7 @@ sieve chunk) and its extra primes in `a` are taken from the row below.
 ### Generating tuning files
 
 ```sh
-cmake --build build --target tifa_tune
+cmake --build build --target tifa_tune     # the CMake target of tifa-tune
 ./build/tools/tune/tifa-tune --algo all --out ~/.tifa/tuning
 ```
 

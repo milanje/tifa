@@ -61,6 +61,14 @@ void print_factors(mpz_array_t* const, uint32_array_t* const);
 int run_program(factoring_program_t* const program) {
 
     ecode_t rcode = NO_FACTOR_FOUND;
+
+    if (   (program->argc == 2)
+        && (   (0 == strcmp(program->argv[1], "-h"))
+            || (0 == strcmp(program->argv[1], "--help")))) {
+        program->print_usage_func(program);
+        mpz_init(program->n);   // the caller clears it
+        return TIFA_EXIT_COMPLETE;
+    }
     //
     // Reads arguments given on the command line (if any) and initializes
     // all the needed parameters.

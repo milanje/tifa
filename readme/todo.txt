@@ -1,6 +1,6 @@
 Here are some short term objectives:
 
-  - Check tifa_cofactor on real cofactors from a number field sieve (dumps
+  - Check tifa_cofactor() on real cofactors from a number field sieve (dumps
     from CADO-NFS, for example). So far it has only been measured on
     synthetic cofactors: integers without small factors, of the sizes a
     sieve leaves.

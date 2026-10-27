@@ -4,8 +4,8 @@ Known bugs and issues
 ---------------------
 
   None at the moment. The test suite ("ctest --test-dir build" after a build)
-  checks the factorizations of every algorithm and of tifa_factor, the
-  answers of tifa_cofactor, the machine-word and Montgomery code, the tuning
+  checks the factorizations of every algorithm and of tifa_factor(), the
+  answers of tifa_cofactor(), the machine-word and Montgomery code, the tuning
   files, the programs' exit statuses, and factorizations running in several
   threads at once. It runs on each push to master and each pull request,
   with warnings as errors: with GCC and Clang on Linux, under ASan, UBSan

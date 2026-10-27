@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     program.verbose = false;
     program.timing  = false;
 
-    program.algo_name = "tifa_factor";
+    program.algo_name = "tifa_factor()";
     program.params    = NULL;
     program.mode      = FIND_COMPLETE_FACTORIZATION;
     program.nfactors  = 2;

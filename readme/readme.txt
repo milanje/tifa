@@ -354,8 +354,8 @@
 
   They also take the algorithm's parameters (all but tifa-ecm's seed),
   before the number, in the order their usage message gives (run a program
-  with a wrong number of arguments to see it). Run without argument, a
-  program asks for the number to factor.
+  with -h or --help to see it). Run without argument, a program asks for
+  the number to factor.
 
   All the programs exit with status 0 for a complete factorization (or a
   prime, or 1), 1 for a partial one, 2 if no factor was found, and 3 for
