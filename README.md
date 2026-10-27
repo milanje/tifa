@@ -21,18 +21,26 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
-Version 0.2.0 (October 2026) reworks most of the library for speed,
-correctness and thread safety. Against the code before, on one thread of an
-Apple M5 Pro:
+Version 0.3.0 (October 2026) makes SIQS faster and fixes latent defects found
+in a review of the whole library. Against 0.2.0, on one thread of an Apple M5
+Pro:
 
-- `tifa_factor` is 6x to 100x faster from 32 to 110 bits, and 1.4x to 8x from
-  128 to 200 bits. It now always returns complete factorizations, which it often
-  failed to do above 64 bits.
-- The new `tifa_cofactor` answers whether a sieve's cofactor splits into small
-  enough primes 35x to 120x faster than with `tifa_factor` before.
-- ECM is 14x to 20x faster, p-1 and p+1 4x to 6x, SIQS 1.4x to 1.9x, and the
-  primality tests are thousands of times faster.
-- The factorization functions can be called from several threads at once.
+- SIQS is 7% to 20% faster from 66 to 110 bits (a faster setup, retuned
+  defaults and number of primes in `a`), 1% to 10% above; `tifa_factor` is
+  10% to 15% faster from 66 to 100 bits.
+- `tifa_factor` takes apart any perfect power (p^3 gave up), `cfrac` and
+  `squfof` no longer hang on some inputs, and Fermat's square roots modulo
+  p^2 are right for p above 65535.
+- ECM, p+1 and p-1 split small composites they gave up on (up to 25% of them
+  near 10^5) when a stage caught every prime factor at once.
+- The programs are named `tifa-<name>` (`tifa-factor`, `tifa-ecm`, ...) and
+  exit with 0, 1, 2 or 3 for a complete, partial, failed factorization or
+  invalid input. The ABI changes: `libtifa.so.0.3`.
+
+Version 0.2.0 (October 2026) reworked most of the library for speed,
+correctness and thread safety: `tifa_factor` became 6x to 100x faster from 32
+to 110 bits, `tifa_cofactor` appeared, and the factorization functions can be
+called from several threads at once.
 
 [readme/news.md](./readme/news.md) has all the measurements and the list of
 changes.

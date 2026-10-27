@@ -1,6 +1,33 @@
 # TIFA news
 
-## 27 October 2026 &mdash; program names (for 0.3.0)
+## 27 October 2026 &mdash; version 0.3.0
+
+Version 0.3.0 gathers the work below since 0.2.0: faster and retuned SIQS,
+fixes from a review of latent defects (prime powers, hangs, wrong roots,
+memory errors), ECM, p+1 and p-1 splitting small composites, and renamed
+programs with Unix exit statuses. Against 0.2.0, on one thread of an Apple
+M5 Pro (time of 0.3.0 over that of 0.2.0, balanced semiprimes):
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.89 | 0.88 | 0.87 | 0.80 | 0.86 | 0.91 | 0.89 | 0.89 | 0.92 | 0.93 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.95 | 0.96 | 0.97 | 0.97 | 0.94 | 0.95 | 0.94 | 0.98 | 0.90 | 0.99 |
+
+| `tifa_factor`, bits | 40 | 50 | 64 | 66 | 80 | 100 | 128 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 1.00 | 1.00 | 1.00 | 0.90 | 0.85 | 0.90 | 0.97 | 0.96 |
+
+The ABI changes (`cfrac_params_t` lost `nsteps_early_abort`, `siqs_params_t`
+gained `extra_primes_in_a`, `sqrtm_p2` takes an `unsigned long`, among
+others): the shared library is now `libtifa.so.0.3` (`libtifa.0.3.dylib` on
+macOS), and `find_package(Tifa 0.3)` accepts 0.3.x only. The programs are
+renamed `tifa-<name>` and exit with 0, 1, 2 or 3 (complete, partial, none,
+invalid input), and tuning files are read more strictly.
+
+## 27 October 2026 &mdash; program names
 
 The programs are now named `tifa-<name>`, with dashes as is usual for Unix
 commands: `tifa-factor`, `tifa-tune`, `tifa-cfrac`, `tifa-ecm`, `tifa-fermat`,
@@ -9,7 +36,7 @@ commands: `tifa-factor`, `tifa-tune`, `tifa-cfrac`, `tifa-ecm`, `tifa-fermat`,
 `ecm`), and the others were too generic for a shared `bin` directory. The
 CMake targets keep their names (`tifa_factor`, `tifa_tune`, `ecm`...).
 
-## 27 October 2026 &mdash; exit statuses of the programs (for 0.3.0)
+## 27 October 2026 &mdash; exit statuses of the programs
 
 The programs exited with TIFA's internal codes: 5 for a complete
 factorization, 4 for a partial one, 6 when no factor was found, 0 for a
@@ -19,7 +46,7 @@ or 1), 1 for a partial one, 2 when no factor was found and 3 for invalid
 input, as their usage messages say. Scripts that tested the old values need
 updating; the library's `ecode_t` values are unchanged.
 
-## 27 October 2026 &mdash; ECM, p+1 and p-1 on small composites (for 0.3.0)
+## 27 October 2026 &mdash; ECM, p+1 and p-1 on small composites
 
 When a stage caught every prime factor of n at once (a gcd equal to n), ECM
 and p+1 gave up: on 18% of the odd composites near 10^5, 11% near 10^6 and
@@ -35,7 +62,7 @@ order splits n (equal orders), it tries the bases 3, 5, 7 and 11.
 All three now split every composite tried, from 10^3 to 10^10; other runs
 take the same time.
 
-## 26 October 2026 &mdash; fixes and documentation (for 0.3.0)
+## 26 October 2026 &mdash; fixes and documentation
 
 A review for latent defects, with a test for most fixes.
 
@@ -81,7 +108,7 @@ Programs, tuning and build:
   `p_minus_1.h` and `p_plus_1.h` compile on their own.
 - The comments and documentation were checked against the code throughout.
 
-## 26 October 2026 &mdash; number of primes in `a` retuned (for 0.3.0)
+## 26 October 2026 &mdash; number of primes in `a` retuned
 
 `determine_nprimes`, which picks the number of primes in `a` from the size of
 its target, now follows the best number measured for each size: two primes
@@ -96,7 +123,7 @@ previous defaults:
 
 The other sizes from 66 to 200 bits are within 1.5% of before.
 
-## 26 October 2026 &mdash; SIQS defaults retuned (for 0.3.0)
+## 26 October 2026 &mdash; SIQS defaults retuned
 
 `tifa_tune` retuned SIQS from 65 to 200 bits, the number of primes in `a`
 included. The defaults take its values only where they measured faster on
@@ -110,7 +137,7 @@ the previous defaults:
 
 The other sizes from 66 to 200 bits are within 1.5% of before.
 
-## 23 October 2026 &mdash; faster SIQS setup (for 0.3.0)
+## 23 October 2026 &mdash; faster SIQS setup
 
 Outside the sieve, a SIQS run spent a fifth of its time at 70 bits on its
 setup and per-run overheads. The factor base takes its residues from the
@@ -135,7 +162,7 @@ instead of a copy (a quarter fewer GMP allocations per run, 2.7% faster at
 `siqs.tuning` (files with six columns are refused). Tuned from 85 to 105
 bits, it runs 2.4 to 6.2% faster than the defaults, which do not use it.
 
-## 23 October 2026 &mdash; cleanups (for 0.3.0)
+## 23 October 2026 &mdash; cleanups
 
 The version is now 0.3.0 (`libtifa.so.0.3`), not released yet: builds of
 this code no longer pass for 0.2.0, whose ABI differs.
