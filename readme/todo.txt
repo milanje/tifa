@@ -14,7 +14,8 @@ Here are some short term objectives:
     shares of a run:
       - the batch smoothness test of the candidates (15%), three quarters of
         which are not smooth. Their number follows the sieve threshold,
-        which is tuned;
+        which tifa_tune does not tune, but 1 or 2 more or less were slower
+        at 70, 90 and 110 bits;
       - the first use of the GMP integers of each run's arrays, about 650
         allocations (6% in GMP's allocations and frees alone). Keeping the
         arrays between runs would need state per thread;

@@ -1,5 +1,39 @@
 # TIFA news
 
+## 27 October 2026 &mdash; SIQS collects fewer extra relations
+
+SIQS collected 24 relations beyond the size of its factor base, for 24
+dependencies: with k of them, none splits n = pq with probability 2^-k. It now
+collects 8 (`SIQS_DFLT_NRELATIONS`), and when none of the dependencies splits
+n, 8 more, twice at most: 24 in the worst case, as before, which happens once
+in 65536 runs. The relations already collected are kept. At 70 bits, 9 of
+2000 runs needed more relations, and all 2000 were complete. Against the
+previous version (100 numbers per size up to 120 bits, 30 up to 150 and 8
+above):
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.87 | 0.87 | 0.85 | 0.89 | 0.90 | 0.93 | 0.92 | 0.92 | 0.96 | 0.96 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.97 | 0.97 | 0.97 | 1.00 | 0.99 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+(At 180 bits, 1.02 in a first run, 1.00 in a second.)
+
+| `tifa_factor`, bits | 66 | 80 | 100 | 128 | 160 |
+|---|---:|---:|---:|---:|---:|
+| time | 0.88 | 0.91 | 0.94 | 0.96 | 1.00 |
+
+Starting from 6 was 1.5% faster at 66 and 70 bits only, from 4 not clearly
+faster than from 6. The other defaults were measured again after the
+overhead cuts below, at 70, 90 and 110 bits: a factor base 10% to 30% larger
+or 10% smaller, a sieve 20% narrower or 25% wider, and a threshold 1 or 2
+higher or lower were all as fast or slower, and so was the large prime
+variation turned on at 95 and 100 bits or off at 105 and 110. The relations' values are no longer
+multiplied by their `a` after the trial division: nothing read them since
+the change below.
+
 ## 27 October 2026 &mdash; SIQS overheads
 
 Outside the sieve, a small SIQS run spent much of its time in four places,
