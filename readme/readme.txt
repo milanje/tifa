@@ -390,10 +390,11 @@
     For congruences of square methods, this can happen when the number of
     congruences of square obtained is too small. In this case, chances are that
     only trivial factors were found. CFRAC and SIQS then retry by themselves
-    (with more relations and other multipliers for CFRAC, with a larger
-    factor base and sieve for SIQS). If a factorization still fails, run the
-    program again with a larger number of relations (its nrelations
-    parameter). In practice 32 should be enough most of the time.
+    (with more relations and other multipliers for CFRAC; with more
+    relations, then a larger factor base and sieve for SIQS). If a
+    factorization still fails, run the program again with a larger number of
+    relations (its nrelations parameter). In practice 32 should be enough
+    most of the time.
 
   What? Do you mean that my program ran for hours for nothing and I have to
   -------------------------------------------------------------------------

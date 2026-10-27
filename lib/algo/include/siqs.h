@@ -50,7 +50,7 @@ extern "C" {
     * Default number of relations to collect beyond the size of the factor
     * base (see \c nrelations).
     */
-#define SIQS_DFLT_NRELATIONS       24
+#define SIQS_DFLT_NRELATIONS       8
    /**
     * \def SIQS_DFLT_LINALG_METHOD
     * Default linear system resolution method to use.
@@ -93,7 +93,8 @@ struct struct_siqs_params_t {
        /**
         * Number of relations to collect beyond the size of the factor base
         * (plus one, for the sign), before looking for linear dependences (at
-        * most 1024).
+        * most 1024). When none of them splits the number, as many more are
+        * collected, up to three times as many in all.
         */
     uint32_t nrelations;
        /**

@@ -100,6 +100,11 @@
 //
 #define MAX_NRELATIONS      1024
 //
+// When no dependency splits n, nrelations more relations are collected, up
+// to NRELATIONS_ROUNDS times nrelations in all.
+//
+#define NRELATIONS_ROUNDS   3
+//
 // Largest sieve threshold: the sieve bytes start at it, and a position is a
 // candidate once the logs subtracted from it set the top bit.
 //
@@ -391,6 +396,8 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine);
 static ecode_t clear_siqs_context(factoring_machine_t* const machine);
 static ecode_t update_siqs_context(factoring_machine_t* const machine);
 static ecode_t perform_siqs(factoring_machine_t* const machine);
+static ecode_t collect_and_solve(factoring_machine_t* const machine);
+static bool    want_more_relations(siqs_context_t* const context);
 static ecode_t recurse(
     mpz_array_t* const,
     uint32_array_t* const,
@@ -783,6 +790,53 @@ static ecode_t update_siqs_context(factoring_machine_t* const machine) {
 }
 //------------------------------------------------------------------------------
 static ecode_t perform_siqs(factoring_machine_t* const machine) {
+    //
+    // With k extra relations, no dependency splits n = pq with probability
+    // 2^-k: rare enough to start with few and collect more only then.
+    //
+    siqs_context_t* const context = (siqs_context_t*) machine->context;
+    for (;;) {
+        const ecode_t ecode = collect_and_solve(machine);
+        if ((ecode != NO_FACTOR_FOUND) || !want_more_relations(context)) {
+            return ecode;
+        }
+    }
+}
+//------------------------------------------------------------------------------
+static bool want_more_relations(siqs_context_t* const context) {
+    //
+    // params->nrelations more, up to NRELATIONS_ROUNDS times as many in all.
+    // The relations kept are reused: their arrays grow, and the matrix,
+    // refilled at each run, is reallocated.
+    //
+    const uint32_t step  = context->params->nrelations;
+    const uint32_t extra = context->matrix_nrows - context->matrix_ncols;
+    if ((step == 0) || (extra + step > NRELATIONS_ROUNDS * step)) {
+        return false;
+    }
+    context->matrix_nrows += step;
+    resize_mpz_array(context->smooth_redgx, context->matrix_nrows);
+    resize_mpz_array(context->u, context->matrix_nrows);
+    resize_uint32_array(context->a_idx_for_smooth, context->matrix_nrows);
+    //
+    // A batch of candidates can be as large as the relations wanted.
+    //
+    if (context->xpool->alloced < context->matrix_nrows) {
+        resize_int32_array(context->xpool, context->matrix_nrows);
+        resize_mpz_array(context->cand_redgx, context->matrix_nrows);
+        resize_mpz_array(context->cand_u, context->matrix_nrows);
+        resize_uint32_array(context->cand_a_idx, context->matrix_nrows);
+    }
+
+    free_binary_matrix(context->matrix);
+    context->matrix = alloc_binary_matrix(context->matrix_nrows,
+                                          context->matrix_ncols);
+    context->matrix->nrows = 0;
+
+    return true;
+}
+//------------------------------------------------------------------------------
+static ecode_t collect_and_solve(factoring_machine_t* const machine) {
 
     INIT_TIMER;
 
