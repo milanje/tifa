@@ -164,12 +164,16 @@ int main(void) {
         free_mpz_array(f);
     }
 
-    // ---- ECM and p+1 on small composites ---- their stages caught every
-    // prime factor at once (gcd n) and gave up, for 18% of the odd composites
-    // near 10^5: they now redo the stage one prime at a time.
+    // ---- ECM, p+1 and p-1 on small composites ---- their stages caught
+    // every prime factor at once (gcd n) and gave up, for 18% of the odd
+    // composites near 10^5 (ECM): they now redo the stage one prime at a
+    // time. p-1 also goes through the primes in decreasing order (1247 =
+    // 29.43, 4187 = 53.79: orders of 2 ending in the same prime), and tries
+    // another base (2047 = 23.89: 2 has order 11 modulo both).
     {
         static const unsigned long ecm_ns[] = { 20003, 20077, 100000051 };
         static const unsigned long pp1_ns[] = { 323, 391 };
+        static const unsigned long pm1_ns[] = { 1247, 2047, 4187 };
         mpz_array_t* f = alloc_mpz_array(8);
         for (unsigned i = 0; i < sizeof(ecm_ns) / sizeof(ecm_ns[0]); i++) {
             mpz_set_ui(n, ecm_ns[i]);
@@ -186,6 +190,14 @@ int main(void) {
             f->length = 0;
             CHECK(p_plus_1(f, NULL, n, &params, FIND_SOME_FACTORS)
                       == SOME_FACTORS_FOUND, "p+1 splits a small composite");
+        }
+        for (unsigned i = 0; i < sizeof(pm1_ns) / sizeof(pm1_ns[0]); i++) {
+            mpz_set_ui(n, pm1_ns[i]);
+            p_minus_1_params_t params;
+            set_p_minus_1_params_to_default(n, &params);
+            f->length = 0;
+            CHECK(p_minus_1(f, NULL, n, &params, FIND_SOME_FACTORS)
+                      == SOME_FACTORS_FOUND, "p-1 splits a small composite");
         }
         free_mpz_array(f);
     }

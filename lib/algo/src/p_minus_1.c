@@ -316,31 +316,39 @@ static void backtrack_stage_1(mpz_t g, const mpz_t n,
     //
     // Stage 1 caught every prime factor of n at once (g = n). Redo it one
     // prime at a time, checking the gcd after each, and stop as soon as it
-    // splits n. If a single prime takes g from 1 to n, g is left equal to n.
+    // splits n: with the primes in increasing order, then decreasing. The
+    // first fails when the orders of the base modulo the prime factors end
+    // in the same prime; the second then splits n unless the orders are
+    // equal. If neither does, g is left equal to n.
     //
+    uint32_t nprimes = 0;
+    while ((nprimes < NFIRST_PRIMES) && (first_primes[nprimes] <= params->b1)) {
+        nprimes++;
+    }
     mpz_t b;
-    mpz_init_set_ui(b, params->base);
+    mpz_init(b);
 
-    uint32_t ip = 0;
-    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
-        unsigned long pr = first_primes[ip];
-        unsigned long pe = pr;
-        while (pe <= params->b1 / pr) {
-            pe *= pr;
-        }
-        for (unsigned long q = pr; ; q *= pr) {
-            mpz_powm_ui(b, b, pr, n);
-            mpz_sub_ui(g, b, 1);
-            mpz_gcd(g, g, n);
-            if (mpz_cmp_ui(g, 1) > 0) {
-                mpz_clear(b);
-                return;
+    for (int pass = 0; pass < 2; pass++) {
+        mpz_set_ui(b, params->base);
+        for (uint32_t i = 0; i < nprimes; i++) {
+            const unsigned long pr = first_primes[(pass == 0) ? i
+                                                              : nprimes - 1 - i];
+            for (uint64_t pe = pr; pe <= params->b1; pe *= pr) {
+                mpz_powm_ui(b, b, pr, n);
+                mpz_sub_ui(g, b, 1);
+                mpz_gcd(g, g, n);
+                if (mpz_cmp_ui(g, 1) > 0) {
+                    if (mpz_cmp(g, n) < 0) {
+                        mpz_clear(b);
+                        return;
+                    }
+                    break;
+                }
             }
-            if (q == pe) {
+            if (mpz_cmp_ui(g, 1) > 0) {
                 break;
             }
         }
-        ip++;
     }
     mpz_set(g, n);
     mpz_clear(b);
@@ -569,6 +577,9 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
                             rprev = cur;
                             rip++;
                         }
+                        if (ecode != SOME_FACTORS_FOUND) {
+                            mpz_set(g, n);      // a single prime caught all
+                        }
                     }
                     break;
                 }
@@ -597,6 +608,26 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
     STOP_TIMER;
     PRINT_TIMING;
 
+    //
+    // A single prime caught every prime factor of n at once, in stage 1 or
+    // 2: the orders of the base modulo them end in the same prime, and no
+    // backtracking splits n. Another base has other orders.
+    //
+    if ((ecode == NO_FACTOR_FOUND) && (mpz_cmp(g, n) == 0)) {
+        static const uint32_t retry_bases[] = { 3, 5, 7, 11 };
+        const uint32_t base = params->base;
+        for (unsigned i = 0; i < sizeof(retry_bases) / sizeof(retry_bases[0]);
+             i++) {
+            if (retry_bases[i] > base) {
+                if (mpz_cmp_ui(n, retry_bases[i]) > 0) {
+                    params->base = retry_bases[i];
+                    ecode = perform_p_minus_1(machine);
+                    params->base = base;
+                }
+                break;
+            }
+        }
+    }
     return ecode;
 }
 //------------------------------------------------------------------------------
