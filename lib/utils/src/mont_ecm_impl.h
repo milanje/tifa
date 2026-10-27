@@ -232,17 +232,47 @@ static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const x0,
 }
 
 //
+// Stage 1 again from (x0 : 1), one prime at a time, with a gcd after each:
+// for when the whole of it caught every prime factor of n at once. Returns
+// as limbs_gcd (-1 if a single prime still catches them all).
+//
+static int FN(stage1_backtrack)(mpz_t factor, const uint64_t* const x0,
+                                const uint64_t* const a24,
+                                const mont_ecm_plan_t* const plan,
+                                const mod_t* const m, const mpz_t n) {
+    FN(pt_t) p;
+    for (int j = 0; j < NL; j++) {
+        p.x[j] = x0[j];
+        p.z[j] = m->one[j];
+    }
+    for (uint32_t i = 0; (i < NFIRST_PRIMES) && (first_primes[i] <= plan->b1);
+         i++) {
+        const uint64_t q = first_primes[i];
+        for (uint64_t qe = q; qe <= plan->b1; qe *= q) {
+            FN(ladder)(&p, &p, q, a24, m);
+            const int found = limbs_gcd(factor, p.z, NL, n);
+            if (found != 0) {
+                return found;
+            }
+        }
+    }
+    return -1;
+}
+
+//
 // Product over the primes q = k.d +/- j of the plan of
 // x(k.d.P) - x(j.P).z(k.d.P), with the baby steps j.P normalized to z = 1
 // (one inversion for all), which vanishes mod a prime factor p of n when
 // q.P is the point at infinity mod p. One product covers both k.d - j and
 // k.d + j. Returns false, with g the gcd of the baby step z with n, if they
-// are not invertible.
+// are not invertible. With check, it stops at the first product sharing a
+// factor with n: for when the whole of it caught every prime factor at once.
 //
-static bool FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
-                       const uint64_t* const a24,
-                       const mont_ecm_plan_t* const plan,
-                       const mod_t* const m, mpz_t g, const mpz_t n) {
+static inline __attribute__((always_inline)) bool
+FN(stage2_body)(uint64_t* const acc, const FN(pt_t)* const p,
+                const uint64_t* const a24, const mont_ecm_plan_t* const plan,
+                const mod_t* const m, mpz_t g, const mpz_t n,
+                const bool check) {
     //
     // Baby steps: j.P for the odd j < d/2 coprime to d, by the chain
     // (j + 2).P = j.P + 2.P (difference (j - 2).P).
@@ -334,8 +364,26 @@ static bool FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
             FN(mul)(t, xs[plan->pairs[i]], gcur.z, m);
             FN(sub)(t, gcur.x, t, m);
             FN(mul)(acc, acc, t, m);
+            if (check && (limbs_gcd(g, acc, NL, n) != 0)) {
+                free(xs);
+                return true;
+            }
         }
     }
     free(xs);
     return true;
+}
+
+static bool FN(stage2)(uint64_t* const acc, const FN(pt_t)* const p,
+                       const uint64_t* const a24,
+                       const mont_ecm_plan_t* const plan,
+                       const mod_t* const m, mpz_t g, const mpz_t n) {
+    return FN(stage2_body)(acc, p, a24, plan, m, g, n, false);
+}
+
+static bool FN(stage2_check)(uint64_t* const acc, const FN(pt_t)* const p,
+                             const uint64_t* const a24,
+                             const mont_ecm_plan_t* const plan,
+                             const mod_t* const m, mpz_t g, const mpz_t n) {
+    return FN(stage2_body)(acc, p, a24, plan, m, g, n, true);
 }

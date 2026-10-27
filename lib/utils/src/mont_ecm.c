@@ -75,6 +75,20 @@ typedef struct {
 //                          Kernels for 1 to 4 limbs
 //------------------------------------------------------------------------------
 
+//
+// Sets factor to gcd(a, n) where a is given by its nl limbs. Returns 1 if
+// that is a proper factor, -1 if it is n, 0 if it is 1.
+//
+static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
+                     const mpz_t n) {
+    mpz_import(factor, (size_t) nl, -1, sizeof(uint64_t), 0, 0, a);
+    mpz_gcd(factor, factor, n);
+    if (mpz_cmp_ui(factor, 1) == 0) {
+        return 0;
+    }
+    return (mpz_cmp(factor, n) == 0) ? -1 : 1;
+}
+
 #define FN__(name, nl) name##_##nl
 #define FN_(name, nl)  FN__(name, nl)
 #define FN(name)       FN_(name, NL)
@@ -370,19 +384,9 @@ static void mod_init(mod_t* const m, const mpz_t n) {
 }
 
 //
-// Sets factor to gcd(a, n) where a is given by its nl limbs. Returns 1 if
-// that is a proper factor, -1 if it is n, 0 if it is 1.
+// When a stage catches every prime factor of n at once, it is redone with a
+// gcd after each prime (stage 1) or each product (stage 2).
 //
-static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
-                     const mpz_t n) {
-    mpz_import(factor, (size_t) nl, -1, sizeof(uint64_t), 0, 0, a);
-    mpz_gcd(factor, factor, n);
-    if (mpz_cmp_ui(factor, 1) == 0) {
-        return 0;
-    }
-    return (mpz_cmp(factor, n) == 0) ? -1 : 1;
-}
-
 #define RUN_CURVE(NLIMBS)                                                     \
     do {                                                                      \
         FN_(pt_t, NLIMBS) p;                                                  \
@@ -392,10 +396,19 @@ static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
         FN_(mul, NLIMBS)(a24m, a24, m.r2, &m);                                \
         FN_(stage1, NLIMBS)(&p, x0m, a24m, plan, &m);                         \
         found = limbs_gcd(factor, p.z, NLIMBS, n);                            \
+        if (found == -1) {                                                    \
+            found = FN_(stage1_backtrack, NLIMBS)(factor, x0m, a24m, plan,    \
+                                                  &m, n);                     \
+        }                                                                     \
         if ((found == 0) && (plan->d != 0)) {                                 \
             uint64_t acc[NLIMBS];                                             \
             if (FN_(stage2, NLIMBS)(acc, &p, a24m, plan, &m, factor, n)) {    \
                 found = limbs_gcd(factor, acc, NLIMBS, n);                    \
+                if ((found == -1)                                             \
+                    && FN_(stage2_check, NLIMBS)(acc, &p, a24m, plan, &m,      \
+                                                 factor, n)) {                \
+                    found = limbs_gcd(factor, acc, NLIMBS, n);                \
+                }                                                             \
             } else {                                                          \
                 found = (mpz_cmp(factor, n) < 0) ? 1 : -1;                    \
             }                                                                 \
@@ -613,6 +626,10 @@ bool mont_ecm_nth_curve(mpz_t factor, const mpz_t n, const uint32_t k,
             TO_MONT_MPZ(NLIMBS, q, a);                                        \
             FN_(lucas_stage2, NLIMBS)(t, q, plan, &m);                        \
             found = limbs_gcd(factor, t, NLIMBS, n);                          \
+            if (found == -1) {                                                \
+                FN_(lucas_stage2_check, NLIMBS)(t, q, plan, &m, factor, n);  \
+                found = limbs_gcd(factor, t, NLIMBS, n);                      \
+            }                                                                 \
         }                                                                     \
         mpz_clear(a);                                                         \
         mpz_clear(ainv);                                                      \
@@ -652,9 +669,16 @@ int mont_pm1(mpz_t factor, const mpz_t n, const uint32_t base,
         FN_(add, NLIMBS)(two, m.one, m.one, &m);                              \
         FN_(sub, NLIMBS)(t, v, two, &m);                                      \
         found = limbs_gcd(factor, t, NLIMBS, n);                              \
+        if (found == -1) {                                                    \
+            found = FN_(pp1_stage1_backtrack, NLIMBS)(factor, p, plan, &m, n);\
+        }                                                                     \
         if ((found == 0) && (plan->d != 0)) {                                 \
             FN_(lucas_stage2, NLIMBS)(t, v, plan, &m);                        \
             found = limbs_gcd(factor, t, NLIMBS, n);                          \
+            if (found == -1) {                                                \
+                FN_(lucas_stage2_check, NLIMBS)(t, v, plan, &m, factor, n);  \
+                found = limbs_gcd(factor, t, NLIMBS, n);                      \
+            }                                                                 \
         }                                                                     \
     } while (0)
 

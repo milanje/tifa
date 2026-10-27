@@ -164,6 +164,32 @@ int main(void) {
         free_mpz_array(f);
     }
 
+    // ---- ECM and p+1 on small composites ---- their stages caught every
+    // prime factor at once (gcd n) and gave up, for 18% of the odd composites
+    // near 10^5: they now redo the stage one prime at a time.
+    {
+        static const unsigned long ecm_ns[] = { 20003, 20077, 100000051 };
+        static const unsigned long pp1_ns[] = { 323, 391 };
+        mpz_array_t* f = alloc_mpz_array(8);
+        for (unsigned i = 0; i < sizeof(ecm_ns) / sizeof(ecm_ns[0]); i++) {
+            mpz_set_ui(n, ecm_ns[i]);
+            ecm_params_t params;
+            set_ecm_params_to_default(n, &params);
+            f->length = 0;
+            CHECK(ecm(f, NULL, n, &params, FIND_SOME_FACTORS)
+                      == SOME_FACTORS_FOUND, "ecm splits a small composite");
+        }
+        for (unsigned i = 0; i < sizeof(pp1_ns) / sizeof(pp1_ns[0]); i++) {
+            mpz_set_ui(n, pp1_ns[i]);
+            p_plus_1_params_t params;
+            set_p_plus_1_params_to_default(n, &params);
+            f->length = 0;
+            CHECK(p_plus_1(f, NULL, n, &params, FIND_SOME_FACTORS)
+                      == SOME_FACTORS_FOUND, "p+1 splits a small composite");
+        }
+        free_mpz_array(f);
+    }
+
     // ---- CFRAC on short periods ---- k*n = m^2 + 1 makes every residue 1,
     // and 1005679*1005681 has a short period without smooth residues: both
     // used to loop forever. Any outcome will do, as long as it ends.

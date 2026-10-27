@@ -120,14 +120,49 @@ static void FN(pp1_stage1)(uint64_t* const v, const uint64_t* const p,
 }
 
 //
+// p+1 stage 1 again from V_1 = p, one prime at a time (V_{qe} = V_q(V_e)),
+// with a gcd after each: for when the whole of it caught every prime factor
+// of n at once. Returns as limbs_gcd (-1 if a single prime catches them all).
+//
+static int FN(pp1_stage1_backtrack)(mpz_t factor, const uint64_t* const p,
+                                    const mont_ecm_plan_t* const plan,
+                                    const mod_t* const m, const mpz_t n) {
+    uint64_t two[NL], v[NL], v1[NL], t[NL];
+    FN(add)(two, m->one, m->one, m);
+    for (int j = 0; j < NL; j++) {
+        v[j] = p[j];
+    }
+    for (uint32_t i = 0; (i < NFIRST_PRIMES) && (first_primes[i] <= plan->b1);
+         i++) {
+        const uint64_t q = first_primes[i];
+        for (uint64_t qe = q; qe <= plan->b1; qe *= q) {
+            uint64_t base[NL];
+            for (int j = 0; j < NL; j++) {
+                base[j] = v[j];
+            }
+            FN(lucas_ladder)(v, v1, base, q, m);
+            FN(sub)(t, v, two, m);
+            const int found = limbs_gcd(factor, t, NL, n);
+            if (found != 0) {
+                return found;
+            }
+        }
+    }
+    return -1;
+}
+
+//
 // Stage 2 shared by p-1 (q = a + 1/a, so that V_k(q) = a^k + a^-k) and p+1
 // (q = V_E(P)): the product over the primes k.d +/- j of the plan of
 // V_{k.d}(q) - V_j(q), which vanishes mod a prime factor p of n when
-// a^(k.d - j) or a^(k.d + j) is 1 mod p. One product covers both.
+// a^(k.d - j) or a^(k.d + j) is 1 mod p. One product covers both. With
+// check, it stops at the first product sharing a factor with n (g): for when
+// the whole of it caught every prime factor of n at once.
 //
-static void FN(lucas_stage2)(uint64_t* const acc, const uint64_t* const q,
-                             const mont_ecm_plan_t* const plan,
-                             const mod_t* const m) {
+static inline __attribute__((always_inline)) void
+FN(lucas_stage2_body)(uint64_t* const acc, const uint64_t* const q,
+                      const mont_ecm_plan_t* const plan, const mod_t* const m,
+                      mpz_t g, const mpz_t n, const bool check) {
     const uint32_t half = plan->d / 2;
     uint64_t (*const baby)[NL] = tifa_malloc(plan->nbaby * sizeof(*baby));
 
@@ -195,9 +230,26 @@ static void FN(lucas_stage2)(uint64_t* const acc, const uint64_t* const q,
         for (uint32_t i = plan->offsets[k]; i < plan->offsets[k + 1]; i++) {
             FN(sub)(t, gcur, baby[plan->pairs[i]], m);
             FN(mul)(acc, acc, t, m);
+            if (check && (limbs_gcd(g, acc, NL, n) != 0)) {
+                free(baby);
+                return;
+            }
         }
     }
     free(baby);
+}
+
+static void FN(lucas_stage2)(uint64_t* const acc, const uint64_t* const q,
+                             const mont_ecm_plan_t* const plan,
+                             const mod_t* const m) {
+    FN(lucas_stage2_body)(acc, q, plan, m, NULL, NULL, false);
+}
+
+static void FN(lucas_stage2_check)(uint64_t* const acc, const uint64_t* const q,
+                                   const mont_ecm_plan_t* const plan,
+                                   const mod_t* const m, mpz_t g,
+                                   const mpz_t n) {
+    FN(lucas_stage2_body)(acc, q, plan, m, g, n, true);
 }
 
 #undef E_BIT

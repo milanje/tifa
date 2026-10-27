@@ -1,5 +1,14 @@
 # TIFA news
 
+## 27 October 2026 &mdash; ECM and p+1 on small composites (for 0.3.0)
+
+When a stage caught every prime factor of n at once (a gcd equal to n), ECM
+and p+1 gave up: on 18% of the odd composites near 10^5, 11% near 10^6 and
+4% near 10^8 for ECM, and on 25% of those near 10^5 for p+1. Like p-1, they
+now redo such a stage one prime at a time (stage 1) or one product at a time
+(stage 2), with a gcd after each, on both the Montgomery and the GMP paths.
+They now split all of these composites; other runs take the same time.
+
 ## 26 October 2026 &mdash; fixes and documentation (for 0.3.0)
 
 A review for latent defects, with a test for most fixes.

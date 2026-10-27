@@ -254,7 +254,7 @@ static ecode_t perform_ecm(factoring_machine_t* const machine);
 //------------------------------------------------------------------------------
 static ecode_t phase_1(factoring_machine_t* const machine);
 //------------------------------------------------------------------------------
-static ecode_t phase_2(factoring_machine_t* const machine);
+static ecode_t phase_2(factoring_machine_t* const machine, bool check);
 //------------------------------------------------------------------------------
 static ecode_t choose_curve(ecm_context_t* const context);
 //------------------------------------------------------------------------------
@@ -759,7 +759,7 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
         // Perform second phase of ECM...
         //
         START_NAMED_TIMER(phase_2);
-        exit_code = phase_2(machine);
+        exit_code = phase_2(machine, false);
         STOP_NAMED_TIMER(phase_2);
 
         if (exit_code == SOME_FACTORS_FOUND) {
@@ -786,6 +786,37 @@ static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
     return tifa_factor(factors, multis, n, mode);
 }
 //------------------------------------------------------------------------------
+static void backtrack_phase_1(mpz_t g, factoring_machine_t* const machine) {
+    //
+    // Stage 1 caught every prime factor of n at once (g = n). Redo it one
+    // prime at a time, checking the gcd after each, and stop as soon as it
+    // splits n. If a single prime takes g from 1 to n, g is left equal to n.
+    //
+    ecm_context_t* const context = (ecm_context_t* const) machine->context;
+    const ecm_params_t* const params = (ecm_params_t*) machine->params;
+
+    mpz_t x, z, q;
+    mpz_init_set(x, context->x0);
+    mpz_init_set(z, context->z0);
+    mpz_init(q);
+
+    for (uint32_t ip = 0;
+         (ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1); ip++) {
+        mpz_set_ui(q, first_primes[ip]);
+        for (uint64_t pe = first_primes[ip]; pe <= params->b1;
+             pe *= first_primes[ip]) {
+            multiply_point(x, z, x, z, q, context);
+            mpz_gcd(g, z, machine->n);
+            if (mpz_cmp_ui(g, 1) != 0) {
+                mpz_clears(x, z, q, NULL);
+                return;
+            }
+        }
+    }
+    mpz_set(g, machine->n);
+    mpz_clears(x, z, q, NULL);
+}
+//------------------------------------------------------------------------------
 static ecode_t phase_1(factoring_machine_t* const machine) {
 
     ecm_context_t* const context = (ecm_context_t* const) machine->context;
@@ -801,6 +832,9 @@ static ecode_t phase_1(factoring_machine_t* const machine) {
 
     mpz_gcd(g, context->zk, machine->n);
 
+    if (mpz_cmp(g, machine->n) == 0) {
+        backtrack_phase_1(g, machine);
+    }
     if ((mpz_cmp_ui(g, 1) != 0) && (mpz_cmp(g, machine->n) != 0)) {
         append_mpz_to_array(machine->factors, g);
         mpz_divexact(g, machine->n, g);
@@ -812,12 +846,15 @@ static ecode_t phase_1(factoring_machine_t* const machine) {
     return exit_code;
 }
 //------------------------------------------------------------------------------
-static ecode_t phase_2(factoring_machine_t* const machine) {
+static ecode_t phase_2(factoring_machine_t* const machine, bool check) {
     //
     // This second phase implementation follows the standard continuation
     // and is implemented in a way reminiscent of the description
     // given in the article "Implementing the Elliptic Curve Method of Factoring
     // in Reconfigurable Hardware" by Kris Gaj et al.
+    //
+    // With check, it stops at the first product sharing a factor with n: it
+    // reruns so when the whole product caught every prime factor at once.
     //
     ecm_context_t* const context = (ecm_context_t* const) machine->context;
     ecode_t exit_code = NO_FACTOR_FOUND;
@@ -945,6 +982,12 @@ static ecode_t phase_2(factoring_machine_t* const machine) {
                 mpz_submul(tmp, zr, SX[j]);
                 mpz_mul(d, d, tmp);
                 mpz_mod(d, d, context->n);
+                if (check) {
+                    mpz_gcd(g, d, context->n);
+                    if (mpz_cmp_ui(g, 1) != 0) {
+                        goto product_done;
+                    }
+                }
             }
         }
         mpz_set(xq_old, xr);
@@ -958,7 +1001,9 @@ static ecode_t phase_2(factoring_machine_t* const machine) {
         mpz_set(xdiff, xq_old);
         mpz_set(zdiff, zq_old);
     }
+  product_done:
     mpz_gcd(g, d, context->n);
+    const bool overshoot = !check && (mpz_cmp(g, machine->n) == 0);
 
     if ((mpz_cmp_ui(g, 1) != 0) && (mpz_cmp(g, machine->n) != 0)) {
         append_mpz_to_array(machine->factors, g);
@@ -986,6 +1031,9 @@ static ecode_t phase_2(factoring_machine_t* const machine) {
     mpz_clear(zq_old);
 #endif
 
+    if (overshoot) {
+        return phase_2(machine, true);
+    }
     return exit_code;
 }
 //------------------------------------------------------------------------------

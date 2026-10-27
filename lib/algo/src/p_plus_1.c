@@ -431,6 +431,33 @@ static ecode_t update_p_plus_1_context(factoring_machine_t* const machine) {
     return ecode;
 }
 //------------------------------------------------------------------------------
+static void backtrack_stage_1(mpz_t g, const mpz_t n, const unsigned long P,
+                              const p_plus_1_params_t* const params) {
+    //
+    // Stage 1 caught every prime factor of n at once (g = n). Redo it one
+    // prime at a time, checking the gcd after each, and stop as soon as it
+    // splits n. If a single prime takes g from 1 to n, g is left equal to n.
+    //
+    mpz_t x;
+    mpz_init_set_ui(x, P);
+
+    for (uint32_t ip = 0;
+         (ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1); ip++) {
+        const unsigned long pr = first_primes[ip];
+        for (uint64_t pe = pr; pe <= params->b1; pe *= pr) {
+            lucas_V_mod(x, pr, x, n);
+            mpz_sub_ui(g, x, 2);
+            mpz_gcd(g, g, n);
+            if (mpz_cmp_ui(g, 1) > 0) {
+                mpz_clear(x);
+                return;
+            }
+        }
+    }
+    mpz_set(g, n);
+    mpz_clear(x);
+}
+//------------------------------------------------------------------------------
 static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
     p_plus_1_context_t* context = (p_plus_1_context_t*) machine->context;
     p_plus_1_params_t*  params  = (p_plus_1_params_t*)  machine->params;
@@ -547,6 +574,9 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
     mpz_sub_ui(g, x, 2);
     mpz_gcd(g, g, n);
 
+    if (mpz_cmp(g, n) == 0) {
+        backtrack_stage_1(g, n, P, params);
+    }
     if ((mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0)) {
         append_mpz_to_array(machine->factors, g);
         mpz_divexact(g, n, g);
