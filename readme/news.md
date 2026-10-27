@@ -1,5 +1,28 @@
 # TIFA news
 
+## 28 October 2026 &mdash; version 0.3.1
+
+Version 0.3.1 gathers the work below since 0.3.0: SIQS spends less time
+outside its sieve (Gaussian elimination, trial division, the setup of each
+new `a`), collects 8 extra relations instead of 24 and more only when none
+splits the number, and stops sorting 18424 triples for six primes in `a`;
+the programs take `-h` and `--help`. The ABI is unchanged: the shared
+library is still `libtifa.so.0.3`. Against 0.3.0, on one thread of an Apple
+M5 Pro (time of 0.3.1 over that of 0.3.0, balanced semiprimes; 100 numbers
+per size up to 120 bits, 30 up to 150 and 8 above):
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.69 | 0.69 | 0.69 | 0.72 | 0.74 | 0.77 | 0.79 | 0.82 | 0.87 | 0.88 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.89 | 0.90 | 0.93 | 0.93 | 0.95 | 0.94 | 0.95 | 0.96 | 0.97 | 0.97 |
+
+| `tifa_factor()`, bits | 40 | 50 | 64 | 66 | 80 | 100 | 128 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 1.00 | 1.00 | 1.00 | 0.72 | 0.77 | 0.86 | 0.92 | 0.94 |
+
 ## 27 October 2026 &mdash; `--help`, and function names in the documentation
 
 The programs print their usage and exit with status 0 on `-h` or `--help`;
