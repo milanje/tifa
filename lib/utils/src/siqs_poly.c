@@ -211,24 +211,51 @@ choose_a(siqs_poly_t* const poly)
 }
 //-----------------------------------------------------------------------------
 //
-// The inverse of a (0 < a < p) modulo the prime p, by the extended Euclidean
-// algorithm: several times faster here than mpz_invert.
+// The inverses of the a[k] (0 < a[k] < p[k]) modulo the primes p[k], by the
+// extended Euclidean algorithm: several times faster here than mpz_invert.
+// INVERSE_LANES of them are interleaved, their divisions overlapping and one
+// loop exit to mispredict: twice as fast as one at a time.
 //
-static inline uint32_t inverse_mod(const uint32_t a, const uint32_t p) {
-    uint32_t r0 = p;
-    uint32_t r1 = a;
-    int64_t  t0 = 0;
-    int64_t  t1 = 1;
-    while (r1 != 0) {
-        const uint32_t q = r0 / r1;
-        const uint32_t r = r0 - q * r1;
-        r0 = r1;
-        r1 = r;
-        const int64_t t = t0 - (int64_t) q * t1;
-        t0 = t1;
-        t1 = t;
+#define INVERSE_LANES 4
+
+static inline void inverse_mod_lanes(const uint32_t* const a,
+                                     const uint32_t* const p,
+                                     uint32_t* const inv) {
+    uint32_t r0[INVERSE_LANES];
+    uint32_t r1[INVERSE_LANES];
+    int64_t  t0[INVERSE_LANES];
+    int64_t  t1[INVERSE_LANES];
+    for (int k = 0; k < INVERSE_LANES; k++) {
+        r0[k] = p[k];
+        r1[k] = a[k];
+        t0[k] = 0;
+        t1[k] = 1;
     }
-    return (uint32_t) ((t0 < 0) ? t0 + p : t0);
+    for (;;) {
+        uint32_t left = 0;
+        for (int k = 0; k < INVERSE_LANES; k++) {
+            left |= r1[k];
+        }
+        if (left == 0) {
+            break;
+        }
+        for (int k = 0; k < INVERSE_LANES; k++) {
+            //
+            // Without branches: a finished lane (r1 = 0) is kept as is.
+            //
+            const bool     done = (r1[k] == 0);
+            const uint32_t q    = r0[k] / (r1[k] + done);
+            const uint32_t r    = r0[k] - q * r1[k];
+            const int64_t  t    = t0[k] - (int64_t) q * t1[k];
+            r0[k] = done ? r0[k] : r1[k];
+            r1[k] = done ? 0     : r;
+            t0[k] = done ? t0[k] : t1[k];
+            t1[k] = done ? t1[k] : t;
+        }
+    }
+    for (int k = 0; k < INVERSE_LANES; k++) {
+        inv[k] = (uint32_t) ((t0[k] < 0) ? t0[k] + p[k] : t0[k]);
+    }
 }
 //
 // a, b and the Bl when they fit in 64 bits (n up to about 140 bits): their
@@ -242,29 +269,26 @@ typedef struct {
     uint64_t Bl[MAX_NPRIMES_IN_A_U64];
 } poly_u64_t;
 //
-// For the i-th prime p of the base, not dividing a: the 2.Bj.inv(a) mod p of
-// Bainv2[i], and the two solutions to g_{a,b}(x) = 0 mod p.
+// For the i-th prime p of the base, not dividing a, given inv(a) mod p (0 if
+// p divides a): the 2.Bj.inv(a) mod p of Bainv2[i], and the two solutions to
+// g_{a,b}(x) = 0 mod p.
 //
 static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
                           const uint32_t curprime, const poly_u64_t* const w,
-                          mpz_t inv, mpz_t mpzp) {
+                          const uint32_t ainv) {
     const uint32_t nprimes_in_a = poly->nprimes_in_a;
     uint32_t* const bainv2 = poly->Bainv2[i];
 
-    unsigned long int ainv;
     unsigned long int bmodp;
     uint64_t gamma;
 
+    if (ainv == 0) {
+        PRINTF_STDERR("\n");
+        PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", poly->a, curprime);
+        PRINT_ERROR("This should not happen - Factorization aborted!\n");
+        return FATAL_INTERNAL_ERROR;
+    }
     if (w->fit) {
-        const uint32_t amodp = (uint32_t) (w->a % curprime);
-        if (amodp == 0) {
-            PRINTF_STDERR("\n");
-            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", poly->a,
-                        curprime);
-            PRINT_ERROR("This should not happen - Factorization aborted!\n");
-            return FATAL_INTERNAL_ERROR;
-        }
-        ainv  = inverse_mod(amodp, curprime);
         bmodp = (unsigned long int) (w->b % curprime);
         for (uint32_t j = 0; j < nprimes_in_a; j++) {
             gamma  = 2 * (w->Bl[j] % curprime);
@@ -273,15 +297,6 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
             bainv2[j] = (uint32_t) gamma;
         }
     } else {
-        mpz_set_ui(mpzp, curprime);
-        if (0 == mpz_invert(inv, poly->a, mpzp)) {
-            PRINTF_STDERR("\n");
-            PRINT_ERROR("%Zd has no inverse mod %"PRIu32"!\n", poly->a,
-                        curprime);
-            PRINT_ERROR("This should not happen - Factorization aborted!\n");
-            return FATAL_INTERNAL_ERROR;
-        }
-        ainv  = mpz_get_ui(inv);
         bmodp = mpz_fdiv_ui(poly->b, curprime);
         for (uint32_t j = 0; j < nprimes_in_a; j++) {
             gamma  = 2 * mpz_fdiv_ui(poly->Bl->data[j], curprime);
@@ -357,8 +372,9 @@ full_poly_init(siqs_poly_t* const poly)
     mpz_t mpzp;
     mpz_init(mpzp);
 
-    uint64_t gamma    = 0;
-    uint32_t curprime = 0;
+    uint64_t  gamma    = 0;
+    uint32_t  curprime = 0;
+    uint32_t* ainv     = NULL;
     
     mpz_set_ui(b, 0);
     //
@@ -433,10 +449,29 @@ full_poly_init(siqs_poly_t* const poly)
             w.Bl[j] = mpz_get_ui(Bl->data[j]);
         }
     }
+    //
+    // inv(a) mod p for all the primes of the base at once, 0 for the primes
+    // of a: the inverses are computed INVERSE_LANES at a time.
+    //
+    ainv = tifa_malloc(fb_length * sizeof(uint32_t));
+    for (uint32_t i = 0; i < fb_length; i += INVERSE_LANES) {
+        uint32_t amodp[INVERSE_LANES];
+        uint32_t p[INVERSE_LANES];
+        uint32_t inv_lanes[INVERSE_LANES];
+        for (uint32_t k = 0; k < INVERSE_LANES; k++) {
+            p[k]     = (i + k < fb_length) ? fb[i + k] : 2;
+            amodp[k] = w.fit ? (uint32_t) (w.a % p[k])
+                             : (uint32_t) mpz_fdiv_ui(a, p[k]);
+        }
+        inverse_mod_lanes(amodp, p, inv_lanes);
+        for (uint32_t k = 0; (k < INVERSE_LANES) && (i + k < fb_length); k++) {
+            ainv[i + k] = (amodp[k] == 0) ? 0 : inv_lanes[k];
+        }
+    }
     const uint32_t* fbptr = &(fb[0]);
     
     for (uint32_t i = 0; i < rimin; i++) {
-        ecode = init_prime(poly, i, *fbptr, &w, inv, mpzp);
+        ecode = init_prime(poly, i, *fbptr, &w, ainv[i]);
         if (ecode != SUCCESS) {
             goto clean_and_return;
         }
@@ -450,7 +485,7 @@ full_poly_init(siqs_poly_t* const poly)
            fbptr++;
            continue;
         }
-        ecode = init_prime(poly, i, *fbptr, &w, inv, mpzp);
+        ecode = init_prime(poly, i, *fbptr, &w, ainv[i]);
         if (ecode != SUCCESS) {
             goto clean_and_return;
         }
@@ -459,7 +494,7 @@ full_poly_init(siqs_poly_t* const poly)
     fbptr++;
     
     for (uint32_t i = rimax + 1; i < fb_length; i++) {
-        ecode = init_prime(poly, i, *fbptr, &w, inv, mpzp);
+        ecode = init_prime(poly, i, *fbptr, &w, ainv[i]);
         if (ecode != SUCCESS) {
             goto clean_and_return;
         }
@@ -471,6 +506,8 @@ full_poly_init(siqs_poly_t* const poly)
     poly->polyno = 1;
     
   clean_and_return:
+
+    free(ainv);
 
     mpz_clear(inv);
     mpz_clear(mpzp);
