@@ -12,16 +12,19 @@ Here are some short term objectives:
 
   - SIQS: outside the sieve, the largest costs left at 70 bits are, in
     shares of a run:
+      - the batch smoothness test of the candidates (15%), three quarters of
+        which are not smooth. Their number follows the sieve threshold,
+        which is tuned;
       - the first use of the GMP integers of each run's arrays, about 650
-        allocations (9%). Keeping the arrays between runs would need state
-        per thread;
-      - the trial division of the relations (12%);
-      - the Gaussian elimination (12%). Gauss-Jordan on the transposed
-        matrix was slower, and removing singleton columns would only remove
-        2 to 7% of the matrix;
-      - each new 'a' (5 to 9% from 70 to 100 bits, measured before the
-        retunes of 26 October). determine_nprimes follows the best number
-        of primes measured for each size of the target, but six primes were
-        never clearly best (1.6 to 3.9% slower than five or seven from 140
-        to 175 bits): how the approximer picks six primes may be worth a
-        look.
+        allocations (6% in GMP's allocations and frees alone). Keeping the
+        arrays between runs would need state per thread;
+      - the trial division of the relations (7%), the Gaussian elimination
+        (6%) and find_factors_decomp (5%, half of it reductions modulo n:
+        reducing less often was within noise). Gauss-Jordan on the
+        transposed matrix was slower, and removing singleton columns would
+        only remove 2 to 7% of the matrix;
+      - each new 'a' (3.5% at 70 and 100 bits). determine_nprimes follows
+        the best number of primes measured for each size of the target,
+        but six primes were never clearly best (1.6 to 3.9% slower than
+        five or seven from 140 to 175 bits): how the approximer picks six
+        primes may be worth a look.

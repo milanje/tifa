@@ -1,5 +1,42 @@
 # TIFA news
 
+## 27 October 2026 &mdash; SIQS overheads
+
+Outside the sieve, a small SIQS run spent much of its time in four places,
+now cheaper:
+
+- The Gaussian elimination keeps the rows in lists by their rightmost column
+  left, so that each pivot meets only the rows that have it, instead of
+  scanning every row for every column: 2.1 to 2.6 times faster on the
+  matrices of 70 to 110-bit runs.
+- The trial division of the relations works on g(x)/a, one limb shorter at
+  70 bits, and adds the primes of `a`, known, instead of finding them again.
+  It tests 64 primes at a time without branches, then divides out the
+  divisors only: a branch per prime mispredicted on the few that divide.
+- Each new `a` needs its inverse modulo every prime of the base: the
+  Euclidean algorithms run four at a time, interleaved, twice as fast per
+  inverse.
+- The size of the L1 data cache, which sets the size of the sieve chunks, is
+  looked up once per process: `sysctlbyname` took 0.7% of a 66-bit run.
+
+Against the previous version (time after over time before, balanced
+semiprimes, one thread of an Apple M5 Pro; 100 numbers per size up to 120
+bits, 30 up to 150 and 8 above):
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.82 | 0.79 | 0.83 | 0.82 | 0.85 | 0.82 | 0.86 | 0.89 | 0.93 | 0.93 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.94 | 0.92 | 0.97 | 0.93 | 0.96 | 0.96 | 0.94 | 0.98 | 0.95 | 0.96 |
+
+Each change on its own, against the one before: the elimination 0.92 to 0.93
+from 66 to 90 bits; the trial division of g(x)/a 0.98 from 70 to 90 bits,
+then without branches 0.93 at 66 and 70 bits and 0.95 to 0.98 up to 110; the
+inverses 0.96 to 0.975 from 66 to 110 bits. The library's interface is
+unchanged.
+
 ## 27 October 2026 &mdash; wider CI
 
 CI ran the tests with GCC and Clang only. It now also runs them under ASan,
