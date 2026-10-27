@@ -19,6 +19,13 @@
 // Unit tests for the runtime tuning-file loader (lib/algo/include/tuning.h,
 // lib/algo/src/tuning.c).
 
+//
+// unsetenv is POSIX: strict C99 hides it in glibc.
+//
+#if !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
