@@ -275,8 +275,7 @@ approximer_t* alloc_approximer(mpz_t                 target,
     // (in other words for tiny factorizations, say n < 2^70).
     //
     bool overflow  = (aximer->imax >= (int32_t)facpool->length);
-    // Index 0 is the prime 2, which 'a' must avoid (B = a/2: b + 2B = b + a).
-    bool underflow = (aximer->imin < 1);
+    bool underflow = (aximer->imin < 0);
     bool toofew    = (aximer->nodd < aximer->kodd);
 
     if (overflow) {

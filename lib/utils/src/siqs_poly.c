@@ -186,8 +186,10 @@ choose_a(siqs_poly_t* const poly)
     // A prime dividing kn has the single root 0, which makes its B_l zero:
     // successive b's would then repeat, sieving the same polynomials again
     // and filling the matrix with duplicate relations (hence only trivial
-    // dependencies). Skip any 'a' with such a prime. Give up after one pass
-    // over all the subsets the approximer can produce.
+    // dependencies). Skip any 'a' with such a prime, or with 2 (index 0): its
+    // B = a/2 makes the next b equal to b + a, a shifted copy of the same
+    // polynomial. Give up after one pass over all the subsets the approximer
+    // can produce.
     //
     const uint32_t* const sqrtm = poly->sqrtm_pi->data;
     const uint32_t ntries = poly->approximer->nsubsets_odd;
@@ -195,14 +197,14 @@ choose_a(siqs_poly_t* const poly)
     for (uint32_t itry = 0; itry <= ntries; itry++) {
         random_approximation(poly->approximer, poly->a, poly->idx_of_a);
 
-        bool divides_kn = false;
+        bool bad_prime = false;
         for (uint32_t j = 0; j < poly->nprimes_in_a; j++) {
-            if (sqrtm[poly->idx_of_a[j]] == 0) {
-                divides_kn = true;
+            if ((poly->idx_of_a[j] == 0) || (sqrtm[poly->idx_of_a[j]] == 0)) {
+                bad_prime = true;
                 break;
             }
         }
-        if (!divides_kn) {
+        if (!bad_prime) {
             return;
         }
     }
