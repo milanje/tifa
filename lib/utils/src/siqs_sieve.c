@@ -38,6 +38,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 #if defined(__APPLE__)
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -126,11 +127,17 @@ static inline ecode_t empty_bucket(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket_posi(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket_nega(siqs_sieve_t* const sieve);
 //-----------------------------------------------------------------------------
+#if defined(LOG2_SIEVE_CHUNK_MAX_SIZE)
 static uint32_t log2_sieve_chunk_size(void)
 {
-#if defined(LOG2_SIEVE_CHUNK_MAX_SIZE)
     return LOG2_SIEVE_CHUNK_MAX_SIZE;
+}
 #else
+static uint32_t       log2_chunk_size      = LOG2_SIEVE_CHUNK_MIN;
+static pthread_once_t log2_chunk_size_once = PTHREAD_ONCE_INIT;
+
+static void find_log2_sieve_chunk_size(void)
+{
     //
     // On CPUs mixing core types the system reports the smallest L1 (64 KB on
     // Apple's efficiency cores against 128 KB on its performance cores), so
@@ -153,9 +160,18 @@ static uint32_t log2_sieve_chunk_size(void)
     while ((log2 < LOG2_SIEVE_CHUNK_MAX) && ((1UL << (log2 + 1)) <= l1d)) {
         log2++;
     }
-    return log2;
-#endif
+    log2_chunk_size = log2;
 }
+
+static uint32_t log2_sieve_chunk_size(void)
+{
+    //
+    // Once per process: sysctlbyname took 1% of a 70-bit SIQS.
+    //
+    pthread_once(&log2_chunk_size_once, find_log2_sieve_chunk_size);
+    return log2_chunk_size;
+}
+#endif
 //-----------------------------------------------------------------------------
 siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const factor_base,
