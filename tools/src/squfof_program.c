@@ -162,6 +162,8 @@ int main(int argc, char** argv) {
 
     const int status = run_program(&program);
 
+    mpz_clear(program.n);
+
     return status;
 }
 //------------------------------------------------------------------------------

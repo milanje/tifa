@@ -90,6 +90,11 @@ static void test_hashtable_count(void) {
     const uint32_t key = 2;
     CHECK(remove_entry_in_hashtable(h, &key) == &values[1], "removed entry");
     CHECK_EQ_UI(h->nentries, 2, "entries counted on removal");
+
+    // free_hashtable leaves the keys to their owner: remove the others.
+    for (uint32_t k = 1; k <= 3; k += 2) {
+        remove_entry_in_hashtable(h, &k);
+    }
     free_hashtable(h);
 }
 

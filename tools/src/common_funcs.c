@@ -48,8 +48,8 @@ void print_hello_msg(char* algo_name) {
     //
     // Create the format string to center the title in the line
     //
-    char format[8];
-    snprintf(format, 8, "%%%lus\n",
+    char format[32];
+    snprintf(format, sizeof(format), "%%%lus\n",
              strlen(title) + (strlen(linesep) - strlen(title))/2);
 
     printf("\n");

@@ -8,30 +8,51 @@ on:
 
 jobs:
   build-test:
-    name: build-test (${{ matrix.cc }})
-    runs-on: ubuntu-latest
+    name: build-test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        # Every job builds with -Wall -Wextra -Werror.
         include:
-          # Both compilers build with -Wall -Wextra -Werror.
-          - { cc: clang, werror: ON }
-          - { cc: gcc, werror: ON }
+          - { name: clang, os: ubuntu-latest, cc: clang, build: Release }
+          - { name: gcc, os: ubuntu-latest, cc: gcc, build: Release }
+          # ASan, UBSan and LeakSanitizer. GCC: clang's UBSan needs
+          # compiler-rt's __muloti4 for the 128-bit products.
+          - name: sanitizers
+            os: ubuntu-latest
+            cc: gcc
+            build: Debug
+            cflags: -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all
+          # The GMP code paths, as on compilers without 128-bit integers.
+          - { name: no-int128, os: ubuntu-latest, cc: gcc, build: Release, cflags: -U__SIZEOF_INT128__ }
+          - { name: calloc-off, os: ubuntu-latest, cc: gcc, build: Release, options: -DTIFA_USE_CALLOC_MEMSET=OFF }
+          # Apple arm64, where the defaults were tuned.
+          - { name: macos, os: macos-latest, cc: clang, build: Release }
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install dependencies
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libgmp-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gmp
 
       - name: Configure
         run: >
           cmake -S . -B build
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=${{ matrix.build }}
           -DCMAKE_C_COMPILER=${{ matrix.cc }}
-          -DTIFA_WERROR=${{ matrix.werror }}
+          "-DCMAKE_C_FLAGS=${{ matrix.cflags }}"
+          -DTIFA_WERROR=ON
+          ${{ matrix.options }}
 
       - name: Build
         run: cmake --build build --parallel
 
       - name: Test
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1
         run: ctest --test-dir build --output-on-failure

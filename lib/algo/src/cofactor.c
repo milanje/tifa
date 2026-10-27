@@ -221,6 +221,7 @@ static cofactor_status_t add_part(cofactor_run_t* const run, const mpz_t c,
     return COFACTOR_SMOOTH;
 }
 //------------------------------------------------------------------------------
+#if TIFA_HAVE_FACTOR_U64 || TIFA_HAVE_MONT_ECM
 static cofactor_status_t add_split(cofactor_run_t* const run, const mpz_t c,
                                    const mpz_t g, uint32_t e) {
     mpz_divexact(run->tmp, c, g);
@@ -238,6 +239,7 @@ static cofactor_status_t add_split(cofactor_run_t* const run, const mpz_t c,
     mpz_clear(other);
     return status;
 }
+#endif
 
 //------------------------------------------------------------------------------
 //                              SPLITTING

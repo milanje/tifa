@@ -6,5 +6,8 @@ Known bugs and issues
   None at the moment. The test suite ("ctest --test-dir build" after a build)
   checks the factorizations of every algorithm and of tifa_factor, the
   answers of tifa_cofactor, the machine-word and Montgomery code, the tuning
-  files, and factorizations running in several threads at once. It runs
-  with GCC and Clang on each push to master and each pull request.
+  files, the programs' exit statuses, and factorizations running in several
+  threads at once. It runs on each push to master and each pull request,
+  with warnings as errors: with GCC and Clang on Linux, under ASan, UBSan
+  and LeakSanitizer, without 128-bit integers (the GMP code paths), with
+  -DTIFA_USE_CALLOC_MEMSET=OFF, and on macOS (arm64).

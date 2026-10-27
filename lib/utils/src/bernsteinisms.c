@@ -592,6 +592,8 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
         }
         return smooth;
     }
+#else
+    (void) yo;
 #endif
     if (rleaf != NULL) {
         mpz_set(yk, rleaf);

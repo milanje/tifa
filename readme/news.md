@@ -1,5 +1,16 @@
 # TIFA news
 
+## 27 October 2026 &mdash; wider CI
+
+CI ran the tests with GCC and Clang only. It now also runs them under ASan,
+UBSan and LeakSanitizer, without 128-bit integers (the GMP code paths the
+Montgomery and machine-word code bypass), with `TIFA_USE_CALLOC_MEMSET=OFF`,
+and on macOS arm64. Run first on Linux, the new configurations found that
+three programs leaked the number they factored, and that some builds did not
+compile with `-Werror`: without 128-bit integers, a function and a parameter
+used only with them; in Debug with GCC, a format truncation in the programs'
+banner.
+
 ## 27 October 2026 &mdash; version 0.3.0
 
 Version 0.3.0 gathers the work below since 0.2.0: faster and retuned SIQS,
