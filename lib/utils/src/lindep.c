@@ -193,13 +193,34 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 l[k] = vl[k];
             }
             //
-            // Once the residue is 1, the primes left cannot divide it. Once
-            // it is below p^2, with no factor below p left, it is 1 or a prime,
-            // found in the (sorted) factor base by a binary search.
+            // The factor base is sorted: only its first prime can be 2.
             //
-            for (uint32_t j = 0; j < factor_base->length; j++) {
+            uint32_t j = 0;
+            if ((factor_base->length != 0) && (factor_base->data[0] == 2)) {
+                uint32_t e;
+                if (n == 1) {
+                    e = (uint32_t) __builtin_ctzll(l[0]);
+                    l[0] >>= e;
+                } else {
+                    e = remove_twos(l, &n);
+                }
+                decomp_data[i][0] += (unsigned char) e;
+                if (e & 1) {
+                    flip_matrix_bit(nrows, 1, matrix);
+                }
+                j = 1;
+            }
+            while (j < factor_base->length) {
+                //
+                // Once the residue is 1, the primes left cannot divide it.
+                // Once it is below p^2, with no factor below p left, it is 1
+                // or a prime, found in the factor base by a binary search.
+                //
                 const uint64_t p = factor_base->data[j];
-                if ((n == 1) && (p != 2) && (l[0] < p * p)) {
+                if ((n == 1) && (l[0] == 1)) {
+                    break;
+                }
+                if ((n == 1) && (l[0] < p * p)) {
                     const uint32_t t = index_in_sorted_uint32_array(
                                            (uint32_t) l[0], factor_base, j,
                                            factor_base->length
@@ -211,24 +232,51 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                     }
                     break;
                 }
-                if (p == 2) {
-                    const uint32_t e = remove_twos(l, &n);
-                    decomp_data[i][j] += (unsigned char) e;
-                    flip_bit = (e & 1);
+                //
+                // Most primes divide nothing, and a branch per prime
+                // mispredicts: test up to 64 primes without branches, then
+                // divide out the divisors only.
+                //
+                const uint32_t end = MIN(j + 64, factor_base->length);
+                uint64_t divides = 0;
+                if (n == 1) {
+                    const uint64_t x = l[0];
+                    for (uint32_t k = j; k < end; k++) {
+                        divides |= (uint64_t) (x * pinv[k] <= plim[k])
+                                   << (k - j);
+                    }
                 } else {
-                    while (divisible_odd(l, n, p, pinv[j], plim[j])) {
-                        divexact_odd(l, &n, p, pinv[j]);
-                        decomp_data[i][j]++;
-                        flip_bit = !flip_bit;
+                    for (uint32_t k = j; k < end; k++) {
+                        divides |= (uint64_t) divisible_odd(
+                                       l, n, factor_base->data[k], pinv[k],
+                                       plim[k]
+                                   ) << (k - j);
                     }
                 }
-                if (flip_bit) {
-                    flip_matrix_bit(nrows, j + 1, matrix);
-                    flip_bit = false;
+                while (divides != 0) {
+                    const uint32_t k = j + (uint32_t) __builtin_ctzll(divides);
+                    const uint64_t q = factor_base->data[k];
+                    divides &= divides - 1;
+                    uint32_t e = 0;
+                    if (n == 1) {
+                        uint64_t x = l[0];
+                        do {
+                            x *= pinv[k];
+                            e++;
+                        } while (x * pinv[k] <= plim[k]);
+                        l[0] = x;
+                    } else {
+                        do {
+                            divexact_odd(l, &n, q, pinv[k]);
+                            e++;
+                        } while (divisible_odd(l, n, q, pinv[k], plim[k]));
+                    }
+                    decomp_data[i][k] += (unsigned char) e;
+                    if (e & 1) {
+                        flip_matrix_bit(nrows, k + 1, matrix);
+                    }
                 }
-                if ((n == 1) && (l[0] == 1)) {
-                    break;
-                }
+                j = end;
             }
             mp_limb_t* const wl = mpz_limbs_write(v, (mp_size_t) n);
             for (size_t k = 0; k < n; k++) {
