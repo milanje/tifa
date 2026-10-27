@@ -404,7 +404,6 @@ static void init_factor_base_data(siqs_context_t* const context,
 static void compute_reduced_polynomial_values(siqs_context_t* const context);
 static ecode_t collect_relations(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
-static void multiply_by_smooth_a(siqs_context_t* const context);
 static void add_primes_of_a(siqs_context_t* const context,
                             byte_matrix_t* const decomp_matrix,
                             const uint32_t first_row);
@@ -769,16 +768,7 @@ static ecode_t update_siqs_context(factoring_machine_t* const machine) {
                                   + 2);
     context->relset      = tifa_calloc(relset_size, sizeof(uint32_t));
     context->relset_mask = relset_size - 1;
-    //
-    // Undo multiply_by_smooth_a: the next run multiplies again.
-    //
-    for (uint32_t i = 0; i < context->smooth_redgx->length; i++) {
-        mpz_divexact(
-            context->smooth_redgx->data[i],
-            context->smooth_redgx->data[i],
-            context->a_values->data[context->a_idx_for_smooth->data[i]]
-        );
-    }
+
     const uint32_t nrels = context->u->length;
 
     drop_duplicate_relations(context, 0);
@@ -860,7 +850,6 @@ static ecode_t perform_siqs(factoring_machine_t* const machine) {
         &primes_array
     );
     add_primes_of_a(context, decomp_matrix, first_row);
-    multiply_by_smooth_a(context);
 
     if (params->nprimes_tdiv < params->nprimes_in_base) {
         //
@@ -1160,23 +1149,6 @@ static void add_primes_of_a(siqs_context_t* const context,
     }
 }
 //------------------------------------------------------------------------------
-static void multiply_by_smooth_a(siqs_context_t* const context) {
-    //
-    // Multiply each of the smooth value of g_{a,b}/a in the smooth_redgx array
-    // by their corresponding 'a'. This is needed at the very end of the SIQS
-    // algorithm when we actually compute the (hopefully non trivial) factors...
-    //
-    const uint32_t redgx_length = context->smooth_redgx->length;
-
-    mpz_t*    const smooth_redgx = context->smooth_redgx->data;
-    mpz_t*    const a_values     = context->a_values->data;
-    uint32_t* const a_idx        = context->a_idx_for_smooth->data;
-
-    for (uint32_t i = 0; i < redgx_length; i++) {
-        mpz_mul(smooth_redgx[i], smooth_redgx[i], a_values[a_idx[i]]);
-    }
-}
-//-----------------------------------------------------------------------------
 
 /*
  *-----------------------------------------------------------------------------
