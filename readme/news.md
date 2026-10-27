@@ -1,5 +1,14 @@
 # TIFA news
 
+## 27 October 2026 &mdash; program names (for 0.3.0)
+
+The programs are now named `tifa-<name>`, with dashes as is usual for Unix
+commands: `tifa-factor`, `tifa-tune`, `tifa-cfrac`, `tifa-ecm`, `tifa-fermat`,
+`tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-tdiv`, `tifa-p-minus-1` and
+`tifa-p-plus-1`. Plain names such as `ecm` clashed with other tools (GMP-ECM's
+`ecm`), and the others were too generic for a shared `bin` directory. The
+CMake targets keep their names (`tifa_factor`, `tifa_tune`, `ecm`...).
+
 ## 27 October 2026 &mdash; exit statuses of the programs (for 0.3.0)
 
 The programs exited with TIFA's internal codes: 5 for a complete

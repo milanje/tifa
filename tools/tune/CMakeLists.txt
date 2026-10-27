@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# tifa_tune: the parameter-tuning tool. Links the static library and calls its
+# tifa-tune: the parameter-tuning tool. Links the static library and calls its
 # algorithms directly; each run is forked under a watchdog unless --timeout 0.
 #------------------------------------------------------------------------------
 add_executable(tifa_tune
@@ -13,6 +13,7 @@ target_include_directories(tifa_tune PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 target_link_libraries(tifa_tune PRIVATE Tifa::tifa_static GMP::GMP)
+set_target_properties(tifa_tune PROPERTIES OUTPUT_NAME tifa-tune)
 if(TIFA_M_LIBRARY)
     target_link_libraries(tifa_tune PRIVATE ${TIFA_M_LIBRARY})   # libm for fmax/floor
 endif()

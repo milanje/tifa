@@ -89,16 +89,17 @@ If GMP lives in a non-standard location, pass `-DGMP_INCDIR=<dir>` and
 
 The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
 `libtifa.dylib`) library, plus the command-line factorization programs and the
-`tifa_tune` parameter-tuning tool (see [Parameter tuning](#parameter-tuning)
-below). `tifa_factor` factors a number with the methods the `tifa_factor()`
+`tifa-tune` parameter-tuning tool (see [Parameter tuning](#parameter-tuning)
+below). `tifa-factor` factors a number with the methods the `tifa_factor()`
 function chooses:
 
 ```sh
-./build/tools/tifa_factor 19409887069306060631113
+./build/tools/tifa-factor 19409887069306060631113
 ```
 
-The other programs run one algorithm each (`cfrac`, `ecm`, `fermat`, `siqs`,
-`squfof`, `rho`, `p_minus_1`, `p_plus_1`, `tdiv`); given only the number, they
+The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
+`tifa-fermat`, `tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-p-minus-1`,
+`tifa-p-plus-1`, `tifa-tdiv`); given only the number, they
 use the algorithm's default parameters. All of them exit with status 0 for a
 complete factorization (or a prime, or 1), 1 for a partial one, 2 if no factor
 was found, and 3 for invalid input. Installation also
@@ -157,7 +158,7 @@ misses 0.25% to 0.30% of the smooth cofactors (see
 Each algorithm depends on numeric parameters (smoothness bounds `b1`/`b2`, curve
 counts, sieve widths, factor-base sizes, ...) whose best values depend on the
 bit-size of the number being factored. `set_<algo>_params_to_default(n, params)`
-fills these; by default it uses built-in, size-indexed values. The `tifa_tune`
+fills these; by default it uses built-in, size-indexed values. The `tifa-tune`
 tool lets you measure better values on your own machine and feed them back to
 the library.
 
@@ -184,10 +185,10 @@ sieve chunk) and its extra primes in `a` are taken from the row below.
 
 ```sh
 cmake --build build --target tifa_tune
-./build/tools/tune/tifa_tune --algo all --out ~/.tifa/tuning
+./build/tools/tune/tifa-tune --algo all --out ~/.tifa/tuning
 ```
 
-`tifa_tune` builds test composites (products of similar-size primes), sweeps a
+`tifa-tune` builds test composites (products of similar-size primes), sweeps a
 parameter grid around a size-dependent center for each bit-size, times each
 run, and writes the combination minimizing the expected time to find a factor.
 A combination is dropped as soon as its runs have taken longer in total than
@@ -211,7 +212,7 @@ cmake --build build --target tune-quick
 Point the library at the generated files at runtime:
 
 ```sh
-TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/siqs <number_to_factor>
+TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/tifa-siqs <number_to_factor>
 ```
 
 ### Baking tuned values into the library

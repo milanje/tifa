@@ -238,7 +238,7 @@
 
           include/
           src/
-          tune/ ........... tifa_tune: the parameter-tuning tool (see the
+          tune/ ........... tifa-tune: the parameter-tuning tool (see the
                             "Parameter tuning" section below)
           z2z8/ ........... Search for the ECM curves of z2z8_curves.c
 
@@ -261,7 +261,7 @@
   from tifa/tools/z2z8/search.c and table.py: their first lines say how to run
   them.
 
-  Parameter tuning (the tifa_tune tool):
+  Parameter tuning (the tifa-tune tool):
   --------------------------------------
 
     Each algorithm depends on numeric parameters (smoothness bounds b1/b2,
@@ -291,10 +291,10 @@
     Typical use:
 
         prompt> cmake --build build --target tifa_tune
-        prompt> ./build/tools/tune/tifa_tune --algo all --out ~/.tifa/tuning
-        prompt> TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/siqs <number>
+        prompt> ./build/tools/tune/tifa-tune --algo all --out ~/.tifa/tuning
+        prompt> TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/tifa-siqs <number>
 
-    "tifa_tune --help" lists all options (algorithm, bit-size range, trials,
+    "tifa-tune --help" lists all options (algorithm, bit-size range, trials,
     RNG seed, per-run time limit, and a fast "--quick" preset). The
     convenience target "cmake --build build --target tune-quick" runs the
     quick preset into <build>/tuning.
@@ -337,30 +337,31 @@
       prompt> cmake --build build
       prompt> cmake --install build
 
-  To factor a number, use the tifa_factor program: it chooses the methods
+  To factor a number, use the tifa-factor program: it chooses the methods
   and their parameters, as the tifa_factor() function does.
 
-      prompt> tifa_factor 19409887069306060631113
+      prompt> tifa-factor 19409887069306060631113
 
-  The other programs run one algorithm each: cfrac, ecm, fermat, siqs,
-  squfof, rho, tdiv, p_minus_1 and p_plus_1 (the Continued FRACtion, Elliptic
-  Curve Method, McKee-Fermat, Self-Initializing Quadratic Sieve, SQUare FOrm
-  Factorization, Pollard's rho, trial division, Pollard's p-1 and Williams'
-  p+1 algorithms). Given only the number, they use the algorithm's default
+  The other programs run one algorithm each: tifa-cfrac, tifa-ecm,
+  tifa-fermat, tifa-siqs, tifa-squfof, tifa-rho, tifa-tdiv, tifa-p-minus-1
+  and tifa-p-plus-1 (the Continued FRACtion, Elliptic Curve Method,
+  McKee-Fermat, Self-Initializing Quadratic Sieve, SQUare FOrm Factorization,
+  Pollard's rho, trial division, Pollard's p-1 and Williams' p+1
+  algorithms). Given only the number, they use the algorithm's default
   parameters:
 
-      prompt> siqs 23283795980376989165117
+      prompt> tifa-siqs 23283795980376989165117
 
-  They also take the algorithm's parameters (all but ecm's seed), before the
-  number, in the order their usage message gives (run a program with a wrong
-  number of arguments to see it). Run without argument, a program asks for
-  the number to factor.
+  They also take the algorithm's parameters (all but tifa-ecm's seed),
+  before the number, in the order their usage message gives (run a program
+  with a wrong number of arguments to see it). Run without argument, a
+  program asks for the number to factor.
 
   All the programs exit with status 0 for a complete factorization (or a
   prime, or 1), 1 for a partial one, 2 if no factor was found, and 3 for
-  invalid input, so that "tifa_factor N && ..." reads as expected.
+  invalid input, so that "tifa-factor N && ..." reads as expected.
 
-  To choose better parameters for your machine, see the tifa_tune tool
+  To choose better parameters for your machine, see the tifa-tune tool
   ("Parameter tuning" in section 7).
 
 ------------------------------------------------------------------------------

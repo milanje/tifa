@@ -27,7 +27,7 @@
  * The factoring algorithms depend on numeric parameters whose best values
  * depend on the bit-size of the number being factored. This module lets those
  * values be read at runtime from per-algorithm text files (produced by the
- * \c tifa_tune tool) instead of the compiled-in defaults.
+ * \c tifa-tune tool) instead of the compiled-in defaults.
  *
  * Each <tt>set_&lt;algo&gt;_params_to_default</tt> function first fills the
  * parameters with its usual defaults, then consults \c tifa_tuning_get_row. If
@@ -79,7 +79,7 @@ extern "C" {
 // Per-algorithm column layout. These macros are the single source of truth for
 // each tuning file's schema; they are shared by the loader (validation), the
 // set_<algo>_params_to_default fillers (column -> field mapping), and the
-// tifa_tune tool (grid and file output). Adding a new algorithm means adding
+// tifa-tune tool (grid and file output). Adding a new algorithm means adding
 // one macro triple here, one filler tail, and one tuner descriptor: the parser
 // itself never changes. The INTERP mask has bit i set when column i is a
 // quantity that may be interpolated between rows; the other columns (flags,

@@ -45,7 +45,7 @@ target_link_libraries(test_threads PRIVATE Threads::Threads)
 target_compile_definitions(test_threads PRIVATE
     TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 
-# The tifa_factor command-line program: a 60-bit semiprime, and
+# The tifa-factor command-line program: a 60-bit semiprime, and
 # 2^3 . 3^2 . 1000000007^2 . 1000000009 (repeated factors, several sizes). The
 # large factors' order depends on the build (with or without __int128).
 add_test(NAME tifa_factor_program_semiprime

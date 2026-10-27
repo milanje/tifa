@@ -66,7 +66,7 @@ endforeach()
 set(TIFA_BITSTRING_T "uint64_t" CACHE STRING "Native C type used to represent a string of bits")
 
 # Directory the library searches at runtime for machine-tuned parameter files
-# (<dir>/<algo>.tuning, produced by the tifa_tune tool). Consulted only as a
+# (<dir>/<algo>.tuning, produced by the tifa-tune tool). Consulted only as a
 # last resort, after tifa_tuning_set_dir() and the TIFA_TUNING_DIR environment
 # variable; a missing directory simply means the compiled-in defaults are used.
 set(TIFA_TUNING_DIR "${CMAKE_INSTALL_FULL_DATADIR}/tifa/tuning" CACHE PATH
@@ -93,7 +93,7 @@ option(TIFA_WERROR "Treat compiler warnings as errors (used in CI)" OFF)
 # as a fallback used when no runtime tuning file is found. OFF keeps builds
 # hermetic and behavior identical to the untuned defaults.
 option(TIFA_USE_BAKED_TUNING "Compile in the baked parameter-tuning tables" OFF)
-# Provide a 'regen-tuning' target that runs tifa_tune to regenerate the baked
+# Provide a 'regen-tuning' target that runs tifa-tune to regenerate the baked
 # tables in the source tree (a full tuning pass; can be lengthy).
 option(TIFA_REGEN_TUNING "Add a 'regen-tuning' target that rebuilds baked tables" OFF)
 

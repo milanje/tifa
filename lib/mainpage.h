@@ -73,22 +73,22 @@
  *     primality testing and factorization run in machine words
  *     (factor_u64.h).
  *   </li>
- *   <li>stand-alone factorization programs: <tt>tifa_factor</tt>, which
+ *   <li>stand-alone factorization programs: <tt>tifa-factor</tt>, which
  *       chooses the methods as the <tt>tifa_factor</tt> function does, and
  *       one program for each algorithm implemented:
  *     <ul>
- *       <li><tt>cfrac</tt></li>
- *       <li><tt>ecm</tt></li>
- *       <li><tt>fermat</tt></li>
- *       <li><tt>siqs</tt></li>
- *       <li><tt>squfof</tt></li>
- *       <li><tt>rho</tt></li>
- *       <li><tt>p_minus_1</tt></li>
- *       <li><tt>p_plus_1</tt></li>
- *       <li><tt>tdiv</tt></li>
+ *       <li><tt>tifa-cfrac</tt></li>
+ *       <li><tt>tifa-ecm</tt></li>
+ *       <li><tt>tifa-fermat</tt></li>
+ *       <li><tt>tifa-siqs</tt></li>
+ *       <li><tt>tifa-squfof</tt></li>
+ *       <li><tt>tifa-rho</tt></li>
+ *       <li><tt>tifa-p-minus-1</tt></li>
+ *       <li><tt>tifa-p-plus-1</tt></li>
+ *       <li><tt>tifa-tdiv</tt></li>
  *     </ul>
  *   </li>
- *   <li><tt>tifa_tune</tt>, which measures the algorithms' best parameters on
+ *   <li><tt>tifa-tune</tt>, which measures the algorithms' best parameters on
  *       the current machine.
  *   </li>
  * </ul>
