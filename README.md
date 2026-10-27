@@ -99,7 +99,9 @@ function chooses:
 
 The other programs run one algorithm each (`cfrac`, `ecm`, `fermat`, `siqs`,
 `squfof`, `rho`, `p_minus_1`, `p_plus_1`, `tdiv`); given only the number, they
-use the algorithm's default parameters. Installation also
+use the algorithm's default parameters. All of them exit with status 0 for a
+complete factorization (or a prime, or 1), 1 for a partial one, 2 if no factor
+was found, and 3 for invalid input. Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
 can consume TIFA with either:
 

@@ -68,3 +68,21 @@ set_tests_properties(tifa_factor_program_square PROPERTIES
 set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
                      tifa_factor_program_square PROPERTIES
     FAIL_REGULAR_EXPRESSION "ERROR|Sanitizer|runtime error")
+
+# The programs' exit statuses (tool_utils.h): 0 complete (or a prime, or 1),
+# 1 partial, 2 no factor found, 3 invalid input.
+function(tifa_add_exit_test name expected program)
+    add_test(NAME ${name}
+             COMMAND ${CMAKE_COMMAND} "-DPROGRAM=$<TARGET_FILE:${program}>"
+                     "-DARGS=${ARGN}" -DEXPECTED=${expected}
+                     -P "${CMAKE_CURRENT_SOURCE_DIR}/check_exit.cmake")
+    set_tests_properties(${name} PROPERTIES TIMEOUT 60)
+endfunction()
+tifa_add_exit_test(exit_complete  0 tifa_factor 1000000016000000063)
+tifa_add_exit_test(exit_prime     0 tifa_factor 1000003)
+tifa_add_exit_test(exit_partial   1 tdiv 10 3000000048000000189)
+tifa_add_exit_test(exit_no_factor 2 tdiv 10 1000000016000000063)
+tifa_add_exit_test(exit_zero      3 tifa_factor 0)
+tifa_add_exit_test(exit_not_digit 3 tifa_factor 12x)
+tifa_add_exit_test(exit_bad_argc  3 tifa_factor 12 34)
+tifa_add_exit_test(exit_no_input  3 tifa_factor)

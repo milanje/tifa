@@ -58,7 +58,7 @@
 //-----------------------------------------------------------------------------
 void print_factors(mpz_array_t* const, uint32_array_t* const);
 //-----------------------------------------------------------------------------
-ecode_t run_program(factoring_program_t* const program) {
+int run_program(factoring_program_t* const program) {
 
     ecode_t rcode = NO_FACTOR_FOUND;
     //
@@ -69,14 +69,15 @@ ecode_t run_program(factoring_program_t* const program) {
 
     if (mpz_cmp_ui(program->n, 2) < 0) {
         gmp_printf("\nOOPS: %Zd has no prime factor!\n", program->n);
-        return 0;
+        return (mpz_sgn(program->n) == 0) ? TIFA_EXIT_USAGE
+                                          : TIFA_EXIT_COMPLETE;
     }
     //
     // Of course, check if program->n is prime before proceeding.
     //
     if (MPZ_IS_PRIME(program->n)) {
         gmp_printf("\nOOPS: %Zd is (probably) prime!\n", program->n);
-        return 0;
+        return TIFA_EXIT_COMPLETE;
     }
     printf("Integer to factor:\n");
     printf("------------------\n");
@@ -318,7 +319,14 @@ ecode_t run_program(factoring_program_t* const program) {
     free_mpz_array(factors);
     free_uint32_array(multis);
 
-    return rcode;
+    switch (rcode) {
+        case COMPLETE_FACTORIZATION_FOUND:
+            return TIFA_EXIT_COMPLETE;
+        case PARTIAL_FACTORIZATION_FOUND:
+            return TIFA_EXIT_PARTIAL;
+        default:
+            return TIFA_EXIT_NO_FACTOR;
+    }
 }
 //-----------------------------------------------------------------------------
 void print_factors(mpz_array_t* const factors, uint32_array_t* const multis) {

@@ -1,5 +1,15 @@
 # TIFA news
 
+## 27 October 2026 &mdash; exit statuses of the programs (for 0.3.0)
+
+The programs exited with TIFA's internal codes: 5 for a complete
+factorization, 4 for a partial one, 6 when no factor was found, 0 for a
+prime and 255 for invalid input, so that `tifa_factor N && ...` took success
+for failure. They now exit with 0 for a complete factorization (or a prime,
+or 1), 1 for a partial one, 2 when no factor was found and 3 for invalid
+input, as their usage messages say. Scripts that tested the old values need
+updating; the library's `ecode_t` values are unchanged.
+
 ## 27 October 2026 &mdash; ECM, p+1 and p-1 on small composites (for 0.3.0)
 
 When a stage caught every prime factor of n at once (a gcd equal to n), ECM

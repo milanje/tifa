@@ -356,6 +356,10 @@
   number of arguments to see it). Run without argument, a program asks for
   the number to factor.
 
+  All the programs exit with status 0 for a complete factorization (or a
+  prime, or 1), 1 for a partial one, 2 if no factor was found, and 3 for
+  invalid input, so that "tifa_factor N && ..." reads as expected.
+
   To choose better parameters for your machine, see the tifa_tune tool
   ("Parameter tuning" in section 7).
 

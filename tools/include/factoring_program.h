@@ -161,8 +161,9 @@ typedef struct struct_factoring_program factoring_program_t;
     * Run an actual factoring program from the command line.
     *
     * \param program The \c factoring_program_t to run.
+    * \return The program's exit status: one of the \c TIFA_EXIT_* values.
     */
-ecode_t run_program(factoring_program_t* const program);
+int run_program(factoring_program_t* const program);
 
 #ifdef __cplusplus
 }

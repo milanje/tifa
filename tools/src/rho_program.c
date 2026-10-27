@@ -42,6 +42,7 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "or:\n");
     fprintf(stderr, "%15s <nprimes_tdiv> <a> <b> <max_niters> <acc_niters> "
             "<method> <number_to_factor>\n\n", program->argv[0]);
+    print_exit_statuses();
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {
@@ -70,7 +71,7 @@ static void process_args(factoring_program_t* const program) {
 
         if (!is_a_number(str_factor_me, MAX_NDIGITS)) {
             PRINT_NAN_ERROR(str_factor_me);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, str_factor_me, 10);
         set_rho_params_to_default(program->n, params);
@@ -86,7 +87,7 @@ static void process_args(factoring_program_t* const program) {
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, argv[1], 10);
         set_rho_params_to_default(program->n, params);
@@ -103,13 +104,13 @@ static void process_args(factoring_program_t* const program) {
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         *nprimes_tdiv = strtoul(argv[1], NULL, 10);
 
         if (!is_a_number(argv[2], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[2]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, argv[2], 10);
         set_rho_params_to_default(program->n, params);
@@ -127,43 +128,43 @@ static void process_args(factoring_program_t* const program) {
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         *nprimes_tdiv = strtoul(argv[1], NULL, 10);
 
         if (!is_a_number(argv[2], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[2]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         params->a = strtoul(argv[2], NULL, 10);
 
         if (!is_a_number(argv[3], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[3]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         params->b = strtoul(argv[3], NULL, 10);
 
         if (!is_a_number(argv[4], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[4]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         params->max_niters = strtoul(argv[4], NULL, 10);
 
         if (!is_a_number(argv[5], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[5]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         params->acc_niters = strtoul(argv[5], NULL, 10);
 
         if (!is_a_number(argv[6], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[6]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         params->method = strtoul(argv[6], NULL, 10);
 
         if (!is_a_number(argv[7], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[7]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, argv[7], 10);
 
@@ -173,7 +174,7 @@ static void process_args(factoring_program_t* const program) {
     default:
         PRINT_BAD_ARGC_ERROR();
         print_usage(program);
-        exit(-1);
+        exit(TIFA_EXIT_USAGE);
     }
     return;
 }
@@ -218,11 +219,11 @@ int main(int argc, char** argv) {
     program.factoring_algo_func        = rho_func;
     program.set_params_to_default_func = set_params_to_default;
 
-    ecode_t ecode = run_program(&program);
+    const int status = run_program(&program);
 
     mpz_clear(program.n);
 
-    return ecode;
+    return status;
 }
 //------------------------------------------------------------------------------
 

@@ -42,6 +42,7 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s <number_to_factor>\n", program->argv[0]);
     fprintf(stderr, "Or, to be asked for the number:\n");
     fprintf(stderr, "%15s\n\n", program->argv[0]);
+    print_exit_statuses();
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {
@@ -65,7 +66,7 @@ static void process_args(factoring_program_t* const program) {
 
         if (!is_a_number(str_factor_me, MAX_NDIGITS)) {
             PRINT_NAN_ERROR(str_factor_me);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, str_factor_me, 10);
         break;
@@ -74,7 +75,7 @@ static void process_args(factoring_program_t* const program) {
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
             print_usage(program);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, argv[1], 10);
         break;
@@ -82,7 +83,7 @@ static void process_args(factoring_program_t* const program) {
     default:
         PRINT_BAD_ARGC_ERROR();
         print_usage(program);
-        exit(-1);
+        exit(TIFA_EXIT_USAGE);
     }
 }
 //------------------------------------------------------------------------------
@@ -126,8 +127,8 @@ int main(int argc, char** argv) {
     program.factoring_algo_func        = tifa_factor_func;
     program.set_params_to_default_func = set_params_to_default;
 
-    ecode_t ecode = run_program(&program);
+    const int status = run_program(&program);
 
-    return ecode;
+    return status;
 }
 //------------------------------------------------------------------------------

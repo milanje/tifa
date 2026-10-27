@@ -54,10 +54,18 @@ bool is_a_number(const char* const str_n, uint32_t length) {
     return false;
 }
 //------------------------------------------------------------------------------
+void print_exit_statuses(void) {
+    fprintf(stderr, "Exit status: %d complete factorization (or a prime, or 1), "
+                    "%d partial,\n             %d no factor found, "
+                    "%d invalid input.\n\n",
+            TIFA_EXIT_COMPLETE, TIFA_EXIT_PARTIAL, TIFA_EXIT_NO_FACTOR,
+            TIFA_EXIT_USAGE);
+}
+//------------------------------------------------------------------------------
 char* read_number(char* const buffer, uint32_t length) {
     if (fgets(buffer, (int) length, stdin) == NULL) {
         fprintf(stderr, "\nERROR: no number to read!\n");
-        exit(-1);
+        exit(TIFA_EXIT_USAGE);
     }
     char* const newline = strchr(buffer, '\n');
     if (newline != NULL) {
@@ -68,7 +76,7 @@ char* read_number(char* const buffer, uint32_t length) {
     } else if (!feof(stdin)) {
         fprintf(stderr, "\nERROR: the number has more than %" PRIu32
                         " digits!\n", length - 2);
-        exit(-1);
+        exit(TIFA_EXIT_USAGE);
     }
     return buffer;
 }

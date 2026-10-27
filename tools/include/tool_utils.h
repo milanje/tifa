@@ -42,6 +42,33 @@ extern "C" {
 #include <stdbool.h>
 
    /**
+    * \def TIFA_EXIT_COMPLETE
+    * Exit status of the factoring programs for a complete factorization, or
+    * a number with nothing to factor (a prime, or 1).
+    */
+#define TIFA_EXIT_COMPLETE  0
+   /**
+    * \def TIFA_EXIT_PARTIAL
+    * Exit status for some factors, the factorization not known complete.
+    */
+#define TIFA_EXIT_PARTIAL   1
+   /**
+    * \def TIFA_EXIT_NO_FACTOR
+    * Exit status when no factor was found.
+    */
+#define TIFA_EXIT_NO_FACTOR 2
+   /**
+    * \def TIFA_EXIT_USAGE
+    * Exit status for invalid arguments or input (including 0).
+    */
+#define TIFA_EXIT_USAGE     3
+
+   /**
+    * \brief Prints the exit statuses, for the programs' usage messages.
+    */
+void print_exit_statuses(void);
+
+   /**
     * \brief Does a string \c str_n read as a number?
     *
     * Returns \c true if the string \c str_n represents a number in the

@@ -61,6 +61,7 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "or:\n");
     fprintf(stderr, "%15s\t<nprimes_tdiv> <number_to_factor>\n\n",
             program->argv[0]);
+    print_exit_statuses();
 }
 //------------------------------------------------------------------------------
 static void process_args(factoring_program_t* const program) {
@@ -88,7 +89,7 @@ static void process_args(factoring_program_t* const program) {
 
         if (!is_a_number(str_factor_me, MAX_NDIGITS)) {
             PRINT_NAN_ERROR(str_factor_me);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, str_factor_me, 10);
         set_siqs_params_to_default(program->n, params);
@@ -104,7 +105,7 @@ static void process_args(factoring_program_t* const program) {
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, argv[1], 10);
         set_siqs_params_to_default(program->n, params);
@@ -120,13 +121,13 @@ static void process_args(factoring_program_t* const program) {
         //
         if (!is_a_number(argv[1], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[1]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         *nprimes_tdiv = strtoul(argv[1], NULL, 10);
 
         if (!is_a_number(argv[2], MAX_NDIGITS)) {
             PRINT_NAN_ERROR(argv[2]);
-            exit(-1);
+            exit(TIFA_EXIT_USAGE);
         }
         mpz_init_set_str(program->n, argv[2], 10);
         set_siqs_params_to_default(program->n, params);
@@ -142,7 +143,7 @@ static void process_args(factoring_program_t* const program) {
             if (!is_a_number(argv[i], MAX_NDIGITS)) {
                 PRINT_NAN_ERROR(argv[i]);
                 print_usage(program);
-                exit(-1);
+                exit(TIFA_EXIT_USAGE);
             }
         }
         char** endptr = NULL;
@@ -179,7 +180,7 @@ static void process_args(factoring_program_t* const program) {
     default:
         PRINT_BAD_ARGC_ERROR();
         print_usage(program);
-        exit(-1);
+        exit(TIFA_EXIT_USAGE);
     }
 }
 //------------------------------------------------------------------------------
@@ -235,10 +236,10 @@ int main(int argc, char** argv) {
     program.factoring_algo_func        = siqs_func;
     program.set_params_to_default_func = set_params_to_default;
 
-    ecode_t ecode = run_program(&program);
+    const int status = run_program(&program);
 
     mpz_clear(program.n);
 
-    return ecode;
+    return status;
 }
 //------------------------------------------------------------------------------
