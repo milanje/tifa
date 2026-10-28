@@ -1218,6 +1218,23 @@ static void init_factor_base_data(siqs_context_t* const context,
  */
 
 //-----------------------------------------------------------------------------
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+static inline void mpz_set_i128(mpz_t z, const __int128 v) {
+    const unsigned __int128 m = (v < 0) ? -(unsigned __int128) v
+                                        : (unsigned __int128) v;
+    mp_limb_t* const d = mpz_limbs_write(z, 2);
+    d[0] = (mp_limb_t) m;
+    d[1] = (mp_limb_t) (m >> 64);
+    mpz_limbs_finish(z, (v < 0) ? -2 : 2);
+}
+
+static inline __int128 mpz_get_i128(const mpz_t z) {
+    const unsigned __int128 m = ((unsigned __int128) mpz_getlimbn(z, 1) << 64)
+                              | mpz_getlimbn(z, 0);
+    return (mpz_sgn(z) < 0) ? -(__int128) m : (__int128) m;
+}
+#endif
+//-----------------------------------------------------------------------------
 static void compute_reduced_polynomial_values(siqs_context_t* const context) {
     //
     // Computes the "reduced" values g_{a,b}(xi)/a = a.xi^2 + 2.b.xi + c for
@@ -1250,6 +1267,30 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
     const uint32_t x_length = context->xpool->length;
     int32_t* const x_data = context->xpool->data;
 
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+    //
+    // With 'a' and 'b' of one limb, 'c' below 2^125 and |x| at most 2^26
+    // (n up to about 128 bits), u = a.x + b and (u + b).x + c stay below
+    // 2^127: no GMP arithmetic.
+    //
+    if (   (mpz_size(a) == 1) && (mpz_size(b) <= 1)
+        && (mpz_sizeinbase(c, 2) <= 125)) {
+        const __int128 ai = mpz_get_i128(a);
+        const __int128 bi = mpz_get_i128(b);
+        const __int128 ci = mpz_get_i128(c);
+        for (uint32_t i = cand_redgx->length; i < x_length; i++) {
+            const __int128 xi = x_data[i];
+            const __int128 u  = ai * xi + bi;
+            mpz_set_i128(cand_u_data[i], u);
+            mpz_set_i128(cand_redgx_data[i], (u + bi) * xi + ci);
+            cand_a_idx->data[i] = a_idx;
+        }
+        cand_redgx->length = x_length;
+        cand_u->length     = x_length;
+        cand_a_idx->length = x_length;
+        return;
+    }
+#endif
     mpz_t rgx;
     mpz_init(rgx);
 
