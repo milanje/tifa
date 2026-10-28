@@ -12,17 +12,19 @@ Here are some short term objectives:
 
   - SIQS: outside the sieve, the largest costs left at 70 bits are, in
     shares of a run:
-      - the batch smoothness test of the candidates (15%), three quarters of
+      - the batch smoothness test of the candidates (17%), three quarters of
         which are not smooth. Their number follows the sieve threshold,
         which tifa_tune does not tune, but 1 or 2 more or less were slower
         at 70, 90 and 110 bits;
-      - the setup of each run (9%: the multiplier, the factor base and its
-        square roots, the first 'a');
-      - the trial division of the relations (6.5%), the Gaussian elimination
-        (5%) and find_factors_decomp (8%, half of it reductions modulo n:
-        reducing less often was within noise). Gauss-Jordan on the
-        transposed matrix was slower, and removing singleton columns would
-        only remove 2 to 7% of the matrix;
+      - the setup of each run (10%): the square roots modulo the primes of
+        the base (3%: four at a time measured 1.5 times faster, on half of
+        the primes only), the first 'a' (3%), the multiplier (2%);
+      - the trial division of the relations (7%), the Gaussian elimination
+        (5%) and find_factors_decomp (5%; packing the prime powers of y
+        into fewer Montgomery products saved 1 to 2% at 66 and 70 bits
+        only). Gauss-Jordan on the transposed matrix was slower, and
+        removing singleton columns would only remove 2 to 7% of the
+        matrix;
       - each new 'a' (4% at 70 bits). From seven primes in 'a', the
         approximer also sorts up to 18424 triples of primes per run (0.5 ms,
         0.5% at 170 bits): pairs, which fixed six primes, gave slower 'a'

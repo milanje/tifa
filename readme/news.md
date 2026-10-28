@@ -1,5 +1,32 @@
 # TIFA news
 
+## 28 October 2026 &mdash; less GMP outside the SIQS sieve
+
+Three costs outside the sieve, at 70 bits:
+
+- `find_factors_decomp` multiplied the u of a dependency, and the prime
+  powers of its y, with GMP and reduced modulo n after each product. Up to
+  128 bits, these are now Montgomery products on two limbs, whose factors
+  1/R are taken out once at the end: the same residues, so the same
+  factors. 3% to 4% faster at 66 and 70 bits.
+- Each candidate's u = a.x + b and g(x)/a = (u + b).x + c took about nine
+  GMP calls (6.5% of a run). With `a` and `b` of one limb and `c` below
+  2^125 (n up to about 128 bits), they are computed in 128-bit integers and
+  written once into their `mpz_t`: 5% to 6% faster from 66 to 80 bits.
+- `alloc_binary_matrix` and `alloc_byte_matrix` allocated each row on its
+  own (2.6% of a run). The rows are now one block, kept past the last row
+  pointer, so that rows reordered by a caller still free it: 2% faster at
+  66 and 70 bits.
+
+Against the previous version:
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 110 | 120 | 130 | 150 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.88 | 0.88 | 0.89 | 0.91 | 0.97 | 0.96 | 0.94 | 0.94 | 0.97 | 0.98 | 0.98 | 0.98 |
+
+At 140 bits, 1.03 in a first run, then 1.00 and 0.99. On sizes drawn at
+random from 60 to 100 bits, 0.92; from 66 to 130 bits, 0.97.
+
 ## 28 October 2026 &mdash; SIQS keeps its arrays from one run to the next
 
 A SIQS run allocated about 600 GMP integers at 70 bits (1400 at 100 bits) on
