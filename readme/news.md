@@ -1,5 +1,28 @@
 # TIFA news
 
+## 28 October 2026 &mdash; version 0.3.3
+
+Version 0.3.3 gathers the work below since 0.3.2: SIQS tests its candidates
+below 2^127 for smoothness eight at a time in machine integers, without GMP
+or the product and remainder trees, and sieves without unpredictable
+branches. The benchmark programs behind these measurements are in `bench/`
+(`-DTIFA_BUILD_BENCH=ON`). The ABI is unchanged: the shared library is still
+`libtifa.so.0.3`. Against 0.3.2, on one thread of an Apple M5 Pro (time of
+0.3.3 over that of 0.3.2, balanced semiprimes; 100 numbers per size up to
+120 bits, 30 up to 150 and 8 above):
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.85 | 0.86 | 0.84 | 0.82 | 0.82 | 0.82 | 0.78 | 0.71 | 0.70 | 0.71 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.73 | 0.74 | 0.71 | 0.71 | 0.73 | 0.74 | 0.73 | 0.73 | 0.70 | 0.71 |
+
+| `tifa_factor()`, bits | 40 | 50 | 64 | 66 | 80 | 100 | 128 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 1.01 | 1.01 | 1.00 | 0.86 | 0.85 | 0.74 | 0.72 | 0.74 |
+
 ## 28 October 2026 &mdash; sieving without unpredictable branches
 
 At 160 bits, each chunk of the sieve takes 44000 hits from 1273 primes,
