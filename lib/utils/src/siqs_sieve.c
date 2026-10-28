@@ -634,144 +634,121 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
     return SUCCESS;
 }
 //-----------------------------------------------------------------------------
+#if defined(__ARM_NEON) && defined(__BYTE_ORDER__) \
+    && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+    #define SCAN_WITH_NEON 1
+    #include <arm_neon.h>
+//
+// The top bits of the 64 bytes of a, b, c and d, byte i giving bit i.
+//
+static inline uint64_t top_bits(const uint8x16_t a, const uint8x16_t b,
+                                const uint8x16_t c, const uint8x16_t d) {
+    static const uint8_t weights[16] = {
+        1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128
+    };
+    const uint8x16_t w  = vld1q_u8(weights);
+    const uint8x16_t ta = vandq_u8(vcltzq_s8(vreinterpretq_s8_u8(a)), w);
+    const uint8x16_t tb = vandq_u8(vcltzq_s8(vreinterpretq_s8_u8(b)), w);
+    const uint8x16_t tc = vandq_u8(vcltzq_s8(vreinterpretq_s8_u8(c)), w);
+    const uint8x16_t td = vandq_u8(vcltzq_s8(vreinterpretq_s8_u8(d)), w);
+    uint8x16_t sum = vpaddq_u8(vpaddq_u8(ta, tb), vpaddq_u8(tc, td));
+    sum = vpaddq_u8(sum, sum);
+    return vgetq_lane_u64(vreinterpretq_u64_u8(sum), 0);
+}
+#else
+    #define SCAN_WITH_NEON 0
+#endif
+//
+// Appends sign.(sieve_begin + i) to the survivors for the positions i of
+// [*scan_begin, iend] whose sieve byte has its top bit set, until there are
+// nsurvivors of them, and leaves *scan_begin past the last position scanned.
+// Survivors are rare: 64 bytes are tested at once with NEON, 32 otherwise.
+//
+static inline void scan_chunk(const unsigned char* const data,
+                              const uint32_t iend, const int32_t sieve_begin,
+                              const int32_t sign, uint32_t* const scan_begin,
+                              int32_array_t* const survivors,
+                              const uint32_t nsurvivors) {
+    int32_t*       out  = &(survivors->data[survivors->length]);
+    int32_t* const stop = &(survivors->data[nsurvivors]);
+    uint32_t       i    = *scan_begin;
+
+#if SCAN_WITH_NEON
+    for (; i + 64 <= iend + 1; i += 64) {
+        const uint8x16_t a = vld1q_u8(data + i);
+        const uint8x16_t b = vld1q_u8(data + i + 16);
+        const uint8x16_t c = vld1q_u8(data + i + 32);
+        const uint8x16_t d = vld1q_u8(data + i + 48);
+        if (vmaxvq_u8(vorrq_u8(vorrq_u8(a, b), vorrq_u8(c, d))) < 0x80) {
+            continue;
+        }
+        uint64_t mask = top_bits(a, b, c, d);
+        while (mask != 0) {
+            const uint32_t j = i + (uint32_t) __builtin_ctzll(mask);
+            *out = sign * (sieve_begin + (int32_t) j);
+            out++;
+            if (out == stop) {
+                i = j + 1;
+                goto STOP;
+            }
+            mask &= mask - 1;
+        }
+    }
+#else
+    const uint64_t tops = UINT64_C(0x8080808080808080);
+    while (i + 32 <= iend + 1) {
+        uint64_t w[4];
+        memcpy(w, data + i, sizeof(w));
+        if (((w[0] | w[1] | w[2] | w[3]) & tops) == 0) {
+            i += 32;
+            continue;
+        }
+        if ((w[0] & tops) == 0) {
+            i += 8;
+            continue;
+        }
+        for (uint32_t j = i; j < i + 8; j++) {
+            if (data[j] & 0x80) {
+                *out = sign * (sieve_begin + (int32_t) j);
+                out++;
+                if (out == stop) {
+                    i = j + 1;
+                    goto STOP;
+                }
+            }
+        }
+        i += 8;
+    }
+#endif
+    for (; i <= iend; i++) {
+        if (data[i] & 0x80) {
+            *out = sign * (sieve_begin + (int32_t) i);
+            out++;
+            if (out == stop) {
+                i++;
+                break;
+            }
+        }
+    }
+  STOP:
+    *scan_begin = i;
+    survivors->length = (uint32_t) (out - &(survivors->data[0]));
+}
+//-----------------------------------------------------------------------------
 ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
                             int32_array_t* const survivors,
                             const uint32_t nsurvivors)
 {
-    const byte_array_t*  const sieve      = siqs_sieve->sieve;
-    const unsigned char* const sieve_data = sieve->data;
-
-    int32_t*  const xpool = survivors->data;
-    uint32_t* const scan_begin = &siqs_sieve->scan_begin;
-
-    int32_t chunkno = siqs_sieve->next_chunkno_to_fill - 1;
-
-    const uint32_t sieve_length = sieve->length;
-    const int32_t  sieve_begin  = (chunkno - 1) * sieve_length;
+    const int32_t  chunkno      = siqs_sieve->next_chunkno_to_fill - 1;
+    const uint32_t sieve_length = siqs_sieve->sieve->length;
+    const int32_t  sieve_begin  = (chunkno - 1) * (int32_t) sieve_length;
 
     uint32_t iend = sieve_length - 1;
-
     if ((uint32_t)ABS(chunkno) == siqs_sieve->nchunks) {
         iend = siqs_sieve->endlast;
     }
-
-    const int32_t  sieve_end = sieve_begin + iend;
-
-    uint32_t tmp_length = survivors->length;
-    uint32_t xsieve     = *scan_begin;
-    int32_t  xindex     = *scan_begin + sieve_begin;
-
-    int32_t* xpool_to_write = &(xpool[tmp_length]);
-    int32_t* xpool_to_stop = &(xpool[nsurvivors]);
-
-    //
-    // Make sure &sieve_data[xsieve] points to the beginning of a 64 bit word
-    // (because we may resume a previous, incomplete scan)
-    //
-    while ((xsieve & 7) && (xsieve <= iend)) {
-        if (sieve_data[xsieve] & 0x80) {
-            *xpool_to_write = (int32_t)xindex;
-            xpool_to_write++;
-            if (xpool_to_write == xpool_to_stop) {
-                xindex++;
-                goto STOP_AND_RETURN;
-            }
-        }
-        xindex++;
-        xsieve++;
-    }
-    //
-    // The usual trick: casting the sieve array as a 64 bit integers array
-    // to read and compare 8 sieve entries in a row.
-    //
-    uint64_t* sieve64 = (uint64_t*)&sieve_data[xsieve];
-
-    const unsigned char* sdatptr = &sieve_data[xsieve];
-
-    uint32_t* sieve32;
-
-    const int32_t sieve_end2 = sieve_end - 8;
-
-    const int32_t  sieve_end32 = sieve_end - 32;
-
-    while (xindex <= sieve_end2) {
-        //
-        // Survivors are rare: skip 32 entries at a time while none is one.
-        //
-        while (   (xindex <= sieve_end32)
-               && (((sieve64[0] | sieve64[1] | sieve64[2] | sieve64[3])
-                    & 0x8080808080808080) == 0)) {
-            xindex  += 32;
-            sieve64 += 4;
-        }
-        if (xindex > sieve_end2) {
-            break;
-        }
-        //
-        // A byte b is < 0 iif (b & 0x80) != 0
-        //
-        if ((*sieve64 & 0x8080808080808080) == 0) {
-            xindex  += 8;
-            sieve64++;
-            continue;
-        }
-        sieve32 = (uint32_t*)sieve64;
-
-        if ((*sieve32 & 0x80808080) != 0) {
-            sdatptr = (const unsigned char*)sieve32;
-            for (uint8_t i = 0; i < 4; i++) {
-                if ((*sdatptr & 0x80) != 0) {
-                    *xpool_to_write = (int32_t)xindex;
-                    xpool_to_write++;
-                    if (xpool_to_write == xpool_to_stop) {
-                        xindex++;
-                        goto STOP_AND_RETURN;
-                    }
-                }
-                sdatptr++;
-                xindex++;
-            }
-        } else {
-            xindex += 4;
-        }
-        sieve32++;
-
-        if ((*sieve32 & 0x80808080) != 0) {
-            sdatptr = (const unsigned char*)sieve32;
-            for (uint8_t i = 0; i < 4; i++) {
-                if ((*sdatptr & 0x80) != 0) {
-                    *xpool_to_write = (int32_t)xindex;
-                    xpool_to_write++;
-                    if (xpool_to_write == xpool_to_stop) {
-                        xindex++;
-                        goto STOP_AND_RETURN;
-                    }
-                }
-                sdatptr++;
-                xindex++;
-            }
-        } else {
-            xindex += 4;
-        }
-        sieve64++;
-    }
-
-    while (xindex <= sieve_end) {
-        if (sieve_data[xindex - sieve_begin] & 0x80) {
-            *xpool_to_write = (int32_t)xindex;
-            xpool_to_write++;
-            if (xpool_to_write == xpool_to_stop) {
-                xindex++;
-                break;
-            }
-        }
-        xindex++;
-    }
-
-  STOP_AND_RETURN:
-
-    *scan_begin = xindex - sieve_begin;
-    survivors->length = xpool_to_write - &(xpool[0]);
+    scan_chunk(siqs_sieve->sieve->data, iend, sieve_begin, 1,
+               &siqs_sieve->scan_begin, survivors, nsurvivors);
 
     return SUCCESS;
 }
@@ -780,137 +757,16 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
                             int32_array_t* const survivors,
                             uint32_t nsurvivors)
 {
-    const byte_array_t*  const sieve      = siqs_sieve->sieve;
-    const unsigned char* const sieve_data = sieve->data;
-
-    int32_t*  const xpool = survivors->data;
-    uint32_t* const scan_begin = &siqs_sieve->scan_begin;
-
-    int32_t chunkno = siqs_sieve->next_chunkno_to_fill + 1;
-
-    const uint32_t sieve_length = sieve->length;
-    const int32_t  sieve_begin  = -((chunkno + 1) * sieve_length - 1);
+    const int32_t  chunkno      = siqs_sieve->next_chunkno_to_fill + 1;
+    const uint32_t sieve_length = siqs_sieve->sieve->length;
+    const int32_t  sieve_begin  = -((chunkno + 1) * (int32_t) sieve_length - 1);
 
     uint32_t iend = sieve_length - 1;
-
     if ((uint32_t)ABS(chunkno) == siqs_sieve->nchunks) {
-       iend = siqs_sieve->endlast;
+        iend = siqs_sieve->endlast;
     }
-
-    const int32_t  sieve_end = sieve_begin + iend;
-
-    uint32_t tmp_length = survivors->length;
-    uint32_t xsieve     = *scan_begin;
-    int32_t  xindex     = *scan_begin + sieve_begin;
-
-    int32_t* xpool_to_write = &(xpool[tmp_length]);
-    int32_t* xpool_to_stop = &(xpool[nsurvivors]);
-
-    //
-    // Make sure &sieve_data[xsieve] points to the beginning of a 64 bit word
-    // (because we may resume a previous, incomplete scan)
-    //
-    while ((xsieve & 7) && (xsieve <= iend)) {
-        if (sieve_data[xsieve] & 0x80) {
-            *xpool_to_write = -xindex;
-            xpool_to_write++;
-            if (xpool_to_write == xpool_to_stop) {
-                xindex++;
-                goto STOP_AND_RETURN;
-            }
-        }
-        xindex++;
-        xsieve++;
-    }
-    //
-    // The usual trick: casting the sieve array as a 64 bit integers array
-    // to read and compare 8 sieve entries in a row.
-    //
-    uint64_t* sieve64 = (uint64_t*)&sieve_data[xsieve];
-
-    const unsigned char* sdatptr = &sieve_data[xsieve];
-
-    uint32_t* sieve32;
-
-    const int32_t  sieve_end2 = sieve_end - 8;
-
-    const int32_t  sieve_end32 = sieve_end - 32;
-
-    while (xindex <= sieve_end2) {
-        //
-        // Survivors are rare: skip 32 entries at a time while none is one.
-        //
-        while (   (xindex <= sieve_end32)
-               && (((sieve64[0] | sieve64[1] | sieve64[2] | sieve64[3])
-                    & 0x8080808080808080) == 0)) {
-            xindex  += 32;
-            sieve64 += 4;
-        }
-        if (xindex > sieve_end2) {
-            break;
-        }
-        if ((*sieve64 & 0x8080808080808080) == 0) {
-            xindex  += 8;
-            sieve64++;
-            continue;
-        }
-        sieve32 = (uint32_t*)sieve64;
-
-        if ((*sieve32 & 0x80808080) != 0) {
-            sdatptr = (const unsigned char*)sieve32;
-            for (uint8_t i = 0; i < 4; i++) {
-                if ((*sdatptr & 0x80) != 0) {
-                    *xpool_to_write = -xindex;
-                    xpool_to_write++;
-                    if (xpool_to_write == xpool_to_stop) {
-                        xindex++;
-                        goto STOP_AND_RETURN;
-                    }
-                }
-                sdatptr++;
-                xindex++;
-            }
-        } else {
-            xindex  += 4;
-        }
-        sieve32++;
-
-        if ((*sieve32 & 0x80808080) != 0) {
-            sdatptr = (const unsigned char*)sieve32;
-            for (uint8_t i = 0; i < 4; i++) {
-                if ((*sdatptr & 0x80) != 0) {
-                    *xpool_to_write = -xindex;
-                    xpool_to_write++;
-                    if (xpool_to_write == xpool_to_stop) {
-                        xindex++;
-                        goto STOP_AND_RETURN;
-                    }
-                }
-                sdatptr++;
-                xindex++;
-            }
-        } else {
-            xindex  += 4;
-        }
-        sieve64++;
-    }
-
-    while (xindex <= sieve_end) {
-        if (sieve_data[xindex - sieve_begin] & 0x80) {
-            *xpool_to_write = -xindex;
-            xpool_to_write++;
-            if (xpool_to_write == xpool_to_stop) {
-                xindex++;
-                goto STOP_AND_RETURN;
-            }
-        }
-        xindex++;
-    }
-
-  STOP_AND_RETURN:
-
-    *scan_begin = xindex - sieve_begin;
-    survivors->length = xpool_to_write - &(xpool[0]);
+    scan_chunk(siqs_sieve->sieve->data, iend, sieve_begin, -1,
+               &siqs_sieve->scan_begin, survivors, nsurvivors);
 
     return SUCCESS;
 }
