@@ -10,9 +10,12 @@ Here are some short term objectives:
     (32 KiB on most x86-64 cores), and the default parameters of SIQS and
     ECM were chosen there.
 
-  - SIQS: outside the sieve, the largest costs left at 70 bits are, in
-    shares of a run:
-      - the batch smoothness test of the candidates (17%), three quarters of
+  - SIQS: the sieve's kernel takes a third of a 70-bit run, at under one
+    cycle per hit; resetting the sieve (3%) could be done by the scan, but
+    the sieve then needs to know whether it was scanned to its end, a new
+    field of siqs_sieve_t (an ABI change). Outside the sieve, the largest
+    costs left at 70 bits are, in shares of a run:
+      - the batch smoothness test of the candidates (20%), three quarters of
         which are not smooth. Their number follows the sieve threshold,
         which tifa_tune does not tune, but 1 or 2 more or less were slower
         at 70, 90 and 110 bits;

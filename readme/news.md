@@ -1,5 +1,31 @@
 # TIFA news
 
+## 28 October 2026 &mdash; the SIQS sieve
+
+- The sieve skipped its 20 smallest primes at every size. On the short
+  sieves of small numbers their hits cost less than the false candidates
+  the missing logs let through: it now skips 10 of them below 150 primes in
+  the factor base (up to about 85 bits) and 14 below 450 (up to about 130
+  bits), with the thresholds raised by one at 70, 75 and 85 bits and from
+  100 to 130 bits, where it measured best. `NPRIMES_TO_SKIP` (20) applies
+  from 450 primes.
+- The positive and negative scans of the sieve were the same 140 lines but
+  for a sign: they share one function, which with NEON tests 64 bytes at a
+  time and reads the survivors off a bit mask. Elsewhere it keeps the
+  previous 32-byte skip, measured as fast as before. The candidates are the
+  same, in the same order.
+
+The sieve's kernel was left as it was: at 70 bits it hits 9000 times per
+chunk at under one cycle each. Against the previous version:
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 | 115 | 120 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.84 | 0.84 | 0.88 | 0.93 | 0.89 | 0.92 | 0.94 | 0.95 | 0.94 | 0.94 | 0.94 | 0.96 |
+
+From 130 to 150 bits 0.98, from 160 to 200 bits 0.99. On sizes drawn at
+random from 60 to 100 bits, 0.93; `tifa_factor()` 0.89 at 66 bits, 0.95
+at 80, 0.96 at 100, 0.98 at 128.
+
 ## 28 October 2026 &mdash; less GMP outside the SIQS sieve
 
 Three costs outside the sieve, at 70 bits:
