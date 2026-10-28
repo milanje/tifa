@@ -439,27 +439,52 @@ void bern_71_rec(uint32_array_list_t* const decomp_list,
 // For the SIQS batches. While z has at most BERN_SIQS_DIRECT_MAX_LIMBS limbs
 // (factor bases of up to about 250 primes), z mod y for each candidate y is
 // cheaper computed directly (linear in the size of z) than through the
-// product and remainder trees.
+// product and remainder trees. So is it at any size (measured up to 1074
+// limbs, 200 bits) for batches whose candidates all go through the lanes
+// below.
 //
 #if !defined(BERN_SIQS_DIRECT_MAX_LIMBS)
 #define BERN_SIQS_DIRECT_MAX_LIMBS 40
 #endif
 
 //
-// Candidates of one limb are tested SMOOTH_1_LANES at a time, by blocks of
-// SMOOTH_1_BLOCK computed ahead of their use (a batch stops once full). Six
-// squarings suffice for any of them: no prime power below 2^64 has an
-// exponent above 2^6.
+// Candidates below 2^127 are tested SMOOTH_LANES at a time, by blocks of
+// SMOOTH_BLOCK computed ahead of their use (a batch stops once full). No
+// prime power below 2^64 (2^127) has an exponent above 2^6 (2^7): six (seven)
+// squarings suffice for an odd part of one (two) limbs.
 //
-#define SMOOTH_1_LANES     8
-#define SMOOTH_1_BLOCK     32
+#define SMOOTH_LANES       8
+#define SMOOTH_BLOCK       32
 #define SMOOTH_1_SQUARINGS 6
+#define SMOOTH_2_SQUARINGS 7
 
 typedef struct {
     uint32_t first;
     uint32_t end;
-    uint64_t x[SMOOTH_1_BLOCK];
-} smooth_1_block_t;
+    uint64_t x[SMOOTH_BLOCK][2];
+} smooth_block_t;
+
+static inline bool in_smooth_lanes(const mpz_t y) {
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+    return (mpz_size(y) == 1)
+        || ((mpz_size(y) == 2) && ((mpz_getlimbn(y, 1) >> 63) == 0));
+#else
+    (void) y;
+    return false;
+#endif
+}
+
+static bool rem_tree_needed(const mpz_array_t* const cand_yi, const mpz_t z) {
+    if (mpz_size(z) <= BERN_SIQS_DIRECT_MAX_LIMBS) {
+        return false;
+    }
+    for (uint32_t k = 0; k < cand_yi->length; k++) {
+        if (!in_smooth_lanes(cand_yi->data[k])) {
+            return true;
+        }
+    }
+    return false;
+}
 
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
 //
@@ -487,8 +512,44 @@ static inline uint64_t pow2e_mod_odd(const uint64_t r, const uint64_t yo,
 }
 
 //
+// x = x^2/2^128 mod yo for yo = (y0, y1) of two limbs (y1 != 0), x < yo and
+// ninv = -1/y0 mod 2^64 (CIOS).
+//
+static inline void mont_sqr_2(uint64_t x[2], const uint64_t yo[2],
+                              const uint64_t ninv) {
+    uint64_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+    for (int i = 0; i < 2; i++) {
+        unsigned __int128 c = (unsigned __int128) x[0] * x[i] + t0;
+        t0 = (uint64_t) c;
+        c  = (c >> 64) + (unsigned __int128) x[1] * x[i] + t1;
+        t1 = (uint64_t) c;
+        c  = (c >> 64) + t2;
+        t2 = (uint64_t) c;
+        t3 = (uint64_t) (c >> 64);
+
+        const uint64_t m = t0 * ninv;
+        c  = ((unsigned __int128) m * yo[0] + t0) >> 64;
+        c += (unsigned __int128) m * yo[1] + t1;
+        t0 = (uint64_t) c;
+        c  = (c >> 64) + t2;
+        t1 = (uint64_t) c;
+        t2 = t3 + (uint64_t) (c >> 64);
+    }
+    //
+    // t < 2.yo: subtract yo once if needed.
+    //
+    const unsigned __int128 d0 = (unsigned __int128) t0 - yo[0];
+    const uint64_t b0 = (uint64_t) (d0 >> 64) & 1;
+    const unsigned __int128 d1 = (unsigned __int128) t1 - yo[1] - b0;
+    const uint64_t b1 = (uint64_t) (d1 >> 64) & 1;
+    const bool keep = (t2 == 0) && (b1 != 0);
+    x[0] = keep ? t0 : (uint64_t) d0;
+    x[1] = keep ? t1 : (uint64_t) d1;
+}
+
+//
 // As pow2e_mod_odd, for yo = (y0, y1) of two limbs (y1 != 0) and r < yo:
-// Montgomery squarings with 2^128 (CIOS), into x.
+// Montgomery squarings with 2^128, into x.
 //
 static inline void pow2e_mod_odd_2(uint64_t x[2], const uint64_t r[2],
                                    const uint64_t yo[2], const uint32_t e) {
@@ -500,34 +561,7 @@ static inline void pow2e_mod_odd_2(uint64_t x[2], const uint64_t r[2],
     x[0] = r[0];
     x[1] = r[1];
     for (uint32_t k = 0; k < e; k++) {
-        uint64_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
-        for (int i = 0; i < 2; i++) {
-            unsigned __int128 c = (unsigned __int128) x[0] * x[i] + t0;
-            t0 = (uint64_t) c;
-            c  = (c >> 64) + (unsigned __int128) x[1] * x[i] + t1;
-            t1 = (uint64_t) c;
-            c  = (c >> 64) + t2;
-            t2 = (uint64_t) c;
-            t3 = (uint64_t) (c >> 64);
-
-            const uint64_t m = t0 * ninv;
-            c  = ((unsigned __int128) m * yo[0] + t0) >> 64;
-            c += (unsigned __int128) m * yo[1] + t1;
-            t0 = (uint64_t) c;
-            c  = (c >> 64) + t2;
-            t1 = (uint64_t) c;
-            t2 = t3 + (uint64_t) (c >> 64);
-        }
-        //
-        // t < 2.yo: subtract yo once if needed.
-        //
-        const unsigned __int128 d0 = (unsigned __int128) t0 - yo[0];
-        const uint64_t b0 = (uint64_t) (d0 >> 64) & 1;
-        const unsigned __int128 d1 = (unsigned __int128) t1 - yo[1] - b0;
-        const uint64_t b1 = (uint64_t) (d1 >> 64) & 1;
-        const bool keep = (t2 == 0) && (b1 != 0);
-        x[0] = keep ? t0 : (uint64_t) d0;
-        x[1] = keep ? t1 : (uint64_t) d1;
+        mont_sqr_2(x, yo, ninv);
     }
 }
 
@@ -562,10 +596,10 @@ static inline void pow2e_z_mod_odd_lanes(uint64_t* const x,
                                          const mp_limb_t* const z,
                                          const mp_size_t nz,
                                          const uint64_t* const yo) {
-    uint64_t inv[SMOOTH_1_LANES];
-    uint64_t c[SMOOTH_1_LANES];
+    uint64_t inv[SMOOTH_LANES];
+    uint64_t c[SMOOTH_LANES];
 
-    for (int l = 0; l < SMOOTH_1_LANES; l++) {
+    for (int l = 0; l < SMOOTH_LANES; l++) {
         inv[l] = (3 * yo[l]) ^ 2;
         for (int i = 0; i < 4; i++) {
             inv[l] *= 2 - yo[l] * inv[l];
@@ -574,20 +608,20 @@ static inline void pow2e_z_mod_odd_lanes(uint64_t* const x,
     }
     for (mp_size_t i = 0; i < nz; i++) {
         const uint64_t s = z[i];
-        for (int l = 0; l < SMOOTH_1_LANES; l++) {
+        for (int l = 0; l < SMOOTH_LANES; l++) {
             const uint64_t q = (s - c[l]) * inv[l];
             c[l] = (uint64_t) (((unsigned __int128) q * yo[l]) >> 64)
                  + (s < c[l]);
         }
     }
-    for (int l = 0; l < SMOOTH_1_LANES; l++) {
+    for (int l = 0; l < SMOOTH_LANES; l++) {
         //
         // c is at most yo, not below.
         //
         c[l] = (c[l] == yo[l]) ? 0 : c[l];
     }
     for (int k = 0; k < SMOOTH_1_SQUARINGS; k++) {
-        for (int l = 0; l < SMOOTH_1_LANES; l++) {
+        for (int l = 0; l < SMOOTH_LANES; l++) {
             const unsigned __int128 t = (unsigned __int128) c[l] * c[l];
             const uint64_t lo = (uint64_t) t;
             const uint64_t hi = (uint64_t) (t >> 64);
@@ -596,48 +630,156 @@ static inline void pow2e_z_mod_odd_lanes(uint64_t* const x,
             c[l] = (hi < qn) ? (hi - qn + yo[l]) : (hi - qn);
         }
     }
-    for (int l = 0; l < SMOOTH_1_LANES; l++) {
+    for (int l = 0; l < SMOOTH_LANES; l++) {
         x[l] = c[l];
     }
 }
 
 //
-// block->x[k - first] for the candidates y[k] of one limb, k in [first, end).
+// As pow2e_z_mod_odd_lanes, for odd yo[l] of two limbs below 2^127, with
+// 2^128: z is folded from its low limb by Montgomery reductions (c = z/2^64^nz
+// mod yo, below 2.yo), then squared as by pow2e_mod_odd_2.
 //
-static void fill_smooth_1_block(smooth_1_block_t* const block,
-                                const mpz_t* const y, const uint32_t first,
-                                const uint32_t end, const mpz_t z) {
+static inline void pow2e_z_mod_odd_2_lanes(uint64_t (* const x)[2],
+                                           const mp_limb_t* const z,
+                                           const mp_size_t nz,
+                                           const uint64_t (* const yo)[2]) {
+    uint64_t ninv[SMOOTH_LANES];
+    uint64_t c0[SMOOTH_LANES];
+    uint64_t c1[SMOOTH_LANES];
+
+    for (int l = 0; l < SMOOTH_LANES; l++) {
+        uint64_t inv = (3 * yo[l][0]) ^ 2;
+        for (int i = 0; i < 4; i++) {
+            inv *= 2 - yo[l][0] * inv;
+        }
+        ninv[l] = 0 - inv;
+        c0[l]   = 0;
+        c1[l]   = 0;
+    }
+    for (mp_size_t i = 0; i < nz; i++) {
+        const uint64_t s = z[i];
+        for (int l = 0; l < SMOOTH_LANES; l++) {
+            const unsigned __int128 a = (((unsigned __int128) c1[l] << 64)
+                                         | c0[l]) + s;
+            const uint64_t q = (uint64_t) a * ninv[l];
+            const unsigned __int128 p0 = (unsigned __int128) q * yo[l][0]
+                                       + (uint64_t) a;
+            const unsigned __int128 p1 = (unsigned __int128) q * yo[l][1]
+                                       + (uint64_t) (a >> 64)
+                                       + (uint64_t) (p0 >> 64);
+            c0[l] = (uint64_t) p1;
+            c1[l] = (uint64_t) (p1 >> 64);
+        }
+    }
+    for (int l = 0; l < SMOOTH_LANES; l++) {
+        const unsigned __int128 c = ((unsigned __int128) c1[l] << 64) | c0[l];
+        const unsigned __int128 m = ((unsigned __int128) yo[l][1] << 64)
+                                  | yo[l][0];
+        const unsigned __int128 r = (c >= m) ? (c - m) : c;
+        c0[l] = (uint64_t) r;
+        c1[l] = (uint64_t) (r >> 64);
+    }
+    for (int k = 0; k < SMOOTH_2_SQUARINGS; k++) {
+        for (int l = 0; l < SMOOTH_LANES; l++) {
+            uint64_t xl[2] = { c0[l], c1[l] };
+            mont_sqr_2(xl, yo[l], ninv[l]);
+            c0[l] = xl[0];
+            c1[l] = xl[1];
+        }
+    }
+    for (int l = 0; l < SMOOTH_LANES; l++) {
+        x[l][0] = c0[l];
+        x[l][1] = c1[l];
+    }
+}
+
+
+static inline unsigned __int128 odd_part_2(const mpz_t y) {
+    unsigned __int128 ya = mpz_getlimbn(y, 0);
+    if (mpz_size(y) == 2) {
+        ya |= (unsigned __int128) mpz_getlimbn(y, 1) << 64;
+    }
+    const uint64_t lo = (uint64_t) ya;
+    return ya >> ((lo != 0) ? __builtin_ctzll(lo)
+                            : 64 + __builtin_ctzll((uint64_t) (ya >> 64)));
+}
+
+//
+// block->x[k - first] for the candidates y[k] in the lanes, k in [first, end),
+// grouped by the limbs of their odd parts.
+//
+static void fill_smooth_block(smooth_block_t* const block,
+                              const mpz_t* const y, const uint32_t first,
+                              const uint32_t end, const mpz_t z) {
     const mp_limb_t* const zl = mpz_limbs_read(z);
     const mp_size_t        nz = mpz_size(z);
 
-    uint64_t yo[SMOOTH_1_LANES];
-    uint64_t x[SMOOTH_1_LANES];
-    uint32_t idx[SMOOTH_1_LANES];
-    uint32_t nlanes = 0;
+    uint64_t yo1[SMOOTH_LANES];
+    uint64_t x1[SMOOTH_LANES];
+    uint32_t idx1[SMOOTH_LANES];
+    uint32_t n1 = 0;
+
+    uint64_t yo2[SMOOTH_LANES][2];
+    uint64_t x2[SMOOTH_LANES][2];
+    uint32_t idx2[SMOOTH_LANES];
+    uint32_t n2 = 0;
 
     for (uint32_t k = first; k < end; k++) {
-        if (mpz_size(y[k]) != 1) {
+        if (!in_smooth_lanes(y[k])) {
             continue;
         }
-        const uint64_t ya = mpz_getlimbn(y[k], 0);
-        yo[nlanes]  = ya >> __builtin_ctzll(ya);
-        idx[nlanes] = k - first;
-        nlanes++;
-        if (nlanes == SMOOTH_1_LANES) {
-            pow2e_z_mod_odd_lanes(x, zl, nz, yo);
-            for (uint32_t l = 0; l < nlanes; l++) {
-                block->x[idx[l]] = x[l];
+        const unsigned __int128 yo = odd_part_2(y[k]);
+        if ((yo >> 64) == 0) {
+            yo1[n1]  = (uint64_t) yo;
+            idx1[n1] = k - first;
+            n1++;
+            if (n1 == SMOOTH_LANES) {
+                pow2e_z_mod_odd_lanes(x1, zl, nz, yo1);
+                for (uint32_t l = 0; l < n1; l++) {
+                    block->x[idx1[l]][0] = x1[l];
+                    block->x[idx1[l]][1] = 0;
+                }
+                n1 = 0;
             }
-            nlanes = 0;
+        } else {
+            yo2[n2][0] = (uint64_t) yo;
+            yo2[n2][1] = (uint64_t) (yo >> 64);
+            idx2[n2]   = k - first;
+            n2++;
+            if (n2 == SMOOTH_LANES) {
+                pow2e_z_mod_odd_2_lanes(x2, zl, nz,
+                                        (const uint64_t (*)[2]) yo2);
+                for (uint32_t l = 0; l < n2; l++) {
+                    block->x[idx2[l]][0] = x2[l][0];
+                    block->x[idx2[l]][1] = x2[l][1];
+                }
+                n2 = 0;
+            }
         }
     }
-    if (nlanes != 0) {
-        for (uint32_t l = nlanes; l < SMOOTH_1_LANES; l++) {
-            yo[l] = 1;
+    if (n1 != 0) {
+        for (uint32_t l = n1; l < SMOOTH_LANES; l++) {
+            yo1[l] = 1;
         }
-        pow2e_z_mod_odd_lanes(x, zl, nz, yo);
-        for (uint32_t l = 0; l < nlanes; l++) {
-            block->x[idx[l]] = x[l];
+        pow2e_z_mod_odd_lanes(x1, zl, nz, yo1);
+        for (uint32_t l = 0; l < n1; l++) {
+            block->x[idx1[l]][0] = x1[l];
+            block->x[idx1[l]][1] = 0;
+        }
+    }
+    if (n2 != 0) {
+        //
+        // The odd 2^64 + 1 keeps the padding lanes on two limbs.
+        //
+        for (uint32_t l = n2; l < SMOOTH_LANES; l++) {
+            yo2[l][0] = 1;
+            yo2[l][1] = 1;
+        }
+        pow2e_z_mod_odd_2_lanes(x2, zl, nz, (const uint64_t (*)[2]) yo2);
+        for (uint32_t l = 0; l < n2; l++) {
+            block->x[idx2[l]][0] = x2[l][0];
+            block->x[idx2[l]][1] = x2[l][1];
         }
     }
     block->first = first;
@@ -724,25 +866,34 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
     return false;
 }
 //
-// siqs_smooth for y[k], through block for candidates of one limb when there
-// is no remainder tree.
+// siqs_smooth for y[k], through block for the candidates in its lanes when
+// there is no remainder tree.
 //
-static bool siqs_smooth_at(smooth_1_block_t* const block, const mpz_t* const y,
+static bool siqs_smooth_at(smooth_block_t* const block, const mpz_t* const y,
                            const uint32_t k, const uint32_t ny, const mpz_t z,
                            const mpz_t rleaf, mpz_t yk, mpz_t yo, mpz_t nsp) {
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
-    if ((rleaf == NULL) && (mpz_size(y[k]) == 1)) {
+    if ((rleaf == NULL) && in_smooth_lanes(y[k])) {
         if ((k < block->first) || (k >= block->end)) {
-            fill_smooth_1_block(block, y, k, MIN(k + SMOOTH_1_BLOCK, ny), z);
+            fill_smooth_block(block, y, k, MIN(k + SMOOTH_BLOCK, ny), z);
         }
-        const uint64_t x = block->x[k - block->first];
-        if (x == 0) {
+        const uint64_t* const x = block->x[k - block->first];
+        if ((x[0] | x[1]) == 0) {
             return true;
         }
         if (nsp != NULL) {
-            const uint64_t ya = mpz_getlimbn(y[k], 0);
-            const uint64_t yodd = ya >> __builtin_ctzll(ya);
-            mpz_set_ui(nsp, (unsigned long int) (yodd / gcd_u64(x, yodd)));
+            const unsigned __int128 yodd = odd_part_2(y[k]);
+            if ((yodd >> 64) == 0) {
+                const uint64_t yo1 = (uint64_t) yodd;
+                mpz_set_ui(nsp, (unsigned long int) (yo1 / gcd_u64(x[0], yo1)));
+            } else {
+                const uint64_t yo2[2] = { (uint64_t) yodd,
+                                          (uint64_t) (yodd >> 64) };
+                mpz_import(yk, 2, -1, sizeof(uint64_t), 0, 0, x);
+                mpz_import(yo, 2, -1, sizeof(uint64_t), 0, 0, yo2);
+                mpz_gcd(yk, yk, yo);
+                mpz_divexact(nsp, yo, yk);
+            }
         }
         return false;
     }
@@ -770,7 +921,7 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
     // Step 2
     //
     mpz_tree_t* rtree = NULL;
-    if (mpz_size(z) > BERN_SIQS_DIRECT_MAX_LIMBS) {
+    if (rem_tree_needed(cand_yi, z)) {
         mpz_tree_t* pyitree = prod_tree(cand_yi);
         rtree = rem_tree(z, pyitree);
         free_mpz_tree(pyitree);
@@ -782,7 +933,7 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
     mpz_init(yk);
     mpz_init(yo);
 
-    smooth_1_block_t block = { .first = 0, .end = 0 };
+    smooth_block_t block = { .first = 0, .end = 0 };
 
     for (uint32_t k = 0U; k < cand_yi->length; k++) {
         const mpz_srcptr rleaf = (rtree != NULL)
@@ -844,7 +995,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     // Step 2
     //
     mpz_tree_t* rtree = NULL;
-    if (mpz_size(z) > BERN_SIQS_DIRECT_MAX_LIMBS) {
+    if (rem_tree_needed(cand_yi, z)) {
         mpz_tree_t* pyitree = prod_tree(cand_yi);
         rtree = rem_tree(z, pyitree);
         free_mpz_tree(pyitree);
@@ -864,7 +1015,7 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     
     const uint32_t cand_yi_length = cand_yi->length;
 
-    smooth_1_block_t block = { .first = 0, .end = 0 };
+    smooth_block_t block = { .first = 0, .end = 0 };
 
     mpz_t* candidate_y = &(cand_yi->data[0]);
     mpz_t* candidate_x = &(cand_xi->data[0]);

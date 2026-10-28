@@ -151,8 +151,9 @@ void bern_71(
    /**
     * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS (with a
     * remainder tree only when \c z has more than
-    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, \c z is reduced
-    * modulo each y_i directly).
+    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs and, with 64-bit limbs and
+    * 128-bit integers, some y_i is at least 2^127; otherwise, \c z is
+    * reduced modulo each y_i directly).
     *
     * Given <tt>z</tt>, the product of prime numbers p_j and the positive
     * integers y_i listed by <tt>cand_yi</tt>, determines the y_i that are
@@ -204,8 +205,9 @@ uint32_t bern_21_rt_pairs_siqs(
    /**
     * \brief Daniel J. Bernstein's algorithm 2.1 modified for SIQS, with large
     * primes variation (with a remainder tree only when \c z has more than
-    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs; otherwise, \c z is reduced
-    * modulo each y_i directly).
+    * \c BERN_SIQS_DIRECT_MAX_LIMBS (40) limbs and, with 64-bit limbs and
+    * 128-bit integers, some y_i is at least 2^127; otherwise, \c z is
+    * reduced modulo each y_i directly).
     *
     * Given <tt>z</tt>, the product of prime numbers p_j and the positive
     * integers y_i listed by <tt>cand_yi</tt>, determines the y_i that are
