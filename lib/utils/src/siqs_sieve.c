@@ -172,6 +172,10 @@ static uint32_t log2_sieve_chunk_size(void)
     return log2_chunk_size;
 }
 #endif
+//
+// Bytes past the end of the sieve array, for sieve_primes.
+//
+#define SIEVE_SLACK 64
 //-----------------------------------------------------------------------------
 siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const factor_base,
@@ -192,7 +196,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
     const uint32_t chunk_max = 1U << sieve->log2_chunk_size;
 
     if (half_width <= chunk_max) {
-        sieve->sieve         = alloc_byte_array(half_width);
+        sieve->sieve         = alloc_byte_array(half_width + SIEVE_SLACK);
         sieve->sieve->length = half_width;
         sieve->chunk_size    = half_width;
         sieve->nchunks       = 1;
@@ -200,7 +204,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         sieve->endlast       = half_width - 1;
 
     } else {
-        sieve->sieve         = alloc_byte_array(chunk_max);
+        sieve->sieve         = alloc_byte_array(chunk_max + SIEVE_SLACK);
         sieve->sieve->length = chunk_max;
 
         uint32_t hwmod = half_width % chunk_max;
@@ -475,10 +479,11 @@ void switch_polynomial(siqs_sieve_t* const sieve)
 //
 // Sieves positions 0 to iend with the primes of indexes from to to - 1, both
 // roots in each pass, and leaves their next hits relative to the following
-// chunk of sieve_length positions. The loop depends on how often a prime
-// hits the chunk: four hits per iteration while it hits at least four times
-// per root (as YAFU's SIEVE_2X), two while at least once, and at most one per
-// root beyond.
+// chunk of sieve_length positions. Each root of a prime p below iend + 1 hits
+// m = (iend + 1) / p times, or m + 1: consecutive primes share m, so the
+// loop on the first m hits keeps its count from one prime to the next, and
+// the last hit is subtracted without branching, from a byte of the slack
+// past the end of the sieve when it falls beyond.
 //
 static inline void sieve_primes(unsigned char* const sieve_data,
                                 const uint32_t iend,
@@ -488,64 +493,43 @@ static inline void sieve_primes(unsigned char* const sieve_data,
                                 int32_t* const sol1data,
                                 int32_t* const sol2data,
                                 const uint32_t from, const uint32_t to) {
-    const uint32_t quarter = (iend + 1) / 4;
+    const uint32_t length = iend + 1;
 
     uint32_t p = from;
-    for (; (p < to) && (fbdata[p] <= quarter); p++) {
-        const uint32_t prime = fbdata[p];
-        const uint8_t  lp    = logs[p];
+    while ((p < to) && (fbdata[p] <= iend)) {
+        const uint32_t m    = length / fbdata[p];
+        const uint32_t pmax = length / m;
 
-        uint32_t r1 = (uint32_t) sol1data[p];
-        uint32_t r2 = (uint32_t) sol2data[p];
-        if (r1 > r2) {
-            const uint32_t tmp = r1;
-            r1 = r2;
-            r2 = tmp;
-        }
-        while (r2 + prime <= iend) {
-            sieve_data[r1]         -= lp;
-            sieve_data[r2]         -= lp;
-            sieve_data[r1 + prime] -= lp;
-            sieve_data[r2 + prime] -= lp;
-            r1 += 2 * prime;
-            r2 += 2 * prime;
-        }
-        if (r2 <= iend) {
-            sieve_data[r1] -= lp;
-            sieve_data[r2] -= lp;
-            r1 += prime;
-            r2 += prime;
-        }
-        if (r1 <= iend) {
-            sieve_data[r1] -= lp;
-            r1 += prime;
-        }
-        sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
-        sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
-    }
-    for (; (p < to) && (fbdata[p] <= iend); p++) {
-        const uint32_t prime = fbdata[p];
-        const uint8_t  lp    = logs[p];
+        for (; (p < to) && (fbdata[p] <= pmax); p++) {
+            const uint32_t prime = fbdata[p];
+            const uint8_t  lp    = logs[p];
 
-        uint32_t r1 = (uint32_t) sol1data[p];
-        uint32_t r2 = (uint32_t) sol2data[p];
-        if (r1 > r2) {
-            const uint32_t tmp = r1;
-            r1 = r2;
-            r2 = tmp;
+            uint32_t r1 = (uint32_t) sol1data[p];
+            uint32_t r2 = (uint32_t) sol2data[p];
+            uint32_t j  = m;
+            for (; j >= 2; j -= 2) {
+                sieve_data[r1]         -= lp;
+                sieve_data[r2]         -= lp;
+                sieve_data[r1 + prime] -= lp;
+                sieve_data[r2 + prime] -= lp;
+                r1 += 2 * prime;
+                r2 += 2 * prime;
+            }
+            if (j != 0) {
+                sieve_data[r1] -= lp;
+                sieve_data[r2] -= lp;
+                r1 += prime;
+                r2 += prime;
+            }
+            const uint32_t spill = length + (prime & (SIEVE_SLACK / 2 - 1));
+            sieve_data[(r1 <= iend) ? r1 : spill] -= lp;
+            sieve_data[(r2 <= iend) ? r2 : spill + SIEVE_SLACK / 2] -= lp;
+            r1 += (r1 <= iend) ? prime : 0;
+            r2 += (r2 <= iend) ? prime : 0;
+
+            sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
+            sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
         }
-        while (r2 <= iend) {
-            sieve_data[r1] -= lp;
-            sieve_data[r2] -= lp;
-            r1 += prime;
-            r2 += prime;
-        }
-        if (r1 <= iend) {
-            sieve_data[r1] -= lp;
-            r1 += prime;
-        }
-        sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
-        sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
     }
     for (; p < to; p++) {
         const uint32_t prime = fbdata[p];
@@ -553,14 +537,12 @@ static inline void sieve_primes(unsigned char* const sieve_data,
 
         uint32_t r1 = (uint32_t) sol1data[p];
         uint32_t r2 = (uint32_t) sol2data[p];
-        if (r1 <= iend) {
-            sieve_data[r1] -= lp;
-            r1 += prime;
-        }
-        if (r2 <= iend) {
-            sieve_data[r2] -= lp;
-            r2 += prime;
-        }
+        const uint32_t spill = length + (prime & (SIEVE_SLACK / 2 - 1));
+        sieve_data[(r1 <= iend) ? r1 : spill] -= lp;
+        sieve_data[(r2 <= iend) ? r2 : spill + SIEVE_SLACK / 2] -= lp;
+        r1 += (r1 <= iend) ? prime : 0;
+        r2 += (r2 <= iend) ? prime : 0;
+
         sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
         sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
     }
