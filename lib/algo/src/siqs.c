@@ -24,6 +24,8 @@
  */
 
 #include <stdlib.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #include "tifa_config.h"
 
@@ -392,6 +394,9 @@ static const u32triplet_t best_params[NRANGES] = {
 //-----------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+static mpz_array_t* take_array(const int which, const uint32_t length,
+                               const bool exact);
+static void give_array(const int which, mpz_array_t* const array);
 static ecode_t init_siqs_context(factoring_machine_t* const machine);
 static ecode_t clear_siqs_context(factoring_machine_t* const machine);
 static ecode_t update_siqs_context(factoring_machine_t* const machine);
@@ -590,6 +595,94 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
  */
 
 //------------------------------------------------------------------------------
+//
+// The integers of a run's largest arrays keep their limbs from one run to the
+// next in the same thread: allocating them took 7 to 9% of a run from 66 to 80
+// bits. Arrays above POOL_MAX_LENGTH (runs above about 150 bits, too long for
+// it to matter) are freed instead, so that a thread keeps 170 KiB at most. A
+// thread's arrays are freed when it exits.
+//
+#define POOL_MAX_LENGTH 1024
+
+enum {
+    POOL_CAND_REDGX,
+    POOL_CAND_U,
+    POOL_REDGX,
+    POOL_U,
+    POOL_PARTIAL_GX,
+    POOL_NARRAYS
+};
+typedef struct {
+    mpz_array_t* arrays[POOL_NARRAYS];
+} siqs_pool_t;
+
+static pthread_key_t  pool_key;
+static bool           pool_key_ok = false;
+static pthread_once_t pool_once   = PTHREAD_ONCE_INIT;
+
+static void free_pool(void* const p) {
+    siqs_pool_t* const pool = (siqs_pool_t*) p;
+    for (int i = 0; i < POOL_NARRAYS; i++) {
+        if (pool->arrays[i] != NULL) {
+            free_mpz_array(pool->arrays[i]);
+        }
+    }
+    free(pool);
+}
+
+static void create_pool_key(void) {
+    pool_key_ok = (0 == pthread_key_create(&pool_key, free_pool));
+}
+
+static siqs_pool_t* thread_pool(void) {
+    pthread_once(&pool_once, create_pool_key);
+    if (!pool_key_ok) {
+        return NULL;
+    }
+    siqs_pool_t* pool = (siqs_pool_t*) pthread_getspecific(pool_key);
+    if (pool == NULL) {
+        pool = tifa_calloc(1, sizeof(siqs_pool_t));
+        if (0 != pthread_setspecific(pool_key, pool)) {
+            free(pool);
+            return NULL;
+        }
+    }
+    return pool;
+}
+//------------------------------------------------------------------------------
+static mpz_array_t* take_array(const int which, const uint32_t length,
+                               const bool exact) {
+    //
+    // An empty array for 'length' integers, from the thread's pool if it has
+    // one. With 'exact', it has room for exactly 'length': the relations
+    // arrays stop filling up when full.
+    //
+    siqs_pool_t* const pool = thread_pool();
+    mpz_array_t* array = (pool != NULL) ? pool->arrays[which] : NULL;
+    if (array == NULL) {
+        return alloc_mpz_array(length);
+    }
+    pool->arrays[which] = NULL;
+    if ((array->alloced < length) || (exact && (array->alloced != length))) {
+        resize_mpz_array(array, length);
+    }
+    array->length = 0;
+    return array;
+}
+//------------------------------------------------------------------------------
+static void give_array(const int which, mpz_array_t* const array) {
+    //
+    // A run nested in another finds the place taken: its arrays are freed.
+    //
+    siqs_pool_t* const pool = (array->alloced <= POOL_MAX_LENGTH)
+                            ? thread_pool() : NULL;
+    if ((pool == NULL) || (pool->arrays[which] != NULL)) {
+        free_mpz_array(array);
+        return;
+    }
+    pool->arrays[which] = array;
+}
+//------------------------------------------------------------------------------
 static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     //
     // Initialize the SIQS implementation specific variables...
@@ -656,16 +749,20 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
 
     context->xpool = alloc_int32_array(context->to_collect);
 
-    context->cand_redgx    = alloc_mpz_array(context->to_collect);
-    context->cand_u        = alloc_mpz_array(context->to_collect);
+    context->cand_redgx    = take_array(POOL_CAND_REDGX, context->to_collect,
+                                        false);
+    context->cand_u        = take_array(POOL_CAND_U, context->to_collect,
+                                        false);
     context->cand_a_idx    = alloc_uint32_array(context->to_collect);
 
-    context->smooth_redgx       = alloc_mpz_array(context->matrix_nrows);
+    context->smooth_redgx       = take_array(POOL_REDGX,
+                                             context->matrix_nrows, true);
     context->a_idx_for_smooth   = alloc_uint32_array(context->matrix_nrows);
     context->a_values           = alloc_mpz_array(ELONGATION);
     context->a_values_npolyinit = 0;
     context->a_primes           = alloc_uint32_array(ELONGATION);
-    context->u                  = alloc_mpz_array(context->matrix_nrows);
+    context->u                  = take_array(POOL_U, context->matrix_nrows,
+                                             true);
 
     context->drop_duplicates = false;
     context->stalled         = false;
@@ -721,10 +818,10 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
         free_siqs_sieve(context->sieve);
 
         free_uint32_array(context->cand_a_idx);
-        free_mpz_array(context->cand_u);
-        free_mpz_array(context->u);
-        free_mpz_array(context->cand_redgx);
-        free_mpz_array(context->smooth_redgx);
+        give_array(POOL_CAND_U, context->cand_u);
+        give_array(POOL_U, context->u);
+        give_array(POOL_CAND_REDGX, context->cand_redgx);
+        give_array(POOL_REDGX, context->smooth_redgx);
         free_uint32_array(context->a_idx_for_smooth);
         free_mpz_array(context->a_values);
         free_uint32_array(context->a_primes);
@@ -819,13 +916,19 @@ static bool want_more_relations(siqs_context_t* const context) {
     resize_mpz_array(context->u, context->matrix_nrows);
     resize_uint32_array(context->a_idx_for_smooth, context->matrix_nrows);
     //
-    // A batch of candidates can be as large as the relations wanted.
+    // A batch of candidates can be as large as the relations wanted. The
+    // candidates' integers, from the thread's pool, may have room already.
     //
-    if (context->xpool->alloced < context->matrix_nrows) {
-        resize_int32_array(context->xpool, context->matrix_nrows);
-        resize_mpz_array(context->cand_redgx, context->matrix_nrows);
-        resize_mpz_array(context->cand_u, context->matrix_nrows);
-        resize_uint32_array(context->cand_a_idx, context->matrix_nrows);
+    const uint32_t nrows = context->matrix_nrows;
+    if (context->xpool->alloced < nrows) {
+        resize_int32_array(context->xpool, nrows);
+        resize_uint32_array(context->cand_a_idx, nrows);
+    }
+    if (context->cand_redgx->alloced < nrows) {
+        resize_mpz_array(context->cand_redgx, nrows);
+    }
+    if (context->cand_u->alloced < nrows) {
+        resize_mpz_array(context->cand_u, nrows);
     }
 
     free_binary_matrix(context->matrix);
@@ -876,7 +979,8 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     //
     // Cofactors of generated smooth g_{a,b}(xi) after trial divisions.
     //
-    mpz_array_t* partial_gx_array = alloc_mpz_array(context->matrix_nrows);
+    mpz_array_t* partial_gx_array = take_array(POOL_PARTIAL_GX,
+                                               context->matrix_nrows, false);
     //
     // Restrict the trial division to only params->nprimes_tdiv primes
     //
@@ -972,7 +1076,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
 
     free_byte_matrix(decomp_matrix);
     free_uint32_array_list(relations);
-    free_mpz_array(partial_gx_array);
+    give_array(POOL_PARTIAL_GX, partial_gx_array);
 
     return ecode;
 }

@@ -71,6 +71,10 @@ changes.
   words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
   four words, up to 256 bits (`mont_ecm.h`).
 
+All of them can run in several threads at once. SIQS keeps its largest arrays
+from one run to the next in each thread (170 KiB at most, freed when the thread
+exits).
+
 The [readme.txt](./readme/readme.txt) file in the `readme` directory has more
 detail on the algorithms and the source layout; its build and installation
 steps use CMake as well, matching the instructions below.

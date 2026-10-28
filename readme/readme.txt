@@ -104,7 +104,8 @@
   It will not build if GMP is not installed on your system.
 
   The library also needs POSIX threads (its tuning cache is shared between
-  threads).
+  threads, and SIQS keeps its largest arrays per thread from one run to the
+  next).
 
   Documentation is embedded in the code and extracted with the Doxygen tool,
   available from:

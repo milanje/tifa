@@ -16,16 +16,15 @@ Here are some short term objectives:
         which are not smooth. Their number follows the sieve threshold,
         which tifa_tune does not tune, but 1 or 2 more or less were slower
         at 70, 90 and 110 bits;
-      - the first use of the GMP integers of each run's arrays, about 650
-        allocations (6% in GMP's allocations and frees alone). Keeping the
-        arrays between runs would need state per thread;
-      - the trial division of the relations (7%), the Gaussian elimination
-        (6%) and find_factors_decomp (5%, half of it reductions modulo n:
+      - the setup of each run (9%: the multiplier, the factor base and its
+        square roots, the first 'a');
+      - the trial division of the relations (6.5%), the Gaussian elimination
+        (5%) and find_factors_decomp (8%, half of it reductions modulo n:
         reducing less often was within noise). Gauss-Jordan on the
         transposed matrix was slower, and removing singleton columns would
         only remove 2 to 7% of the matrix;
-      - each new 'a' (3.5% at 70 and 100 bits). From seven primes in 'a',
-        the approximer also sorts up to 18424 triples of primes per run
-        (0.5 ms, 0.5% at 170 bits): pairs, which fixed six primes, gave
-        slower 'a' there, but finding the best triple without the table
-        would keep the same 'a'.
+      - each new 'a' (4% at 70 bits). From seven primes in 'a', the
+        approximer also sorts up to 18424 triples of primes per run (0.5 ms,
+        0.5% at 170 bits): pairs, which fixed six primes, gave slower 'a'
+        there, but finding the best triple without the table would keep the
+        same 'a'.

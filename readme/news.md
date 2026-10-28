@@ -1,5 +1,26 @@
 # TIFA news
 
+## 28 October 2026 &mdash; SIQS keeps its arrays from one run to the next
+
+A SIQS run allocated about 600 GMP integers at 70 bits (1400 at 100 bits) on
+their first use, in its arrays of candidates, relations and cofactors, and
+freed them at its end: 6% of the run in GMP's allocations alone. These arrays
+now stay from one run to the next in each thread, their integers with their
+limbs, and are freed when the thread exits: 57 allocations are left per run
+at 70 bits. Arrays of more than 1024 integers, from runs above about 150
+bits, are freed as before, so that a thread keeps 170 KiB at most (12 KiB at
+66 bits). Against the previous version:
+
+| SIQS, bits | 66 | 70 | 80 | 90 | 100 | 120 | 140 | 150 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.91 | 0.92 | 0.92 | 0.95 | 0.96 | 0.97 | 0.99 | 0.98 |
+
+On sizes drawn at random from 60 to 100 bits, 0.95; from 66 to 130 bits,
+0.98; at 180 and 200 bits, where nothing is kept, 0.98, within noise. The
+interface is unchanged. Each thread's arrays are kept in a thread-specific
+key whose destructor frees them; LeakSanitizer reports nothing, neither for
+threads that exit nor for the main thread at the end of the process.
+
 ## 28 October 2026 &mdash; version 0.3.1
 
 Version 0.3.1 gathers the work below since 0.3.0: SIQS spends less time
