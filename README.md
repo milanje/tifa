@@ -21,6 +21,13 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
+Version 0.3.2 (October 2026) makes SIQS 32% faster at 66 and 70 bits, 21% to
+25% from 75 to 85, 11% to 18% from 90 to 110 and 1% to 10% above, against
+0.3.1 on one thread of an Apple M5 Pro; `tifa_factor()` is 12% to 26% faster
+from 66 to 100 bits. SIQS keeps its largest arrays from one run to the next
+in each thread, uses fewer GMP calls outside its sieve, and sieves faster on
+small factor bases. The ABI is unchanged (`libtifa.so.0.3`).
+
 Version 0.3.1 (October 2026) makes SIQS 31% faster from 66 to 75 bits, 18% to
 28% from 80 to 100 and 3% to 13% above, against 0.3.0 on one thread of an
 Apple M5 Pro; `tifa_factor()` is 14% to 28% faster from 66 to 100 bits. SIQS

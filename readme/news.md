@@ -1,5 +1,28 @@
 # TIFA news
 
+## 28 October 2026 &mdash; version 0.3.2
+
+Version 0.3.2 gathers the work below since 0.3.1: SIQS keeps its largest
+arrays from one run to the next in each thread, computes more of its
+candidates and dependencies in machine integers instead of GMP, allocates
+its matrices in one block, and sieves faster on small factor bases (fewer
+small primes skipped, a NEON scan). The ABI is unchanged: the shared
+library is still `libtifa.so.0.3`. Against 0.3.1, on one thread of an Apple
+M5 Pro (time of 0.3.2 over that of 0.3.1, balanced semiprimes; 100 numbers
+per size up to 120 bits, 30 up to 150 and 8 above):
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.68 | 0.68 | 0.75 | 0.79 | 0.78 | 0.82 | 0.85 | 0.87 | 0.88 | 0.89 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.90 | 0.93 | 0.95 | 0.96 | 0.97 | 0.99 | 0.99 | 0.99 | 0.99 | 0.99 |
+
+| `tifa_factor()`, bits | 40 | 50 | 64 | 66 | 80 | 100 | 128 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.98 | 0.99 | 1.00 | 0.74 | 0.82 | 0.88 | 0.95 | 0.98 |
+
 ## 28 October 2026 &mdash; the SIQS sieve
 
 - The sieve skipped its 20 smallest primes at every size. On the short
