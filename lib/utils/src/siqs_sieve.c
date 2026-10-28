@@ -123,6 +123,7 @@ ecode_t update_sieve_params(siqs_sieve_t* const sieve);
 ecode_t reset_poly_sols(siqs_sieve_t* const sieve);
 void    switch_polynomial(siqs_sieve_t* const sieve);
 void    fill_buckets(siqs_sieve_t* const sieve);
+static void size_buckets(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket_posi(siqs_sieve_t* const sieve);
 static inline ecode_t empty_bucket_nega(siqs_sieve_t* const sieve);
@@ -282,6 +283,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         sieve->buckets_positive    = alloc_buckets(2048, sieve->nchunks);
         sieve->buckets_negative    = alloc_buckets(2048, sieve->nchunks);
 
+        size_buckets(sieve);
         fill_buckets(sieve);
     }
 
@@ -768,6 +770,38 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
     return SUCCESS;
 }
 //-----------------------------------------------------------------------------
+static void size_buckets(siqs_sieve_t* const sieve) {
+    //
+    // Makes room in every bin for the most hits of a polynomial, and one more
+    // for the last hit fill_buckets writes without branching: no bin grows
+    // while it fills them.
+    //
+    const uint32_t* const fb    = sieve->poly->factor_base->data;
+    const uint32_t        fblen = sieve->poly->factor_base->length;
+
+    uint32_t bound = 1;
+    for (uint32_t i = sieve->nprimes_no_buckets; i < fblen; i++) {
+        bound += 2 * ((sieve->chunk_size - 1) / fb[i] + 1);
+    }
+    buckets_t* const sides[2] = {
+        sieve->buckets_positive, sieve->buckets_negative
+    };
+    for (int s = 0; s < 2; s++) {
+        for (uint32_t i = 0; i < sides[s]->nbins; i++) {
+            uint32_array_t* const bin = sides[s]->bins[i];
+            if (bin->alloced < bound) {
+                bin->data    = tifa_realloc(bin->data, bound * sizeof(uint32_t));
+                bin->alloced = bound;
+            }
+        }
+    }
+}
+//-----------------------------------------------------------------------------
+//
+// Bins whose write positions fill_buckets keeps on the stack.
+//
+#define FILL_LOCAL_BINS 64
+
 void fill_buckets(siqs_sieve_t* const sieve) {
     //
     // Fills all the buckets for the whole sieving interval.
@@ -780,90 +814,76 @@ void fill_buckets(siqs_sieve_t* const sieve) {
     // such that buckets_negative->bin[i] covers the sieve interval
     // [-(i+1)*chunk_size, -i*chunk_size - 1]
     //
-    reset_buckets(sieve->buckets_positive);
-    reset_buckets(sieve->buckets_negative);
-
+    // As in sieve_primes, each root of a prime p hits the hw positions of a
+    // side m = hw/p or m + 1 times: m in a loop whose count consecutive
+    // primes share, the last one written without branching (past the end of
+    // a bin when it falls beyond, see size_buckets).
+    //
     const siqs_poly_t*  const poly   = sieve->poly;
     const uint32_t*     const fb     = poly->factor_base->data;
     const byte_array_t* const log_fb = sieve->log_primes;
 
     const uint32_t fb_length = poly->factor_base->length;
-    const uint32_t ipmin     = sieve->nprimes_no_buckets;
+    const uint32_t nbins     = sieve->nchunks;
 
     const int32_t* const sol1 = poly->sol1->data;
     const int32_t* const sol2 = poly->sol2->data;
 
-    uint32_t curprime = 0;
-    uint8_t  logp;
-
-    int32_t  hw = sieve->nchunks * sieve->chunk_size;
-    int32_t  spos;
-
-    buckets_t* bposi = sieve->buckets_positive;
-    buckets_t* bnega = sieve->buckets_negative;
-
-    int32_t ibin = 0;
-    int32_t rpos = 0;
-
+    const uint32_t hw    = sieve->nchunks * sieve->chunk_size;
     const uint32_t log2c = sieve->log2_chunk_size;
-    const int32_t  maskc = (int32_t) sieve->chunk_size - 1;
+    const uint32_t maskc = sieve->chunk_size - 1;
 
-    const uint32_t* fbptr = &(fb[ipmin]);
-    const int32_t*  s1ptr = &(sol1[ipmin]);
-    const int32_t*  s2ptr = &(sol2[ipmin]);
-    const uint8_t*  lgptr = &(log_fb->data[ipmin]);
+    buckets_t* const bposi = sieve->buckets_positive;
+    buckets_t* const bnega = sieve->buckets_negative;
 
-    int32_t i = fb_length - ipmin;
+    uint32_t*  local[2 * FILL_LOCAL_BINS];
+    uint32_t** const cur = (nbins <= FILL_LOCAL_BINS)
+                         ? local
+                         : tifa_malloc(2 * nbins * sizeof(uint32_t*));
+    uint32_t** const curp = cur;
+    uint32_t** const curn = cur + nbins;
 
-    do {
-        i--;
-        //
-        // Sieve with solution 1
-        //
-        curprime = *fbptr;
-        spos = *s1ptr;
-        logp = *lgptr;
+    for (uint32_t b = 0; b < nbins; b++) {
+        curp[b] = bposi->bins[b]->data;
+        curn[b] = bnega->bins[b]->data;
+    }
+    uint32_t i = sieve->nprimes_no_buckets;
+    while (i < fb_length) {
+        const uint32_t m    = hw / fb[i];
+        const uint32_t pmax = (m != 0) ? hw / m : UINT32_MAX;
 
-        while (spos < hw) {
-            ibin = spos >> log2c;
-            rpos = spos & maskc;
-            add_to_buckets(rpos, logp, ibin, bposi);
-            spos += curprime;
+        for (; (i < fb_length) && (fb[i] <= pmax); i++) {
+            const uint32_t p  = fb[i];
+            const uint32_t lp = log_fb->data[i];
+
+            const uint32_t starts[4] = {
+                (uint32_t) sol1[i], p - (uint32_t) sol1[i] - 1,
+                (uint32_t) sol2[i], p - (uint32_t) sol2[i] - 1
+            };
+            for (int s = 0; s < 4; s++) {
+                uint32_t** const c = (s & 1) ? curn : curp;
+                uint32_t spos = starts[s];
+
+                for (uint32_t j = 0; j < m; j++) {
+                    const uint32_t b = spos >> log2c;
+                    *(c[b]) = ((spos & maskc) << 8) | lp;
+                    c[b]++;
+                    spos += p;
+                }
+                const bool     in = (spos < hw);
+                const uint32_t b  = in ? (spos >> log2c) : 0;
+                *(c[b]) = ((spos & maskc) << 8) | lp;
+                c[b] += in;
+            }
         }
-        spos = curprime - *s1ptr - 1;
-
-        while (spos < hw) {
-            ibin = spos >> log2c;
-            rpos = spos & maskc;
-            add_to_buckets(rpos, logp, ibin, bnega);
-            spos += curprime;
-        }
-
-        //
-        // Sieve with solution 2
-        //
-        spos = *s2ptr;
-        while (spos < hw) {
-            ibin = spos >> log2c;
-            rpos = spos & maskc;
-
-            add_to_buckets(rpos, logp, ibin, bposi);
-            spos += curprime;
-        }
-        spos = curprime - *s2ptr - 1;
-
-        while (spos < hw) {
-            ibin = spos >> log2c;
-            rpos = spos & maskc;
-
-            add_to_buckets(rpos, logp, ibin, bnega);
-            spos += curprime;
-        }
-        fbptr++;
-        s1ptr++;
-        s2ptr++;
-        lgptr++;
-    } while (i > 0);
+    }
+    for (uint32_t b = 0; b < nbins; b++) {
+        bposi->bins[b]->length = curp[b] - bposi->bins[b]->data;
+        bnega->bins[b]->length = curn[b] - bnega->bins[b]->data;
+    }
+    if (cur != local) {
+        free(cur);
+    }
 }
 //-----------------------------------------------------------------------------
 static ecode_t empty_bucket(siqs_sieve_t* const sieve) {
