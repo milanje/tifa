@@ -105,9 +105,10 @@ ctest --test-dir build           # the test suite
 cmake --install build            # honors -DCMAKE_INSTALL_PREFIX=...
 ```
 
-The machine-word code (below 2^64) and the Montgomery ECM, p-1 and p+1 need a
-compiler with 128-bit integers (GCC and Clang have them on 64-bit platforms);
-without them, the library falls back on its GMP code.
+The machine-word code (below 2^64), the Montgomery ECM, p-1 and p+1, and the
+values, smoothness test and square roots of SIQS's candidates need a compiler
+with 128-bit integers (GCC and Clang have them on 64-bit platforms); without
+them, the library falls back on its slower GMP code.
 
 If GMP lives in a non-standard location, pass `-DGMP_INCDIR=<dir>` and
 `-DGMP_LIBDIR=<dir>`. Build options are set with `-D<OPTION>=<value>` (run

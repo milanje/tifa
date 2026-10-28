@@ -114,10 +114,11 @@
 
   The TIFA code matches the C99 standard so you'll obviously need a
   C99-compliant compiler. TIFA was originally developed with GCC 3.3-4.2 and
-  builds cleanly with modern GCC and Clang. The machine-word code (below 2^64)
-  and the Montgomery ECM, p-1 and p+1 need 128-bit integers, which GCC and
-  Clang have on 64-bit platforms; without them, the library falls back on its
-  GMP code.
+  builds cleanly with modern GCC and Clang. The machine-word code (below 2^64),
+  the Montgomery ECM, p-1 and p+1, and the values, smoothness test and square
+  roots of SIQS's candidates need 128-bit integers, which GCC and Clang have
+  on 64-bit platforms; without them, the library falls back on its slower GMP
+  code.
 
   Lastly, you will need the CMake build tool version 3.20 or higher, available
   at:

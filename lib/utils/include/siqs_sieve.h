@@ -117,7 +117,9 @@ struct struct_siqs_sieve_t {
      */
     byte_array_t* log_primes;
     /**
-     * The actual sieve array, of size \tt{chunk_size}
+     * The actual sieve array, of length \tt{chunk_size} (64 more bytes are
+     * allocated past its end, where the hits beyond a chunk are subtracted
+     * without branching)
      */
     byte_array_t* sieve;
     /**
@@ -233,10 +235,14 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve);
    /**
     * \brief Scans a chunk of an <tt>siqs_sieve_t</tt>.
     * 
-    * Scans the last filled chunk of \tt{sieve}.
+    * Scans the last filled chunk of \tt{sieve}, appending the positions that
+    * may be smooth to \tt{survivors}. Once it holds \tt{nsurvivors} of them,
+    * the scan stops, to resume at the same place on the next call.
     *
-    * \param sieve the \tt{siqs_sieve_t} to scan.
-    * 
+    * \param sieve      the \tt{siqs_sieve_t} to scan.
+    * \param survivors  the positions that may be smooth.
+    * \param nsurvivors the number of positions after which to stop.
+    *
     * \return An exit code.
     */
 ecode_t scan_sieve(
