@@ -13,9 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Every job builds with -Wall -Wextra -Werror.
+        # Every job builds with -Wall -Wextra -Werror; clang, sanitizers and
+        # macos also build the benchmarks, whose siqs-check joins the tests.
         include:
-          - { name: clang, os: ubuntu-latest, cc: clang, build: Release }
+          - { name: clang, os: ubuntu-latest, cc: clang, build: Release, options: -DTIFA_BUILD_BENCH=ON }
           - { name: gcc, os: ubuntu-latest, cc: gcc, build: Release }
           # ASan, UBSan and LeakSanitizer. GCC: clang's UBSan needs
           # compiler-rt's __muloti4 for the 128-bit products.
@@ -24,11 +25,12 @@ jobs:
             cc: gcc
             build: Debug
             cflags: -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all
+            options: -DTIFA_BUILD_BENCH=ON
           # The GMP code paths, as on compilers without 128-bit integers.
           - { name: no-int128, os: ubuntu-latest, cc: gcc, build: Release, cflags: -U__SIZEOF_INT128__ }
           - { name: calloc-off, os: ubuntu-latest, cc: gcc, build: Release, options: -DTIFA_USE_CALLOC_MEMSET=OFF }
           # Apple arm64, where the defaults were tuned.
-          - { name: macos, os: macos-latest, cc: clang, build: Release }
+          - { name: macos, os: macos-latest, cc: clang, build: Release, options: -DTIFA_BUILD_BENCH=ON }
     steps:
       - uses: actions/checkout@v5
 

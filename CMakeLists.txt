@@ -87,6 +87,7 @@ set_property(CACHE TIFA_DOXYGEN_PAPER_TYPE PROPERTY
     STRINGS a4 a4wide letter legal executive)
 
 option(TIFA_BUILD_TESTS "Build the test suite (CTest)" ON)
+option(TIFA_BUILD_BENCH "Build the benchmark programs of bench/ (not installed)" OFF)
 option(TIFA_WERROR "Treat compiler warnings as errors (used in CI)" OFF)
 
 # Compile the baked tuning tables (lib/algo/src/tuning_baked.c) into the library
@@ -223,6 +224,13 @@ add_subdirectory(tools)
 if(TIFA_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+#------------------------------------------------------------------------------
+# Benchmarks (after the tests, which they add siqs-check to)
+#------------------------------------------------------------------------------
+if(TIFA_BUILD_BENCH)
+    add_subdirectory(bench)
 endif()
 
 #------------------------------------------------------------------------------

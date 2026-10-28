@@ -152,6 +152,8 @@
          -DTIFA_ALLOW_TIMING=ON        turn on per-algorithm timing messages
          -DTIFA_TUNING_DIR=<dir>       default directory of the tuning files
                                        (<prefix>/share/tifa/tuning)
+         -DTIFA_BUILD_BENCH=ON         build the benchmark programs of bench/
+                                       (see README.md, not installed)
 
   2) Compile the library and its programs:
 
@@ -244,6 +246,7 @@
           z2z8/ ........... Search for the ECM curves of z2z8_curves.c
 
       tests/ .............. The test suite (run by ctest)
+      bench/ .............. Benchmark programs and ab.sh, to compare builds
       cmake/ .............. CMake modules and package templates
       readme/ ............. This file, the licenses, news.md, todo.txt...
 

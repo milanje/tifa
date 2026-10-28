@@ -263,6 +263,38 @@ built-in defaults are used); `regen-tuning` overwrites it with your machine's
 measured values, which you may then commit. Tuning data is machine-specific, so
 the shipped baseline is intentionally empty.
 
+## Measuring performance
+
+The timings of [news.md](./readme/news.md) come from the programs of `bench/`,
+built with `-DTIFA_BUILD_BENCH=ON` (they are never installed):
+
+- `siqs-bench <bits> [<count> [<seconds>]]` times `siqs()` on `<count>`
+  balanced semiprimes of `<bits>` bits (`<lo>-<hi>` for random sizes), factored
+  again and again for at least `<seconds>` of CPU time. Its options scale or
+  shift the default parameters: `--fb-mul`, `--hw-mul`, `--threshold-delta`,
+  `--large-primes`, `--nrelations`.
+- `factor-bench <factor|ecm|pm1|pp1> <bits> <pbits> [<count> [<seconds>]]`
+  times `tifa_factor()`, ECM, p-1 or p+1 on numbers n = p.q, p of `<pbits>`
+  bits.
+- `siqs-check <lo> <hi> <count>` factors semiprimes of random sizes with SIQS
+  and counts the incomplete and wrong results; the test suite runs it from 50
+  to 120 bits.
+- `bench/ab.sh <base> <new> <args...>` compares two builds, or two sets of
+  options: it runs both alternately over four rounds, each order twice, and
+  prints the ratio of their times.
+
+```sh
+cmake -S . -B new -DCMAKE_BUILD_TYPE=Release -DTIFA_BUILD_BENCH=ON
+cmake --build new
+bench/ab.sh old/bench/siqs-bench new/bench/siqs-bench 70 100 3
+```
+
+where `old` is a build of the reference version (from a `git worktree`, say).
+The tables of news.md use 100 numbers per size up to 120 bits (3 seconds), 30
+up to 150 (6 seconds) and 8 above (12 seconds), on one thread. A build compared
+with itself stays within 1% of 1 on an idle machine, a few percent under load:
+smaller differences are noise.
+
 ## Licence
 
 The TIFA library is Copyright (C) 2011 CNRS, Ecole Polytechnique and INRIA.
