@@ -1,5 +1,41 @@
 # TIFA news
 
+## 28 October 2026 &mdash; the SIQS smoothness test
+
+SIQS tests its candidates for smoothness in batches, after Bernstein: a
+candidate y is smooth when z^(2^e) mod y is 0, z the product of the primes
+of the factor base. This test took 19% of a run at 70 bits and 34% at 120
+bits.
+
+- Below about 100 bits, z mod y was computed by GMP's `mpn_mod_1`, with a
+  precomputation for each y. z is now folded modulo the odd part of y
+  from its low limb, as GMP's `mpn_modexact_1_odd` does, which needs only
+  the inverse of that odd part, and squared six times in Montgomery form;
+  eight candidates go through together to overlap the multiplications.
+  The test drops to 6% of a 70-bit run.
+- Candidates of two limbs below 2^127 (from about 100 bits) go through
+  eight lanes too, with two-limb Montgomery reductions and seven
+  squarings. Reducing z modulo each of them is then cheaper than the
+  product and remainder trees used above 40 limbs of z, at every size
+  measured, up to 1074 limbs of z at 200 bits: the trees are left to the
+  batches holding a candidate of 2^127 or more, as most do at 220 bits.
+
+The results differ from those of GMP by a unit, so the same candidates are
+found smooth, with the same cofactors (checked on 50 million candidates
+from 50 to 100 bits and 8.4 million at 120 bits). Against the previous
+version:
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.88 | 0.88 | 0.88 | 0.88 | 0.90 | 0.91 | 0.90 | 0.84 | 0.77 | 0.82 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.80 | 0.83 | 0.82 | 0.79 | 0.83 | 0.85 | 0.88 | 0.88 | 0.95 | 0.93 |
+
+At 220 bits, 1.00. `tifa_factor()`: 0.91 at 66 bits, 0.93 at 80, 0.87 at
+100, 0.83 at 128, 0.85 at 160.
+
 ## 28 October 2026 &mdash; version 0.3.2
 
 Version 0.3.2 gathers the work below since 0.3.1: SIQS keeps its largest

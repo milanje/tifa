@@ -15,10 +15,14 @@ Here are some short term objectives:
     the sieve then needs to know whether it was scanned to its end, a new
     field of siqs_sieve_t (an ABI change). Outside the sieve, the largest
     costs left at 70 bits are, in shares of a run:
-      - the batch smoothness test of the candidates (20%), three quarters of
+      - the batch smoothness test of the candidates (6%), three quarters of
         which are not smooth. Their number follows the sieve threshold,
         which tifa_tune does not tune, but 1 or 2 more or less were slower
-        at 70, 90 and 110 bits;
+        at 70, 90 and 110 bits. At 120 bits the test is 19% of a run: 7% in
+        its kernel, most of the rest in the large primes' hashtable, whose
+        entries bern_21_rt_pairs_lp_siqs allocates one by one (pooling them
+        changes its interface), and in GMP's gcd of each cofactor (a
+        128-bit binary gcd was twice slower);
       - the setup of each run (10%): the square roots modulo the primes of
         the base (3%: four at a time measured 1.5 times faster, on half of
         the primes only), the first 'a' (3%), the multiplier (2%);
