@@ -143,6 +143,125 @@ static inline uint32_t remove_twos(uint64_t* const l, size_t* const n) {
     }
     return (uint32_t) (64 * z) + b;
 }
+//
+// Montgomery arithmetic modulo an odd n of at most two limbs, R = 2^128, for
+// the products of find_factors_decomp: each product leaves a factor 1/R, and
+// those of a whole product are taken out at once at its end.
+//
+typedef struct {
+    uint64_t n[2];
+    uint64_t ninv;      // -1/n mod 2^64
+    uint64_t one[2];    // R mod n
+    uint64_t r2[2];     // R^2 mod n
+} mont2_t;
+
+static bool mont2_init(mont2_t* const m, const mpz_t n) {
+    if ((mpz_size(n) > 2) || mpz_even_p(n)) {
+        return false;
+    }
+    m->n[0] = mpz_getlimbn(n, 0);
+    m->n[1] = mpz_getlimbn(n, 1);
+    uint64_t inv = m->n[0];
+    for (int i = 0; i < 5; i++) {
+        inv *= 2 - m->n[0] * inv;
+    }
+    m->ninv = 0 - inv;
+
+    mpz_t t;
+    mpz_init(t);
+    mpz_setbit(t, 128);
+    mpz_mod(t, t, n);
+    m->one[0] = mpz_getlimbn(t, 0);
+    m->one[1] = mpz_getlimbn(t, 1);
+    mpz_set_ui(t, 0);
+    mpz_setbit(t, 256);
+    mpz_mod(t, t, n);
+    m->r2[0] = mpz_getlimbn(t, 0);
+    m->r2[1] = mpz_getlimbn(t, 1);
+    mpz_clear(t);
+
+    return true;
+}
+//
+// r = a.b/R mod n, for a < n and a.b < n.R (CIOS).
+//
+static inline void mont2_mul(uint64_t r[2], const uint64_t a[2],
+                             const uint64_t b[2], const mont2_t* const m) {
+    uint64_t t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+    for (int i = 0; i < 2; i++) {
+        unsigned __int128 c = (unsigned __int128) a[0] * b[i] + t0;
+        t0 = (uint64_t) c;
+        c  = (c >> 64) + (unsigned __int128) a[1] * b[i] + t1;
+        t1 = (uint64_t) c;
+        c  = (c >> 64) + t2;
+        t2 = (uint64_t) c;
+        t3 = (uint64_t) (c >> 64);
+
+        const uint64_t q = t0 * m->ninv;
+        c  = ((unsigned __int128) q * m->n[0] + t0) >> 64;
+        c += (unsigned __int128) q * m->n[1] + t1;
+        t0 = (uint64_t) c;
+        c  = (c >> 64) + t2;
+        t1 = (uint64_t) c;
+        t2 = t3 + (uint64_t) (c >> 64);
+    }
+    //
+    // t < 2n: subtract n once if needed.
+    //
+    const unsigned __int128 d0 = (unsigned __int128) t0 - m->n[0];
+    const uint64_t b0 = (uint64_t) (d0 >> 64) & 1;
+    const unsigned __int128 d1 = (unsigned __int128) t1 - m->n[1] - b0;
+    const uint64_t b1 = (uint64_t) (d1 >> 64) & 1;
+    const bool keep = (t2 == 0) && (b1 != 0);
+    r[0] = keep ? t0 : (uint64_t) d0;
+    r[1] = keep ? t1 : (uint64_t) d1;
+}
+//
+// x = x.R^k mod n, which takes out the factors 1/R of k products: x times
+// R^(k+1), the Montgomery form of R^k, divided by R.
+//
+static void mont2_unscale(uint64_t x[2], const uint32_t k,
+                          const mont2_t* const m) {
+    uint64_t c[2] = { m->one[0], m->one[1] };
+    uint32_t bit = 1U << 31;
+    while ((bit != 0) && ((k & bit) == 0)) {
+        bit >>= 1;
+    }
+    for (; bit != 0; bit >>= 1) {
+        mont2_mul(c, c, c, m);
+        if (k & bit) {
+            mont2_mul(c, c, m->r2, m);
+        }
+    }
+    mont2_mul(x, x, c, m);
+}
+//
+// r = u mod n, for the u = a.x + b of the relations.
+//
+static inline void mont2_residue(uint64_t r[2], const mpz_t u, const mpz_t n,
+                                 const mont2_t* const m, mpz_t scratch) {
+    if ((mpz_size(u) > 2) || (mpz_cmpabs(u, n) >= 0)) {
+        mpz_mod(scratch, u, n);
+        r[0] = mpz_getlimbn(scratch, 0);
+        r[1] = mpz_getlimbn(scratch, 1);
+        return;
+    }
+    r[0] = mpz_getlimbn(u, 0);
+    r[1] = mpz_getlimbn(u, 1);
+    if ((mpz_sgn(u) < 0) && ((r[0] | r[1]) != 0)) {
+        const unsigned __int128 d0 = (unsigned __int128) m->n[0] - r[0];
+        const uint64_t b0 = (uint64_t) (d0 >> 64) & 1;
+        r[1] = m->n[1] - r[1] - b0;
+        r[0] = (uint64_t) d0;
+    }
+}
+
+static void mpz_set_mont2(mpz_t z, const uint64_t v[2]) {
+    mp_limb_t* const d = mpz_limbs_write(z, 2);
+    d[0] = v[0];
+    d[1] = v[1];
+    mpz_limbs_finish(z, 2);
+}
 #endif
 //-----------------------------------------------------------------------------
 void fill_trial_div_decomp(binary_matrix_t* const matrix,
@@ -544,12 +663,32 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
     unsigned char** decomp_data = yi_decomp_matrix->data;
     uint32_t*       base_data   = factor_base->data;
 
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+    //
+    // Up to two limbs, the products are Montgomery products, without any of
+    // GMP's divisions: they took half of this function at 70 bits.
+    //
+    mont2_t mod;
+    const bool mont = mont2_init(&mod, n);
+    uint64_t xm[2];
+    uint64_t ym[2];
+    uint32_t kx = 0;
+    uint32_t ky = 0;
+#endif
     for (uint32_t idep = 0; idep < dependencies->length; idep++) {
         if (factors->length == factors->alloced) {
             break;
         }
         mpz_set_ui(x, 1);
         mpz_set_ui(y, 1);
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+        xm[0] = 1;
+        xm[1] = 0;
+        ym[0] = 1;
+        ym[1] = 0;
+        kx    = 0;
+        ky    = 0;
+#endif
         //
         // Compute y   = sqrt(product(yi)) via decomposition of the yi's
         // Compute x   = product(xi)
@@ -563,8 +702,18 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
              irel++) {
 
             irow = dependencies->data[idep]->data[irel];
-            mpz_mul(x, x, xi_array->data[irow]);
-            mpz_mod(x, x, n);
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+            if (mont) {
+                uint64_t u[2];
+                mont2_residue(u, xi_array->data[irow], n, &mod, gcd);
+                mont2_mul(xm, xm, u, &mod);
+                kx++;
+            } else
+#endif
+            {
+                mpz_mul(x, x, xi_array->data[irow]);
+                mpz_mod(x, x, n);
+            }
             //
             // Get the power of each prime involved in y's decomposition on the
             // factor base
@@ -590,12 +739,28 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
                     pk *= p;
                     k--;
                 }
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+                if (mont) {
+                    const uint64_t b[2] = { pk, 0 };
+                    mont2_mul(ym, ym, b, &mod);
+                    ky++;
+                    continue;
+                }
+#endif
                 mpz_mul_ui(y, y, pk);
                 if (mpz_size(y) > mpz_size(n)) {
                     mpz_mod(y, y, n);
                 }
             }
         }
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+        if (mont) {
+            mont2_unscale(xm, kx, &mod);
+            mont2_unscale(ym, ky, &mod);
+            mpz_set_mont2(x, xm);
+            mpz_set_mont2(y, ym);
+        }
+#endif
         mpz_mod(y, y, n);
         mpz_sub(x, x, y);
         mpz_gcd(gcd, x, n);
