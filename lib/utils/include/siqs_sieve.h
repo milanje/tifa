@@ -60,8 +60,9 @@ extern "C" {
 #endif
 
 //
-// Do not sieve with the NPRIMES_TO_SKIP smallest primes of the factor base,
-// or only with those up to the smallest prime of 'a' if it is among them
+// Do not sieve with the NPRIMES_TO_SKIP smallest primes of the factor base
+// (fewer for small factor bases, see fill_sieve_chunk), or only with those up
+// to the smallest prime of 'a' if it is among them
 //
 #define NPRIMES_TO_SKIP        20
 //

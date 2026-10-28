@@ -566,6 +566,16 @@ static inline void sieve_primes(unsigned char* const sieve_data,
     }
 }
 //-----------------------------------------------------------------------------
+//
+// The smallest primes are not sieved, but fewer of them for small factor
+// bases: below 150 primes (up to about 85 bits), skipping 10 rather than 20
+// gave 7 to 11% from 66 to 75 bits, the thresholds raised by one at 70, 75
+// and 85 bits.
+//
+static inline uint32_t nprimes_to_skip(const uint32_t fblength) {
+    return (fblength < 150) ? 10 : NPRIMES_TO_SKIP;
+}
+//-----------------------------------------------------------------------------
 ecode_t
 fill_sieve_chunk(siqs_sieve_t* const sieve)
 {
@@ -615,7 +625,8 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
     const uint32_t* const avoid = poly->idx_of_a;
 
     uint32_t rimin = MAX(imin, avoid[0]);
-    uint32_t from  = (rimin < NPRIMES_TO_SKIP) ? rimin + 1 : NPRIMES_TO_SKIP;
+    const uint32_t skip = nprimes_to_skip(primes->length);
+    uint32_t from  = (rimin < skip) ? rimin + 1 : skip;
 
     for (uint32_t k = 0; k <= nprimes_in_a; k++) {
         const uint32_t to = (k < nprimes_in_a)
