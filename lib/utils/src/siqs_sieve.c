@@ -568,12 +568,16 @@ static inline void sieve_primes(unsigned char* const sieve_data,
 //-----------------------------------------------------------------------------
 //
 // The smallest primes are not sieved, but fewer of them for small factor
-// bases: below 150 primes (up to about 85 bits), skipping 10 rather than 20
-// gave 7 to 11% from 66 to 75 bits, the thresholds raised by one at 70, 75
-// and 85 bits.
+// bases: 10 below 150 primes (up to about 85 bits) and 14 below 450 (up to
+// about 130 bits), rather than 20. Their hits cost less than the false
+// candidates the missing logs let through, the thresholds raised by one
+// where it was measured best.
 //
 static inline uint32_t nprimes_to_skip(const uint32_t fblength) {
-    return (fblength < 150) ? 10 : NPRIMES_TO_SKIP;
+    if (fblength < 150) {
+        return 10;
+    }
+    return (fblength < 450) ? 14 : NPRIMES_TO_SKIP;
 }
 //-----------------------------------------------------------------------------
 ecode_t
