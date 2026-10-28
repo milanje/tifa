@@ -1,5 +1,42 @@
 # TIFA news
 
+## 28 October 2026 &mdash; sieving without unpredictable branches
+
+At 160 bits, each chunk of the sieve takes 44000 hits from 1273 primes,
+about 0.22 ns per hit. The primes above a quarter of the chunk hit it two
+to four times per root, and each root's loop ended on unpredictable
+branches: its exit, then one or two last hits.
+
+- A root of p hits a chunk of L positions m = L/p or m + 1 times, and
+  consecutive primes share m. The first m hits now run in a loop whose
+  count stays the same from one prime to the next, and the last one is
+  subtracted without branching: from a byte of 64 of slack past the end
+  of the sieve array when it falls beyond.
+- From 200 bits, filling the buckets of each polynomial took 21% of a run,
+  with the same unpredictable exits for its four loops per prime. They are
+  filled the same way, through write positions kept on the stack, the bins
+  being sized once for the most hits of a polynomial.
+
+The sieve holds the same values, so the candidates are the same, in the
+same order (hashed from 60 to 210 bits, with buckets, short last chunks
+and primes above the chunk). The parameters were checked again from 120
+to 180 bits, now that candidates cost less to test: thresholds 2 lower to
+1 higher, factor bases 0.8 and 1.25 times as large, half widths 0.67 and
+1.5 times, 14 to 48 small primes skipped instead of 20, and one or two
+chunks instead of three at 200 bits. None was faster. Against the
+previous version:
+
+| SIQS, bits | 66 | 70 | 75 | 80 | 85 | 90 | 95 | 100 | 105 | 110 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.94 | 0.95 | 0.91 | 0.89 | 0.88 | 0.87 | 0.85 | 0.84 | 0.89 | 0.85 |
+
+| SIQS, bits | 115 | 120 | 130 | 140 | 150 | 160 | 170 | 180 | 190 | 200 | 210 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.88 | 0.90 | 0.89 | 0.89 | 0.87 | 0.87 | 0.81 | 0.80 | 0.74 | 0.73 | 0.70 |
+
+`tifa_factor()`: 0.97 at 66 bits, 0.94 at 80, 0.89 at 100, 0.92 at 128, 0.88
+at 160.
+
 ## 28 October 2026 &mdash; the SIQS smoothness test
 
 SIQS tests its candidates for smoothness in batches, after Bernstein: a

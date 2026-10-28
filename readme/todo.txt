@@ -10,10 +10,15 @@ Here are some short term objectives:
     (32 KiB on most x86-64 cores), and the default parameters of SIQS and
     ECM were chosen there.
 
-  - SIQS: the sieve's kernel takes a third of a 70-bit run, at under one
-    cycle per hit; resetting the sieve (3%) could be done by the scan, but
-    the sieve then needs to know whether it was scanned to its end, a new
-    field of siqs_sieve_t (an ABI change). Outside the sieve, the largest
+  - SIQS: the sieve's kernel takes a third of a 70-bit run and half of a
+    160-bit one, at under one cycle per hit; resetting the sieve (3% to 6%)
+    could be done by the scan, but the sieve then needs to know whether it
+    was scanned to its end, a new field of siqs_sieve_t (an ABI change).
+    From 160 bits, the smoothness test's kernel is 10% to 13% of a run (z
+    of 260 to 1070 limbs): reducing z modulo products of candidates with
+    GMP first, the lanes finishing on the remainders, would do fewer
+    products. fast_poly_init (2% to 4.5%) reads Bainv2 with a stride of
+    nprimes_in_a and cannot be vectorized. Outside the sieve, the largest
     costs left at 70 bits are, in shares of a run:
       - the batch smoothness test of the candidates (6%), three quarters of
         which are not smooth. Their number follows the sieve threshold,
