@@ -1,5 +1,37 @@
 # TIFA news
 
+## 29 October 2026 &mdash; x86-64, and half widths of one sieve chunk
+
+The measurements so far all came from an Apple M5 Pro. On GitHub's x86-64
+runners (bench/ab.sh in a one-off workflow), 0.3.2 against this version:
+
+| SIQS, bits | 66 | 70 | 80 | 90 | 100 | 110 | 120 | 130 | 140 | 150 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| EPYC 9V45 (Zen 5) | 0.87 | 0.88 | 0.85 | 0.86 | 0.78 | 0.77 | 0.80 | 0.77 | 0.78 | 0.79 |
+
+| SIQS, bits | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|
+| EPYC 9V45 (Zen 5) | 0.79 | 0.77 | 0.77 | 0.83 | 0.90 |
+
+`tifa_factor()`: 0.91 at 66 and 80 bits, 0.83 at 100, 0.79 at 128, 0.82 at
+160.
+
+The sieve's chunks follow the L1 data cache: 64 KiB on the M5, 32 KiB on
+most x86-64 cores (Zen 5's L1 of 48 KiB also gives 32 KiB). The default
+half widths up to 190 bits were measured with 64 KiB chunks, and from 132
+to 190 bits they took two chunks per side of 32 KiB. The built-in
+defaults are now capped at one chunk (siqs_sieve_chunk_size(), new in
+siqs_sieve.h, gives its size); tuning files and parameters set by hand are
+unchanged. On the M5 the defaults are the same for every size (20 to 300
+bits checked). On an EPYC 9V74 (Zen 4), the previous version against this
+one:
+
+| SIQS, bits | 120 | 130 | 135 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| EPYC 9V74 (Zen 4) | 1.00 | 1.00 | 0.87 | 0.85 | 0.84 | 0.90 | 0.91 | 0.90 | 0.94 | 1.00 |
+
+`tifa_factor()`: 0.87 at 140 bits, 0.90 at 160.
+
 ## 29 October 2026 &mdash; the roots of each new polynomial
 
 Each new polynomial of an 'a' shifts the two roots of every prime of the

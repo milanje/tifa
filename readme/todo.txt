@@ -5,11 +5,13 @@ Here are some short term objectives:
     synthetic cofactors: integers without small factors, of the sizes a
     sieve leaves.
 
-  - Measure and tune on x86-64 (bench/ab.sh compares two builds). All the
-    measurements so far come from one Apple M5 Pro, whose efficiency cores'
-    64 KiB L1 data cache (128 KiB on its performance cores) gives 64 KiB
-    sieve chunks (32 KiB on most x86-64 cores), and the default parameters
-    of SIQS and ECM were chosen there.
+  - Tune on x86-64. The default parameters of SIQS and ECM were chosen on
+    one Apple M5 Pro, whose efficiency cores' 64 KiB L1 data cache (128 KiB
+    on its performance cores) gives 64 KiB sieve chunks. GitHub's EPYC
+    runners (Zen 4 and 5, 32 KiB chunks) confirmed the gains of 0.3.3 and
+    the half widths of one chunk, but the factor bases, thresholds and the
+    widths of several chunks from 200 bits were not tried there; a one-off
+    workflow running bench/ab.sh on a runner is how to measure them.
 
   - SIQS: the sieve's kernel takes a third of a 70-bit run and half of a
     160-bit one, at under one cycle per hit; resetting the sieve (3% to 6%)
