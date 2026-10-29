@@ -93,10 +93,15 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     poly->sol1   = alloc_int32_array(poly->factor_base->length);
     poly->sol2   = alloc_int32_array(poly->factor_base->length);
     poly->Bl     = alloc_mpz_array(poly->nprimes_in_a);
-    poly->Bainv2 = tifa_malloc(poly->factor_base->length * sizeof(uint32_t*));
-    poly->Bainv2[0] = tifa_malloc(  poly->factor_base->length
-                             * poly->nprimes_in_a * sizeof(uint32_t));
-    for (uint32_t i = 1; i < poly->factor_base->length; i++) {
+    //
+    // Past the rows Bainv2[i], the same values by j, for fast_poly_init:
+    // Bainv2[fblen][j * fblen + i] = Bainv2[i][j], in the same block.
+    //
+    const uint32_t fblen = poly->factor_base->length;
+    poly->Bainv2    = tifa_malloc((fblen + 1) * sizeof(uint32_t*));
+    poly->Bainv2[0] = tifa_malloc(  2 * fblen * poly->nprimes_in_a
+                                  * sizeof(uint32_t));
+    for (uint32_t i = 1; i <= fblen; i++) {
         poly->Bainv2[i] = poly->Bainv2[0] + i * poly->nprimes_in_a;
     }
     choose_a(poly);
@@ -178,6 +183,28 @@ static inline int32_t add_mod(int32_t r, uint32_t d, uint32_t p) {
 static inline int32_t sub_mod(int32_t r, uint32_t d, uint32_t p) {
     int32_t s = r - (int32_t) d;
     return (s < 0) ? (s + (int32_t) p) : s;
+}
+//
+// sol = sol + d mod p (up) or sol - d mod p for the primes of indexes from to
+// to - 1: plain loops the compiler vectorizes.
+//
+static inline void shift_roots(int32_t* const restrict sol1,
+                               int32_t* const restrict sol2,
+                               const uint32_t* const restrict d,
+                               const uint32_t* const restrict p,
+                               const uint32_t from, const uint32_t to,
+                               const bool up) {
+    if (up) {
+        for (uint32_t i = from; i < to; i++) {
+            sol1[i] = add_mod(sol1[i], d[i], p[i]);
+            sol2[i] = add_mod(sol2[i], d[i], p[i]);
+        }
+    } else {
+        for (uint32_t i = from; i < to; i++) {
+            sol1[i] = sub_mod(sol1[i], d[i], p[i]);
+            sol2[i] = sub_mod(sol2[i], d[i], p[i]);
+        }
+    }
 }
 //-----------------------------------------------------------------------------
 static void
@@ -278,7 +305,9 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
                           const uint32_t curprime, const poly_u64_t* const w,
                           const uint32_t ainv) {
     const uint32_t nprimes_in_a = poly->nprimes_in_a;
+    const uint32_t fblen        = poly->factor_base->length;
     uint32_t* const bainv2 = poly->Bainv2[i];
+    uint32_t* const byj    = poly->Bainv2[fblen] + i;
 
     unsigned long int bmodp;
     uint64_t gamma;
@@ -296,6 +325,7 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
             gamma *= ainv;
             gamma %= curprime;
             bainv2[j] = (uint32_t) gamma;
+            byj[j * fblen] = (uint32_t) gamma;
         }
     } else {
         bmodp = mpz_fdiv_ui(poly->b, curprime);
@@ -304,6 +334,7 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
             gamma *= ainv;
             gamma %= curprime;
             bainv2[j] = (uint32_t) gamma;
+            byj[j * fblen] = (uint32_t) gamma;
         }
     }
     //
@@ -538,7 +569,6 @@ fast_poly_init(siqs_poly_t* const poly)
 
     const uint32_t fb_length = base->length;
 
-    uint32_t**     const Bainv2 = poly->Bainv2;
     int32_array_t* const sol1   = poly->sol1;
     int32_array_t* const sol2   = poly->sol2;
     
@@ -568,101 +598,31 @@ fast_poly_init(siqs_poly_t* const poly)
     poly->logb = mpz_sizeinbase(b, 2);
     poly->logc = mpz_sizeinbase(c, 2);
 
-    uint32_t curprime = 0;
-
     uint32_t* avoid_primes = poly->idx_of_a;
 
-    uint32_t rimin = MAX(imin, avoid_primes[0]);
-    uint32_t rimax = MIN(imax, avoid_primes[poly->nprimes_in_a - 1]);
-    
+    const uint32_t rimin = MAX(imin, avoid_primes[0]);
+    const uint32_t rimax = MIN(imax, avoid_primes[poly->nprimes_in_a - 1]);
+
     avoid_primes++;
-    
+
     //
-    // Compute the new sol1 and sol2 arrrays for sieving with the new polynomial
+    // Shift the roots of the primes but those of 'a' (rimin, rimax and the
+    // ones between), one run of primes at a time.
     //
-    if (IS_ODD(io2nu)) {
+    const uint32_t* const d  = poly->Bainv2[fb_length] + (nu - 1) * fb_length;
+    const bool            up = IS_ODD(io2nu);
 
-        for (uint32_t i = 0; i < rimin; i++) {
-            curprime = base->data[i];
+    shift_roots(sol1ptr, sol2ptr, d, base->data, 0, rimin, up);
 
-            *sol1ptr = add_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
-            *sol2ptr = add_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
-            
-            sol1ptr++;
-            sol2ptr++;
-        }
-        sol1ptr++;
-        sol2ptr++;
-        
-        for (uint32_t i = rimin + 1; i < rimax; i++) {
-            if (i == avoid_primes[0]) {
-                avoid_primes++;
-                sol1ptr++;
-                sol2ptr++;
-                continue;
-            }
-            curprime = base->data[i];
-
-            *sol1ptr = add_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
-            *sol2ptr = add_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
-            
-            sol1ptr++;
-            sol2ptr++;       
-        }
-        sol1ptr++;
-        sol2ptr++;
-        
-        for (uint32_t i = rimax + 1; i < fb_length; i++) {
-            curprime = base->data[i];
-
-            *sol1ptr = add_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
-            *sol2ptr = add_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
-            
-            sol1ptr++;
-            sol2ptr++;        
-        }
-        
-    } else {
-        for (uint32_t i = 0; i < rimin; i++) {
-            curprime = base->data[i];
-            
-            *sol1ptr = sub_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
-            *sol2ptr = sub_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
-            
-            sol1ptr++;
-            sol2ptr++;
-        }
-        sol1ptr++;
-        sol2ptr++;
-        
-        for (uint32_t i = rimin + 1; i < rimax; i++) {
-            if (i == avoid_primes[0]) {
-                avoid_primes++;
-                sol1ptr++;
-                sol2ptr++;
-                continue;                
-            }
-            curprime = base->data[i];
-            
-            *sol1ptr = sub_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
-            *sol2ptr = sub_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
-            
-            sol1ptr++;
-            sol2ptr++;
-        }
-        sol1ptr++;
-        sol2ptr++;
-        
-        for (uint32_t i = rimax + 1; i < fb_length; i++) {
-            curprime = base->data[i];
-            
-            *sol1ptr = sub_mod(*sol1ptr, Bainv2[i][nu-1], curprime);
-            *sol2ptr = sub_mod(*sol2ptr, Bainv2[i][nu-1], curprime);
-            
-            sol1ptr++;
-            sol2ptr++;
-        }
+    uint32_t start = rimin + 1;
+    while ((*avoid_primes >= start) && (*avoid_primes < rimax)) {
+        shift_roots(sol1ptr, sol2ptr, d, base->data, start, *avoid_primes, up);
+        start = *avoid_primes + 1;
+        avoid_primes++;
     }
+    shift_roots(sol1ptr, sol2ptr, d, base->data, start, rimax, up);
+    shift_roots(sol1ptr, sol2ptr, d, base->data, rimax + 1, fb_length, up);
+
     poly->polyno++;
     
     return SUCCESS;
