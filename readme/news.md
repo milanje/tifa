@@ -1,5 +1,19 @@
 # TIFA news
 
+## 29 October 2026 &mdash; each new 'a' above 64 bits
+
+From about 150 bits 'a' passes 62 bits, and each new 'a' took a, b and every
+Bl modulo each prime of the factor base with mpz_fdiv_ui, up to 16 GMP calls
+per prime. Below 2^128 they are now taken from their two limbs, (hi mod
+p).(2^64 mod p) + lo mod p. The candidates are the same (hashed from 130 to
+210 bits). Against the previous version, measured twice: 0.99 from 160 to
+180 bits, 0.98 at 190, 0.99 at 200; unchanged below 150 bits.
+
+A profile of SIQS at 70, 120 and 160 bits after the work of the last days is
+in todo.txt. Testing 128 bytes at a time in the scan, 28% faster on a sieve
+already in cache, was 2% to 3% slower in SIQS: the scan reads the bytes the
+sieve has just written one by one.
+
 ## 29 October 2026 &mdash; x86-64, and half widths of one sieve chunk
 
 The measurements so far all came from an Apple M5 Pro. On GitHub's x86-64

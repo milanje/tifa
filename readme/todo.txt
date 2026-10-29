@@ -13,35 +13,43 @@ Here are some short term objectives:
     widths of several chunks from 200 bits were not tried there; a one-off
     workflow running bench/ab.sh on a runner is how to measure them.
 
-  - SIQS: the sieve's kernel takes a third of a 70-bit run and half of a
-    160-bit one, at under one cycle per hit; resetting the sieve (3% to 6%)
-    could be done by the scan, but the sieve then needs to know whether it
-    was scanned to its end, a new field of siqs_sieve_t (an ABI change).
-    From 160 bits, the smoothness test's kernel is 10% to 13% of a run (z
-    of 260 to 1070 limbs). Reducing z first modulo the product of 64 to 256
-    candidates with GMP, the lanes finishing on the remainders, was no
-    faster (0.99 to 1.02 from 160 to 200 bits, slower below): GMP's division
-    costs about what the lanes' fold saves. Outside the sieve, the largest
-    costs left at 70 bits are, in shares of a run:
-      - the batch smoothness test of the candidates (6%), three quarters of
-        which are not smooth. Their number follows the sieve threshold,
-        which tifa_tune does not tune, but 1 or 2 more or less were slower
-        at 70, 90 and 110 bits. At 120 bits the test is 19% of a run: 7% in
-        its kernel, most of the rest in the large primes' hashtable, whose
-        entries bern_21_rt_pairs_lp_siqs allocates one by one (pooling them
-        changes its interface), and in GMP's gcd of each cofactor (a
-        128-bit binary gcd was twice slower);
-      - the setup of each run (10%): the square roots modulo the primes of
-        the base (3%: four at a time measured 1.5 times faster, on half of
-        the primes only), the first 'a' (3%), the multiplier (2%);
-      - the trial division of the relations (7%), the Gaussian elimination
-        (5%) and find_factors_decomp (5%; packing the prime powers of y
-        into fewer Montgomery products saved 1 to 2% at 66 and 70 bits
-        only). Gauss-Jordan on the transposed matrix was slower, and
-        removing singleton columns would only remove 2 to 7% of the
-        matrix;
-      - each new 'a' (4% at 70 bits). From seven primes in 'a', the
-        approximer also sorts up to 18424 triples of primes per run (0.5 ms,
-        0.5% at 170 bits): pairs, which fixed six primes, gave slower 'a'
-        there, but finding the best triple without the table would keep the
-        same 'a'.
+  - SIQS, in shares of a run on the M5 at 70, 120 and 160 bits (profiled
+    on 29 October 2026): the sieve's fill 33%, 47% and 55%, at about one
+    cycle per hit and without unpredictable branches; the smoothness test
+    of the candidates 8%, 15% and 19%; the scan 9%, 4% and 3%; the trial
+    division of the relations 10%, 5% and 2%; the Gaussian elimination 7%,
+    3% and 1.5%; each new 'a' 4.5%, 3.7% and 2.1%; the setup of a run 6%,
+    2% and 0.6%; find_factors_decomp 4.6%, 0.8% and 0.2%.
+      - Two costs need an ABI change: the large primes' hashtable, whose
+        entries bern_21_rt_pairs_lp_siqs allocates one by one (a key, a
+        pair, two integers and a list node per partial relation: about 10%
+        of a 120-bit run), which pooling them would avoid; and resetting
+        the sieve (3% to 4%), which the scan could do if the sieve knew
+        whether a chunk was scanned to its end, a new field of
+        siqs_sieve_t.
+      - The scan reads the bytes the sieve has just written one by one:
+        testing 128 bytes at a time instead of 64, 28% faster on a sieve
+        already in cache, was 2% to 3% slower in SIQS.
+      - From 160 bits, the smoothness test's kernel is 10% to 13% of a run
+        (z of 260 to 1070 limbs). Reducing z first modulo the product of
+        64 to 256 candidates with GMP, the lanes finishing on the
+        remainders, was no faster (0.99 to 1.02 from 160 to 200 bits,
+        slower below): GMP's division costs about what the lanes' fold
+        saves. Three quarters of the candidates are not smooth; their
+        number follows the sieve threshold, which tifa_tune does not tune,
+        but 1 or 2 more or less were slower at 70, 90 and 110 bits, and
+        from 120 to 180 bits. A 128-bit binary gcd of the cofactors was
+        twice slower than GMP's.
+      - The setup of each run: the square roots modulo the primes of the
+        base (3% at 70 bits: four at a time measured 1.5 times faster, on
+        half of the primes only), the first 'a' (3%), the multiplier (2%,
+        n modulo each prime with mpz_fdiv_ui).
+      - The trial division of the relations runs at about two cycles per
+        prime. Packing the prime powers of y into fewer Montgomery products
+        in find_factors_decomp saved 1 to 2% at 66 and 70 bits only.
+        Gauss-Jordan on the transposed matrix was slower, and removing
+        singleton columns would only remove 2 to 7% of the matrix.
+      - From seven primes in 'a', the approximer sorts up to 18424 triples
+        of primes per run (0.5 ms, 0.5% at 170 bits): pairs, which fixed six
+        primes, gave slower 'a' there, but finding the best triple without
+        the table would keep the same 'a'.
