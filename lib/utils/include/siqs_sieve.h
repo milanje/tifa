@@ -252,6 +252,17 @@ ecode_t scan_sieve(
 );
 
    /**
+    * \brief The size of a chunk of the sieve, in bytes.
+    *
+    * The sieve is processed in chunks sized to the L1 data cache (see
+    * \c LOG2_SIEVE_CHUNK_MIN and \c LOG2_SIEVE_CHUNK_MAX), the same for the
+    * whole process.
+    *
+    * \return The size of a sieve chunk.
+    */
+uint32_t siqs_sieve_chunk_size(void);
+
+   /**
     * \brief Sets the <tt>siqs_sieve_t</tt>'s threshold.
     * 
     * Sets \tt{sieve}'s threshold (see \tt{siqs_sieve_t}: the positions

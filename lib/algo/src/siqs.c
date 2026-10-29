@@ -69,6 +69,10 @@
 //
 #define HTABLE_SIZE_MULTIPLIER  16
 //
+// The sieve chunk size the half widths of best_params were measured with.
+//
+#define SIQS_TABLE_CHUNK_SIZE 65536
+//
 // Minimum number of candidates for smoothness test
 //
 #define MIN_BATCH_SIZE      256
@@ -555,6 +559,16 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
         params->sieve_half_width = best_params[i].hwidth;
         params->nprimes_in_base  = best_params[i].size_base;
         params->threshold        = best_params[i].thres;
+    }
+    //
+    // The half widths of best_params up to 190 bits fit in one sieve chunk of
+    // 64 KiB, the size they were measured with. On smaller chunks (32 KiB on
+    // most x86-64 cores), one chunk measured 4% to 12% faster than two from
+    // 140 to 190 bits.
+    //
+    if (   (params->sieve_half_width <= SIQS_TABLE_CHUNK_SIZE)
+        && (params->sieve_half_width > siqs_sieve_chunk_size())) {
+        params->sieve_half_width = siqs_sieve_chunk_size();
     }
     params->nprimes_tdiv     = params->nprimes_in_base;
     params->nrelations       = SIQS_DFLT_NRELATIONS;
