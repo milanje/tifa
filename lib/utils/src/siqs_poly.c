@@ -286,16 +286,32 @@ static inline void inverse_mod_lanes(const uint32_t* const a,
     }
 }
 //
-// a, b and the Bl when they fit in 64 bits (n up to about 140 bits): their
-// residues modulo the primes of the base then need no GMP call.
+// a, b and the Bl when they fit in 64 bits (n up to about 140 bits), or in
+// two limbs of 64 bits (fit2, from there to about 270 bits): their residues
+// modulo the primes of the base then need no GMP call.
 //
-#define MAX_NPRIMES_IN_A_U64 8
+#define MAX_NPRIMES_IN_A_U64 16
 typedef struct {
     bool     fit;
+    bool     fit2;
     uint64_t a;
     uint64_t b;
     uint64_t Bl[MAX_NPRIMES_IN_A_U64];
+    uint64_t ahi;
+    uint64_t bhi;
+    uint64_t Blhi[MAX_NPRIMES_IN_A_U64];
 } poly_u64_t;
+//
+// (hi.2^64 + lo) mod p, given r64 = 2^64 mod p.
+//
+static inline uint64_t mod_2limbs(const uint64_t lo, const uint64_t hi,
+                                  const uint32_t p, const uint64_t r64) {
+    return ((hi % p) * r64 + lo % p) % p;
+}
+
+static inline uint64_t two64_mod(const uint32_t p) {
+    return (UINT64_MAX % p + 1) % p;
+}
 //
 // For the i-th prime p of the base, not dividing a, given inv(a) mod p (0 if
 // p divides a): the 2.Bj.inv(a) mod p of Bainv2[i], and the two solutions to
@@ -322,6 +338,16 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
         bmodp = (unsigned long int) (w->b % curprime);
         for (uint32_t j = 0; j < nprimes_in_a; j++) {
             gamma  = 2 * (w->Bl[j] % curprime);
+            gamma *= ainv;
+            gamma %= curprime;
+            bainv2[j] = (uint32_t) gamma;
+            byj[j * fblen] = (uint32_t) gamma;
+        }
+    } else if (w->fit2) {
+        const uint64_t r64 = two64_mod(curprime);
+        bmodp = (unsigned long int) mod_2limbs(w->b, w->bhi, curprime, r64);
+        for (uint32_t j = 0; j < nprimes_in_a; j++) {
+            gamma  = 2 * mod_2limbs(w->Bl[j], w->Blhi[j], curprime, r64);
             gamma *= ainv;
             gamma %= curprime;
             bainv2[j] = (uint32_t) gamma;
@@ -474,6 +500,24 @@ full_poly_init(siqs_poly_t* const poly)
     w.fit = (sizeof(unsigned long int) >= 8)
             && (nprimes_in_a <= MAX_NPRIMES_IN_A_U64)
             && (mpz_sizeinbase(a, 2) <= 62) && (mpz_sizeinbase(b, 2) <= 64);
+    w.fit2 = false;
+#if (GMP_LIMB_BITS == 64)
+    if (   !w.fit && (nprimes_in_a <= MAX_NPRIMES_IN_A_U64)
+        && (mpz_size(a) <= 2) && (mpz_size(b) <= 2) && (mpz_sgn(b) >= 0)) {
+        //
+        // The Bl are below a.
+        //
+        w.fit2 = true;
+        w.a    = mpz_getlimbn(a, 0);
+        w.ahi  = mpz_getlimbn(a, 1);
+        w.b    = mpz_getlimbn(b, 0);
+        w.bhi  = mpz_getlimbn(b, 1);
+        for (uint32_t j = 0; j < nprimes_in_a; j++) {
+            w.Bl[j]   = mpz_getlimbn(Bl->data[j], 0);
+            w.Blhi[j] = mpz_getlimbn(Bl->data[j], 1);
+        }
+    }
+#endif
     if (w.fit) {
         w.a = mpz_get_ui(a);
         w.b = mpz_get_ui(b);
@@ -492,8 +536,14 @@ full_poly_init(siqs_poly_t* const poly)
         uint32_t inv_lanes[INVERSE_LANES];
         for (uint32_t k = 0; k < INVERSE_LANES; k++) {
             p[k]     = (i + k < fb_length) ? fb[i + k] : 2;
-            amodp[k] = w.fit ? (uint32_t) (w.a % p[k])
-                             : (uint32_t) mpz_fdiv_ui(a, p[k]);
+            if (w.fit) {
+                amodp[k] = (uint32_t) (w.a % p[k]);
+            } else if (w.fit2) {
+                amodp[k] = (uint32_t) mod_2limbs(w.a, w.ahi, p[k],
+                                                 two64_mod(p[k]));
+            } else {
+                amodp[k] = (uint32_t) mpz_fdiv_ui(a, p[k]);
+            }
         }
         inverse_mod_lanes(amodp, p, inv_lanes);
         for (uint32_t k = 0; (k < INVERSE_LANES) && (i + k < fb_length); k++) {
