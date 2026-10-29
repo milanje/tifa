@@ -16,10 +16,10 @@ Here are some short term objectives:
     could be done by the scan, but the sieve then needs to know whether it
     was scanned to its end, a new field of siqs_sieve_t (an ABI change).
     From 160 bits, the smoothness test's kernel is 10% to 13% of a run (z
-    of 260 to 1070 limbs): reducing z modulo products of candidates with
-    GMP first, the lanes finishing on the remainders, would do fewer
-    products. fast_poly_init (2% to 4.5%) reads Bainv2 with a stride of
-    nprimes_in_a and cannot be vectorized. Outside the sieve, the largest
+    of 260 to 1070 limbs). Reducing z first modulo the product of 64 to 256
+    candidates with GMP, the lanes finishing on the remainders, was no
+    faster (0.99 to 1.02 from 160 to 200 bits, slower below): GMP's division
+    costs about what the lanes' fold saves. Outside the sieve, the largest
     costs left at 70 bits are, in shares of a run:
       - the batch smoothness test of the candidates (6%), three quarters of
         which are not smooth. Their number follows the sieve threshold,

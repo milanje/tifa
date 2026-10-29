@@ -1,5 +1,28 @@
 # TIFA news
 
+## 29 October 2026 &mdash; the roots of each new polynomial
+
+Each new polynomial of an 'a' shifts the two roots of every prime of the
+factor base by 2.Bj/a mod p. fast_poly_init read these values from
+Bainv2[i][j], a pointer then a value nprimes_in_a apart for each prime, in
+loops testing every prime against those of 'a': 2% to 4.5% of a run from
+160 bits. The values are now also kept by j, after the rows of Bainv2 in
+the same block (Bainv2[i][j] is unchanged), and the roots are shifted in
+plain loops between the primes of 'a', which the compiler vectorizes. The
+roots are the same, so are the candidates (hashed from 70 to 200 bits).
+
+Reducing z modulo products of candidates with GMP before the smoothness
+test's lanes, from 160 bits, was also tried: no faster (0.99 to 1.02).
+Against 0.3.3:
+
+| SIQS, bits | 66 | 70 | 80 | 90 | 100 | 110 | 120 | 130 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 1.00 | 0.99 | 1.00 | 0.99 | 0.98 | 0.99 | 0.98 | 1.00 |
+
+| SIQS, bits | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.98 | 0.97 | 0.96 | 0.94 | 0.94 | 0.95 | 0.98 |
+
 ## 28 October 2026 &mdash; version 0.3.3
 
 Version 0.3.3 gathers the work below since 0.3.2: SIQS tests its candidates
