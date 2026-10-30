@@ -173,11 +173,6 @@ static uint32_t log2_sieve_chunk_size(void)
     return log2_chunk_size;
 }
 #endif
-//-----------------------------------------------------------------------------
-uint32_t siqs_sieve_chunk_size(void)
-{
-    return 1U << log2_sieve_chunk_size();
-}
 //
 // Bytes past the end of the sieve array, for sieve_primes.
 //
@@ -999,3 +994,7 @@ void set_siqs_sieve_threshold(siqs_sieve_t* const sieve, uint32_t threshold)
     sieve->threshold = threshold;
 }
 //------------------------------------------------------------------------------
+uint32_t siqs_sieve_chunk_size(void)
+{
+    return 1U << log2_sieve_chunk_size();
+}
