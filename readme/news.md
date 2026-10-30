@@ -1,5 +1,13 @@
 # TIFA news
 
+## 30 October 2026 &mdash; Bainv2 by j only (0.4.0)
+
+siqs_poly_t's Bainv2 was a table of rows Bainv2[i][j], one per prime of the
+factor base, followed since 0.3.4 by a copy of the values by j, which
+fast_poly_init reads. It is now that copy alone, an array of uint32_t with
+Bainv2[j * fblen + i]: half the memory and one store per value. The field's
+type changes (an ABI change). Same candidates; the speed is unchanged.
+
 ## 30 October 2026 &mdash; the scan resets the sieve (0.4.0)
 
 fill_sieve_chunk set every byte of a chunk to the threshold before sieving,
