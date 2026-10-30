@@ -227,6 +227,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
     // Setting scan_begin = chunk_size means that a new chunk should be filled
     //
     sieve->scan_begin = sieve->chunk_size;
+    sieve->clean      = false;
 
     sieve->next_chunkno_to_fill = 1;
 
@@ -594,9 +595,13 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
 
 
     //
-    // (Re-)initialize every byte of the sieve array to the threshold...
+    // (Re-)initialize every byte of the sieve array to the threshold, unless
+    // the scan of the previous chunk did.
     //
-    TIFA_MEMSET(sieve_data, sieve->threshold, sieve_length);
+    if (!sieve->clean) {
+        TIFA_MEMSET(sieve_data, sieve->threshold, sieve_length);
+    }
+    sieve->clean = false;
 
     if (sieve->use_buckets) {
         //
@@ -662,65 +667,78 @@ static inline uint64_t top_bits(const uint8x16_t a, const uint8x16_t b,
 // [*scan_begin, iend] whose sieve byte has its top bit set, until there are
 // nsurvivors of them, and leaves *scan_begin past the last position scanned.
 // Survivors are rare: 64 bytes are tested at once with NEON, 32 otherwise.
+// The bytes scanned are reset to the threshold: those before *scan_begin
+// always are, so that a scan stopped in the middle of a block loses nothing.
 //
-static inline void scan_chunk(const unsigned char* const data,
+static inline void scan_chunk(unsigned char* const data,
                               const uint32_t iend, const int32_t sieve_begin,
                               const int32_t sign, uint32_t* const scan_begin,
                               int32_array_t* const survivors,
-                              const uint32_t nsurvivors) {
+                              const uint32_t nsurvivors,
+                              const unsigned char threshold) {
     int32_t*       out  = &(survivors->data[survivors->length]);
     int32_t* const stop = &(survivors->data[nsurvivors]);
     uint32_t       i    = *scan_begin;
 
 #if SCAN_WITH_NEON
+    const uint8x16_t t = vdupq_n_u8(threshold);
     for (; i + 64 <= iend + 1; i += 64) {
         const uint8x16_t a = vld1q_u8(data + i);
         const uint8x16_t b = vld1q_u8(data + i + 16);
         const uint8x16_t c = vld1q_u8(data + i + 32);
         const uint8x16_t d = vld1q_u8(data + i + 48);
-        if (vmaxvq_u8(vorrq_u8(vorrq_u8(a, b), vorrq_u8(c, d))) < 0x80) {
-            continue;
-        }
-        uint64_t mask = top_bits(a, b, c, d);
-        while (mask != 0) {
-            const uint32_t j = i + (uint32_t) __builtin_ctzll(mask);
-            *out = sign * (sieve_begin + (int32_t) j);
-            out++;
-            if (out == stop) {
-                i = j + 1;
-                goto STOP;
+        if (vmaxvq_u8(vorrq_u8(vorrq_u8(a, b), vorrq_u8(c, d))) >= 0x80) {
+            uint64_t mask = top_bits(a, b, c, d);
+            while (mask != 0) {
+                const uint32_t j = i + (uint32_t) __builtin_ctzll(mask);
+                *out = sign * (sieve_begin + (int32_t) j);
+                out++;
+                if (out == stop) {
+                    TIFA_MEMSET((data + i), threshold, (j + 1 - i));
+                    i = j + 1;
+                    goto STOP;
+                }
+                mask &= mask - 1;
             }
-            mask &= mask - 1;
         }
+        vst1q_u8(data + i,      t);
+        vst1q_u8(data + i + 16, t);
+        vst1q_u8(data + i + 32, t);
+        vst1q_u8(data + i + 48, t);
     }
 #else
     const uint64_t tops = UINT64_C(0x8080808080808080);
+    const uint64_t t8   = UINT64_C(0x0101010101010101) * threshold;
+    const uint64_t t32[4] = { t8, t8, t8, t8 };
     while (i + 32 <= iend + 1) {
         uint64_t w[4];
         memcpy(w, data + i, sizeof(w));
         if (((w[0] | w[1] | w[2] | w[3]) & tops) == 0) {
+            memcpy(data + i, t32, sizeof(t32));
             i += 32;
             continue;
         }
-        if ((w[0] & tops) == 0) {
-            i += 8;
-            continue;
-        }
-        for (uint32_t j = i; j < i + 8; j++) {
-            if (data[j] & 0x80) {
-                *out = sign * (sieve_begin + (int32_t) j);
-                out++;
-                if (out == stop) {
-                    i = j + 1;
-                    goto STOP;
+        if ((w[0] & tops) != 0) {
+            for (uint32_t j = i; j < i + 8; j++) {
+                if (data[j] & 0x80) {
+                    *out = sign * (sieve_begin + (int32_t) j);
+                    out++;
+                    if (out == stop) {
+                        TIFA_MEMSET((data + i), threshold, (j + 1 - i));
+                        i = j + 1;
+                        goto STOP;
+                    }
                 }
             }
         }
+        memcpy(data + i, t32, sizeof(uint64_t));
         i += 8;
     }
 #endif
     for (; i <= iend; i++) {
-        if (data[i] & 0x80) {
+        const unsigned char byte = data[i];
+        data[i] = threshold;
+        if (byte & 0x80) {
             *out = sign * (sieve_begin + (int32_t) i);
             out++;
             if (out == stop) {
@@ -732,6 +750,23 @@ static inline void scan_chunk(const unsigned char* const data,
   STOP:
     *scan_begin = i;
     survivors->length = (uint32_t) (out - &(survivors->data[0]));
+}
+//-----------------------------------------------------------------------------
+//
+// Once a chunk is scanned to iend, it holds the threshold everywhere but past
+// iend (the last chunk's tail, which buckets may have hit): fill_sieve_chunk
+// need not reset it.
+//
+static inline void end_of_scan(siqs_sieve_t* const sieve, const uint32_t iend) {
+    if (sieve->scan_begin != iend + 1) {
+        return;
+    }
+    const uint32_t length = sieve->sieve->length;
+    if (iend + 1 < length) {
+        unsigned char* const tail = sieve->sieve->data + iend + 1;
+        TIFA_MEMSET(tail, sieve->threshold, (length - iend - 1));
+    }
+    sieve->clean = true;
 }
 //-----------------------------------------------------------------------------
 ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
@@ -747,7 +782,9 @@ ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
         iend = siqs_sieve->endlast;
     }
     scan_chunk(siqs_sieve->sieve->data, iend, sieve_begin, 1,
-               &siqs_sieve->scan_begin, survivors, nsurvivors);
+               &siqs_sieve->scan_begin, survivors, nsurvivors,
+               (unsigned char) siqs_sieve->threshold);
+    end_of_scan(siqs_sieve, iend);
 
     return SUCCESS;
 }
@@ -765,7 +802,9 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
         iend = siqs_sieve->endlast;
     }
     scan_chunk(siqs_sieve->sieve->data, iend, sieve_begin, -1,
-               &siqs_sieve->scan_begin, survivors, nsurvivors);
+               &siqs_sieve->scan_begin, survivors, nsurvivors,
+               (unsigned char) siqs_sieve->threshold);
+    end_of_scan(siqs_sieve, iend);
 
     return SUCCESS;
 }
@@ -992,6 +1031,7 @@ void set_siqs_sieve_threshold(siqs_sieve_t* const sieve, uint32_t threshold)
     // be determined automatically.
     //
     sieve->threshold = threshold;
+    sieve->clean     = false;
 }
 //------------------------------------------------------------------------------
 uint32_t siqs_sieve_chunk_size(void)

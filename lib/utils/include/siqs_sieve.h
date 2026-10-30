@@ -176,6 +176,11 @@ struct struct_siqs_sieve_t {
       * Additional stopwatch (to get timing for the sieve scanning)
       */
     stopwatch_t scan_timer;
+     /**
+      * True if every byte of the sieve array holds the threshold: the scan
+      * resets the bytes it reads, and the next chunk then needs no reset.
+      */
+    bool clean;
 };
 
    /**
