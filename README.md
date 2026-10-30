@@ -21,6 +21,13 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
+Version 0.4.0 (October 2026) makes ECM 19% to 33% faster on an Apple M5 Pro
+and 9% to 19% on x86-64 (an EPYC 7763, Zen 3), and SIQS 10% to 14% faster
+from 110 to 130 bits on the M5 (7% to 11% on x86-64) and 3% to 9% above;
+`tifa_factor()` is 7% to 11% faster from 128 to 160 bits on the M5 (3% to 8%
+on x86-64). The ABI changes (`libtifa.so.0.4`): the shared library exports
+the public API alone, and only its headers are installed.
+
 Version 0.3.4 (October 2026) makes SIQS 15% to 20% faster from 135 to 190
 bits on x86-64 (an EPYC 9V74, Zen 4), whose 32 KiB sieve chunks the default
 half widths no longer overflow, and 3% to 6% faster on x86-64 from 100 to 130

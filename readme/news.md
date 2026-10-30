@@ -1,5 +1,47 @@
 # TIFA news
 
+## 30 October 2026 &mdash; version 0.4.0
+
+Version 0.4.0 gathers the work below since 0.3.4: SIQS keeps its partial
+relations in a table of its own and its scan resets the sieve; each step of
+ECM's stage 1 ladder interleaves the products of its doubling and of its
+addition, and stage 2 takes one product per pair of primes; the shared
+library exports the public API alone. The ABI changes: the shared library
+is `libtifa.so.0.4`, which exports 86 symbols instead of 245, and the
+internal headers are no longer installed. The public functions and
+structures are those of 0.3.4 (linalg_method_t and smooth_filter_method_t
+move to methods.h, which siqs.h and cfrac.h include), so programs using the
+public API alone build again unchanged. Against 0.3.4 (time of 0.4.0 over
+that of 0.3.4, one thread; balanced semiprimes for SIQS and tifa_factor(),
+100 numbers per size up to 120 bits, 30 up to 150 and 8 above; n = p.q for
+ecm() with its default bounds), on an Apple M5 Pro and on GitHub's x86-64
+runner (an EPYC 7763, Zen 3):
+
+| SIQS, bits | 66 | 70 | 80 | 90 | 100 | 110 | 120 | 130 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.98 | 0.96 | 0.97 | 0.96 | 0.96 | 0.86 | 0.88 | 0.90 |
+| EPYC 7763 | 1.00 | 1.00 | 1.02 | 0.99 | 1.00 | 0.89 | 0.92 | 0.93 |
+
+| SIQS, bits | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.91 | 0.93 | 0.95 | 0.95 | 0.95 | 0.95 | 0.97 |
+| EPYC 7763 | 0.94 | 0.97 | 0.96 | 0.97 | 0.98 | 1.00 | 0.99 |
+
+| `tifa_factor()`, bits | 40 | 64 | 66 | 80 | 100 | 128 | 140 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 1.01 | 1.00 | 0.99 | 0.97 | 0.97 | 0.89 | 0.90 | 0.93 |
+| EPYC 7763 | 0.99 | 1.01 | 1.01 | 0.99 | 0.99 | 0.92 | 0.94 | 0.97 |
+
+| `ecm()`, n bits | 90 | 100 | 120 | 128 | 160 | 190 | 200 | 240 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| p, bits | 25 | 30 | 35 | 40 | 40 | 40 | 50 | 45 |
+| M5 Pro | 0.75 | 0.81 | 0.79 | 0.78 | 0.67 | 0.67 | 0.75 | 0.77 |
+| EPYC 7763 | 0.87 | 0.85 | 0.84 | 0.82 | 0.81 | 0.81 | 0.89 | 0.91 |
+
+SIQS uses large primes from 103 bits: below, the changes are within 2%.
+tifa_factor() takes the same path as in 0.3.4 below 64 bits (factor_u64),
+and measured 1% slower at 40 bits on the M5 with the same code.
+
 ## 30 October 2026 &mdash; the public API alone (0.4.0)
 
 The shared library exported all its non-static functions (245) and every
