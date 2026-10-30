@@ -1,5 +1,24 @@
 # TIFA news
 
+## 30 October 2026 &mdash; the public API alone (0.4.0)
+
+The shared library exported all its non-static functions (245) and every
+header was installed, so any change to the internals (the sieve, the
+polynomials, the large primes, the ECM kernels) was an ABI change, as were
+the three before for 0.4.0. Only the public API is now exported, 86
+symbols marked TIFA_API, and installed: tifa.h and the headers it
+includes, tuning.h and factor_u64.h. The internals can then change within
+0.4.x. linalg_method_t and smooth_filter_method_t move to methods.h, which
+siqs.h and cfrac.h include instead of lindep.h and smooth_filter.h.
+Programs calling internal functions build in the source tree against the
+static library, as the tools, tests and benchmarks do.
+
+fill_sieve_chunk and scan_sieve are aligned to 64 bytes: with the symbols
+hidden, both sat 56 bytes earlier in the SIQS benchmark, which then took 1%
+to 1.5% longer. Against the previous version, SIQS takes 0.997 to 1.009 of
+its time from 70 to 160 bits on the M5, 0.988 to 0.996 from 70 to 190 on
+x86-64 (EPYC 7763); tifa_factor() and ecm() 0.99 to 1.01 on both.
+
 ## 30 October 2026 &mdash; ECM: one ladder step, normalized giant steps (0.4.0)
 
 The ECM curves on one to four limbs (mont_ecm.c), which ecm(),
