@@ -376,7 +376,11 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve)
     return ecode;
 }
 //-----------------------------------------------------------------------------
-inline ecode_t scan_sieve(siqs_sieve_t* const sieve,
+//
+// Aligned to 64 bytes, as fill_sieve_chunk: otherwise their loops move with
+// the code linked before them, for 1% to 2% on SIQS.
+//
+__attribute__((aligned(64))) inline ecode_t scan_sieve(siqs_sieve_t* const sieve,
                    int32_array_t* const survivors,
                    const uint32_t nsurvivors)
 {
@@ -565,7 +569,7 @@ static inline uint32_t nprimes_to_skip(const uint32_t fblength) {
     return (fblength < 450) ? 14 : NPRIMES_TO_SKIP;
 }
 //-----------------------------------------------------------------------------
-ecode_t
+__attribute__((aligned(64))) ecode_t
 fill_sieve_chunk(siqs_sieve_t* const sieve)
 {
     START_EXTRA_TIMER(fill);
