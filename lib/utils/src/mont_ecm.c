@@ -89,6 +89,12 @@ static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
     return (mpz_cmp(factor, n) == 0) ? -1 : 1;
 }
 
+//
+// Stage 2 normalizes its giant steps this many at a time: one inversion
+// per block.
+//
+#define GIANT_BLOCK 256
+
 #define FN__(name, nl) name##_##nl
 #define FN_(name, nl)  FN__(name, nl)
 #define FN(name)       FN_(name, NL)
