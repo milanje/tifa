@@ -1,5 +1,23 @@
 # TIFA news
 
+## 30 October 2026 &mdash; the scan resets the sieve (0.4.0)
+
+fill_sieve_chunk set every byte of a chunk to the threshold before sieving,
+3% to 4% of a run. The scan now writes the threshold back over the bytes it
+reads, block by block once their survivors are taken; when a batch fills up
+in the middle of a block, it resets the bytes up to the last survivor, so
+that a resumed scan loses nothing. Once a chunk is scanned to its end, the
+new field clean of siqs_sieve_t (an ABI change) lets the next fill skip its
+memset. The sieve holds the same values (same candidates, hashed from 60 to
+200 bits with the NEON and the portable scans). Against the previous
+version:
+
+| SIQS, bits | 66 | 70 | 80 | 90 | 100 | 110 | 120 | 130 | 140 | 150 | 160 | 180 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.99 | 0.99 | 0.98 | 0.97 | 0.98 | 0.98 | 0.97 | 0.95 | 0.96 | 0.96 | 0.97 | 0.96 | 0.97 |
+
+`tifa_factor()`: 0.97 at 66 bits, 0.96 at 100 and 128.
+
 ## 30 October 2026 &mdash; a table of SIQS's own for the large primes (0.4.0)
 
 The road to 0.4.0, which may change the ABI, starts here. SIQS kept the

@@ -20,10 +20,9 @@ Here are some short term objectives:
     division of the relations 10%, 5% and 2%; the Gaussian elimination 7%,
     3% and 1.5%; each new 'a' 4.5%, 3.7% and 2.1%; the setup of a run 6%,
     2% and 0.6%; find_factors_decomp 4.6%, 0.8% and 0.2%.
-      - Resetting the sieve (3% to 4%) needs an ABI change, planned for
-        0.4.0: the scan could do it if the sieve knew whether a chunk was
-        scanned to its end, a new field of siqs_sieve_t. (The large primes'
-        hashtable, about 10% of a 120-bit run, is gone: see lp_table.h.)
+      - For 0.4.0, the large primes' hashtable (about 10% of a 120-bit run)
+        and the sieve's reset (3% to 4%) are gone: see lp_table.h and the
+        scan.
       - The scan reads the bytes the sieve has just written one by one:
         testing 128 bytes at a time instead of 64, 28% faster on a sieve
         already in cache, was 2% to 3% slower in SIQS.
