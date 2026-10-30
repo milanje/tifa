@@ -124,12 +124,14 @@ typedef struct struct_cofactor_strategy_t cofactor_strategy_t;
     *
     * \return The strategy, or NULL if \c lpb is out of range.
     */
-cofactor_strategy_t* alloc_cofactor_strategy(const cofactor_params_t* params);
+TIFA_API cofactor_strategy_t* alloc_cofactor_strategy(
+    const cofactor_params_t* params
+);
 
    /**
     * \brief Frees a strategy allocated by \c alloc_cofactor_strategy.
     */
-void free_cofactor_strategy(cofactor_strategy_t* strategy);
+TIFA_API void free_cofactor_strategy(cofactor_strategy_t* strategy);
 
    /**
     * \brief Finds whether the prime factors of \c n are all below 2^lpb.
@@ -141,9 +143,9 @@ void free_cofactor_strategy(cofactor_strategy_t* strategy);
     * \param[in]  strategy The bounds (several threads may share it).
     * \return The outcome.
     */
-cofactor_status_t tifa_cofactor(mpz_array_t* factors, uint32_array_t* multis,
-                                const mpz_t n,
-                                const cofactor_strategy_t* strategy);
+TIFA_API cofactor_status_t tifa_cofactor(mpz_array_t* factors,
+                                         uint32_array_t* multis, const mpz_t n,
+                                         const cofactor_strategy_t* strategy);
 
 #ifdef __cplusplus
 }

@@ -41,7 +41,7 @@ extern "C" {
 #include <gmp.h>
 
 #include "array.h"
-#include "lindep.h"
+#include "methods.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
 
@@ -129,7 +129,8 @@ typedef struct struct_siqs_params_t siqs_params_t;
     * \param[in]  n      The number to factor.
     * \param[out] params A pointer to the \c siqs_params_t structure to fill.
     */
-void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params);
+TIFA_API void set_siqs_params_to_default(const mpz_t n,
+                                         siqs_params_t* const params);
 
    /**
     * \brief Integer factorization via the self-initializing quadratic sieve
@@ -162,7 +163,7 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params);
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t siqs(
+TIFA_API ecode_t siqs(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

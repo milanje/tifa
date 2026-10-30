@@ -122,7 +122,8 @@ typedef struct struct_rho_params_t rho_params_t;
     *
     * \param params A pointer to the \c rho_params_t structure to fill.
     */
-void set_rho_params_to_default(const mpz_t n, rho_params_t* const params);
+TIFA_API void set_rho_params_to_default(const mpz_t n,
+                                        rho_params_t* const params);
 
    /**
     * \brief Integer factorization via Pollard's rho factorization algorithm.
@@ -152,7 +153,7 @@ void set_rho_params_to_default(const mpz_t n, rho_params_t* const params);
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t rho(
+TIFA_API ecode_t rho(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

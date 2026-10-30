@@ -81,7 +81,7 @@ extern "C" {
     * \param[in]  nprimes The number of primes to trial divide \c n by.
     * \return     An exit code.
     */
-ecode_t tdiv(
+TIFA_API ecode_t tdiv(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

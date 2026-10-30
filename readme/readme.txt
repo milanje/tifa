@@ -204,7 +204,10 @@
     - TIFA header files are installed in <prefix>/include/tifa. The sources
       include their headers by bare name, so consumers add that directory to
       their include path (handled automatically by the pkg-config file and the
-      CMake package).
+      CMake package). Only the public API is installed: tifa.h and the
+      headers it includes, factor_u64.h and tuning.h. The shared library
+      exports nothing else (the declarations marked TIFA_API); the internal
+      headers stay in the source tree.
 
     - Programs are installed in <prefix>/bin.
 

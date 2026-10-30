@@ -103,7 +103,7 @@ typedef struct struct_squfof_params_t squfof_params_t;
     *
     * \param params A pointer to the \c squfof_params_t structure to fill.
     */
-void set_squfof_params_to_default(squfof_params_t* const params);
+TIFA_API void set_squfof_params_to_default(squfof_params_t* const params);
 
    /**
     * \brief Integer factorization via the square form factorization
@@ -142,7 +142,7 @@ void set_squfof_params_to_default(squfof_params_t* const params);
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t squfof(
+TIFA_API ecode_t squfof(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,
@@ -150,8 +150,8 @@ ecode_t squfof(
     const factoring_mode_t mode
 );
 
-double squfof_get_elapsed_fwd();
-double squfof_get_elapsed_rev();
+TIFA_API double squfof_get_elapsed_fwd();
+TIFA_API double squfof_get_elapsed_rev();
 
 
 #ifdef __cplusplus

@@ -41,6 +41,7 @@
 #include "smooth_filter.h"
 #include "factoring_machine.h"
 #include "cfrac.h"
+#include "lindep.h"
 #include "tifa_factor.h"
 
 #define __PREFIX__      "cfrac: "

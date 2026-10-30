@@ -133,7 +133,7 @@ typedef struct struct_byte_array_t byte_array_t;
     * \param[in] length The maximum length of the \c byte_array_t to allocate.
     * \return A pointer to the newly allocated \c byte_array_t structure.
     */
-byte_array_t* alloc_byte_array(uint32_t length);
+TIFA_API byte_array_t* alloc_byte_array(uint32_t length);
 
    /**
     * \brief Frees a <tt>byte_array_t</tt>.
@@ -147,7 +147,7 @@ byte_array_t* alloc_byte_array(uint32_t length);
     *
     * \param[in] array A pointer to the <tt>byte_array_t</tt> to clear.
     */
-void free_byte_array(byte_array_t* array);
+TIFA_API void free_byte_array(byte_array_t* array);
 
    /**
     * \def reset_byte_array(ARRAY)
@@ -174,7 +174,7 @@ void free_byte_array(byte_array_t* array);
     *                    resize.
     * \param[in] array A pointer to the \c byte_array_t to resize.
     */
-void resize_byte_array(byte_array_t* const array, uint32_t alloced);
+TIFA_API void resize_byte_array(byte_array_t* const array, uint32_t alloced);
 
    /**
     * \brief Appends a byte to a <tt>byte_array_t</tt>.
@@ -187,7 +187,8 @@ void resize_byte_array(byte_array_t* const array, uint32_t alloced);
     * \param[in] array A pointer to the recipient <tt>byte_array_t</tt>.
     * \param[in] to_append The byte to append.
     */
-void append_byte_to_array(byte_array_t* array, const unsigned char to_append);
+TIFA_API void append_byte_to_array(byte_array_t* array,
+                                   const unsigned char to_append);
 
    /**
     * \brief Appends the content of a <tt>byte_array_t</tt> to another one.
@@ -201,8 +202,8 @@ void append_byte_to_array(byte_array_t* array, const unsigned char to_append);
     * \param[in] array A pointer to the recipient <tt>byte_array_t</tt>.
     * \param[in] to_append A pointer to the <tt>byte_array_t</tt> to append.
     */
-void append_byte_array(byte_array_t* const array,
-                       const byte_array_t* const to_append);
+TIFA_API void append_byte_array(byte_array_t* const array,
+                                const byte_array_t* const to_append);
 
    /**
     * \brief Swaps two <tt>byte_array_t</tt>'s contents.
@@ -216,7 +217,7 @@ void append_byte_array(byte_array_t* const array,
     * \param[in] a A pointer to the first <tt>byte_array_t</tt> to swap.
     * \param[in] b A pointer to the second <tt>byte_array_t</tt> to swap.
     */
-void swap_byte_array(byte_array_t* const a, byte_array_t* const b);
+TIFA_API void swap_byte_array(byte_array_t* const a, byte_array_t* const b);
 
    /**
     * \brief Prints a <tt>byte_array_t</tt>.
@@ -229,7 +230,7 @@ void swap_byte_array(byte_array_t* const a, byte_array_t* const b);
     *
     * \param[in] array A pointer to the <tt>byte_array_t</tt> to print.
     */
-void print_byte_array(const byte_array_t* const array);
+TIFA_API void print_byte_array(const byte_array_t* const array);
 
    /**
     * \brief Sorts the elements of a <tt>byte_array_t</tt>.
@@ -239,7 +240,7 @@ void print_byte_array(const byte_array_t* const array);
     *
     * \param[in] array A pointer to the <tt>byte_array_t</tt> to sort.
     */
-void ins_sort_byte_array(byte_array_t* const array);
+TIFA_API void ins_sort_byte_array(byte_array_t* const array);
 
    /**
     * \brief Sorts the elements of a <tt>byte_array_t</tt> with a quick sort.
@@ -252,7 +253,7 @@ void ins_sort_byte_array(byte_array_t* const array);
     *
     * \param[in] array A pointer to the <tt>byte_array_t</tt> to sort.
     */
-void qsort_byte_array(byte_array_t* const array);
+TIFA_API void qsort_byte_array(byte_array_t* const array);
 
    /**
     * \brief Returns the position of a byte in a <tt>byte_array_t</tt>.
@@ -274,8 +275,8 @@ void qsort_byte_array(byte_array_t* const array);
     * \returns The index of \c to_find in the array if \c to_find is found.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_byte_array(unsigned char to_find,
-                             const byte_array_t* const array);
+TIFA_API uint32_t index_in_byte_array(unsigned char to_find,
+                                      const byte_array_t* const array);
 
    /**
     * \brief Returns true if a given byte is in a given array.
@@ -319,9 +320,12 @@ is_in_byte_array(unsigned char to_find, const byte_array_t* const array) {
     *          the sorted array portion.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_sorted_byte_array(unsigned char to_find,
-                                    const byte_array_t* const sorted_array,
-                                    uint32_t min_index, uint32_t max_index);
+TIFA_API uint32_t index_in_sorted_byte_array(
+    unsigned char to_find,
+    const byte_array_t* const sorted_array,
+    uint32_t min_index,
+    uint32_t max_index
+);
 
    /**
     * \brief Returns true if a given byte is in a sorted \c byte_array_t.
@@ -394,7 +398,7 @@ typedef struct struct_uint32_array_t uint32_array_t;
     * \param[in] length The maximum length of the \c uint32_array_t to allocate.
     * \return A pointer to the newly allocated \c uint32_array_t structure.
     */
-uint32_array_t* alloc_uint32_array(uint32_t length);
+TIFA_API uint32_array_t* alloc_uint32_array(uint32_t length);
 
    /**
     * \brief Frees a <tt>uint32_array_t</tt>.
@@ -408,7 +412,7 @@ uint32_array_t* alloc_uint32_array(uint32_t length);
     *
     * \param[in] array A pointer to the <tt>uint32_array_t</tt> to clear.
     */
-void free_uint32_array(uint32_array_t* array);
+TIFA_API void free_uint32_array(uint32_array_t* array);
 
    /**
     * \def reset_uint32_array(ARRAY)
@@ -435,7 +439,8 @@ void free_uint32_array(uint32_array_t* array);
     *                    resize.
     * \param[in] array A pointer to the \c uint32_array_t to resize.
     */
-void resize_uint32_array(uint32_array_t* const array, uint32_t alloced);
+TIFA_API void resize_uint32_array(uint32_array_t* const array,
+                                  uint32_t alloced);
 
    /**
     * \brief Appends a \c uint32_t to an <tt>uint32_array_t</tt>.
@@ -448,7 +453,8 @@ void resize_uint32_array(uint32_array_t* const array, uint32_t alloced);
     * \param[in] array A pointer to the recipient <tt>uint32_array_t</tt>.
     * \param[in] to_append The integer to append.
     */
-void append_uint32_to_array(uint32_array_t* array, const uint32_t to_append);
+TIFA_API void append_uint32_to_array(uint32_array_t* array,
+                                     const uint32_t to_append);
 
    /**
     * \brief Appends the content of a <tt>uint32_array_t</tt> to another one.
@@ -462,8 +468,8 @@ void append_uint32_to_array(uint32_array_t* array, const uint32_t to_append);
     * \param[in] array A pointer to the recipient <tt>uint32_array_t</tt>.
     * \param[in] to_append A pointer to the <tt>uint32_array_t</tt> to append.
     */
-void append_uint32_array(uint32_array_t* const array,
-                         const uint32_array_t* const to_append);
+TIFA_API void append_uint32_array(uint32_array_t* const array,
+                                  const uint32_array_t* const to_append);
 
    /**
     * \brief Swaps two <tt>uint32_array_t</tt>'s contents.
@@ -477,7 +483,8 @@ void append_uint32_array(uint32_array_t* const array,
     * \param[in] a A pointer to the first <tt>uint32_array_t</tt> to swap.
     * \param[in] b A pointer to the second <tt>uint32_array_t</tt> to swap.
     */
-void swap_uint32_array(uint32_array_t* const a, uint32_array_t* const b);
+TIFA_API void swap_uint32_array(uint32_array_t* const a,
+                                uint32_array_t* const b);
 
    /**
     * \brief Prints a <tt>uint32_array_t</tt>.
@@ -490,7 +497,7 @@ void swap_uint32_array(uint32_array_t* const a, uint32_array_t* const b);
     *
     * \param[in] array A pointer to the <tt>uint32_array_t</tt> to print.
     */
-void print_uint32_array(const uint32_array_t* const array);
+TIFA_API void print_uint32_array(const uint32_array_t* const array);
 
    /**
     * \brief Sorts the \c uint32_t elements of a <tt>uint32_array_t</tt>.
@@ -500,7 +507,7 @@ void print_uint32_array(const uint32_array_t* const array);
     *
     * \param[in] array A pointer to the <tt>uint32_array_t</tt> to sort.
     */
-void ins_sort_uint32_array(uint32_array_t* const array);
+TIFA_API void ins_sort_uint32_array(uint32_array_t* const array);
 
    /**
     * \brief Sorts the uint32_t elements of a <tt>uint32_array_t</tt> with a
@@ -514,7 +521,7 @@ void ins_sort_uint32_array(uint32_array_t* const array);
     *
     * \param[in] array A pointer to the <tt>uint32_array_t</tt> to sort.
     */
-void qsort_uint32_array(uint32_array_t* const array);
+TIFA_API void qsort_uint32_array(uint32_array_t* const array);
 
    /**
     * \brief Returns the position of an integer in a <tt>uint32_array_t</tt>.
@@ -536,8 +543,8 @@ void qsort_uint32_array(uint32_array_t* const array);
     * \returns The index of \c to_find in the array if \c to_find is found.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_uint32_array(uint32_t to_find,
-                               const uint32_array_t* const array);
+TIFA_API uint32_t index_in_uint32_array(uint32_t to_find,
+                                        const uint32_array_t* const array);
 
    /**
     * \brief Returns true if a given integer is in a given array.
@@ -581,9 +588,12 @@ is_in_uint32_array(uint32_t to_find, const uint32_array_t* const array) {
     *          the sorted array portion.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_sorted_uint32_array(uint32_t to_find,
-                                      const uint32_array_t* const sorted_array,
-                                      uint32_t min_index, uint32_t max_index);
+TIFA_API uint32_t index_in_sorted_uint32_array(
+    uint32_t to_find,
+    const uint32_array_t* const sorted_array,
+    uint32_t min_index,
+    uint32_t max_index
+);
 
    /**
     * \brief Returns true if a given integer is in a given array.
@@ -655,7 +665,7 @@ typedef struct struct_int32_array_t int32_array_t;
     * \param[in] length The maximum length of the \c int32_array_t to allocate.
     * \return A pointer to the newly allocated \c int32_array_t structure.
     */
-int32_array_t* alloc_int32_array(uint32_t length);
+TIFA_API int32_array_t* alloc_int32_array(uint32_t length);
 
    /**
     * \brief Frees a <tt>int32_array_t</tt>.
@@ -669,7 +679,7 @@ int32_array_t* alloc_int32_array(uint32_t length);
     *
     * \param[in] array A pointer to the <tt>int32_array_t</tt> to clear.
     */
-void free_int32_array(int32_array_t* array);
+TIFA_API void free_int32_array(int32_array_t* array);
 
    /**
     * \def reset_int32_array(ARRAY)
@@ -696,7 +706,7 @@ void free_int32_array(int32_array_t* array);
     *                    resize.
     * \param[in] array A pointer to the \c int32_array_t to resize.
     */
-void resize_int32_array(int32_array_t* const array, uint32_t alloced);
+TIFA_API void resize_int32_array(int32_array_t* const array, uint32_t alloced);
 
    /**
     * \brief Appends a \c int32_t to an <tt>int32_array_t</tt>.
@@ -709,7 +719,8 @@ void resize_int32_array(int32_array_t* const array, uint32_t alloced);
     * \param[in] array A pointer to the recipient <tt>int32_array_t</tt>.
     * \param[in] to_append The integer to append.
     */
-void append_int32_to_array(int32_array_t* array, const int32_t to_append);
+TIFA_API void append_int32_to_array(int32_array_t* array,
+                                    const int32_t to_append);
 
    /**
     * \brief Appends the content of an <tt>int32_array_t</tt> to another one.
@@ -723,8 +734,8 @@ void append_int32_to_array(int32_array_t* array, const int32_t to_append);
     * \param[in] array A pointer to the recipient <tt>int32_array_t</tt>.
     * \param[in] to_append A pointer to the <tt>int32_array_t</tt> to append.
     */
-void append_int32_array(int32_array_t* const array,
-                        const int32_array_t* const to_append);
+TIFA_API void append_int32_array(int32_array_t* const array,
+                                 const int32_array_t* const to_append);
 
    /**
     * \brief Swaps two <tt>int32_array_t</tt>'s contents.
@@ -738,7 +749,7 @@ void append_int32_array(int32_array_t* const array,
     * \param[in] a A pointer to the first <tt>int32_array_t</tt> to swap.
     * \param[in] b A pointer to the second <tt>int32_array_t</tt> to swap.
     */
-void swap_int32_array(int32_array_t* const a, int32_array_t* const b);
+TIFA_API void swap_int32_array(int32_array_t* const a, int32_array_t* const b);
 
    /**
     * \brief Prints a <tt>int32_array_t</tt>.
@@ -751,7 +762,7 @@ void swap_int32_array(int32_array_t* const a, int32_array_t* const b);
     *
     * \param[in] array A pointer to the <tt>int32_array_t</tt> to print.
     */
-void print_int32_array(const int32_array_t* const array);
+TIFA_API void print_int32_array(const int32_array_t* const array);
 
    /**
     * \brief Returns the position of an integer in a <tt>int32_array_t</tt>.
@@ -772,8 +783,8 @@ void print_int32_array(const int32_array_t* const array);
     * \returns The index of \c to_find in the array if \c to_find is found.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_int32_array(int32_t to_find,
-                              const int32_array_t* const array);
+TIFA_API uint32_t index_in_int32_array(int32_t to_find,
+                                       const int32_array_t* const array);
 
    /**
     * \brief Returns true if a given integer is in a given array.
@@ -817,9 +828,12 @@ is_in_int32_array(int32_t to_find, const int32_array_t* const array) {
     *          the sorted array portion.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_sorted_int32_array(int32_t to_find,
-                                     const int32_array_t* const sorted_array,
-                                     uint32_t min_index, uint32_t max_index);
+TIFA_API uint32_t index_in_sorted_int32_array(
+    int32_t to_find,
+    const int32_array_t* const sorted_array,
+    uint32_t min_index,
+    uint32_t max_index
+);
 
    /**
     * \brief Returns true if a given integer is in a given array.
@@ -904,7 +918,7 @@ typedef struct struct_mpz_array_t mpz_array_t;
     * was prompted by the need to avoid multiple memory deallocations and
     * reallocations when using the same \c mpz_array_t repeatedly.
     */
-mpz_array_t* alloc_mpz_array(uint32_t length);
+TIFA_API mpz_array_t* alloc_mpz_array(uint32_t length);
 
    /**
     * \brief Frees a <tt>mpz_array_t</tt>.
@@ -918,7 +932,7 @@ mpz_array_t* alloc_mpz_array(uint32_t length);
     *
     * \param[in] array A pointer to the <tt>mpz_array_t</tt> to clear.
     */
-void free_mpz_array(mpz_array_t* array);
+TIFA_API void free_mpz_array(mpz_array_t* array);
 
    /**
     * \brief Resets an <tt>mpz_array_t</tt>.
@@ -948,7 +962,7 @@ void free_mpz_array(mpz_array_t* array);
     *                    resize.
     * \param[in] array A pointer to the \c mpz_array_t to resize.
     */
-void resize_mpz_array(mpz_array_t* const array, uint32_t alloced);
+TIFA_API void resize_mpz_array(mpz_array_t* const array, uint32_t alloced);
 
    /**
     * \brief Swaps two <tt>mpz_array_t</tt>'s contents.
@@ -962,7 +976,7 @@ void resize_mpz_array(mpz_array_t* const array, uint32_t alloced);
     * \param[in] a A pointer to the first <tt>mpz_array_t</tt> to swap.
     * \param[in] b A pointer to the second <tt>mpz_array_t</tt> to swap.
     */
-void swap_mpz_array(mpz_array_t* const a, mpz_array_t* const b);
+TIFA_API void swap_mpz_array(mpz_array_t* const a, mpz_array_t* const b);
 
    /**
     * \brief Appends an \c mpz_t to an <tt>mpz_array_t</tt>.
@@ -975,7 +989,7 @@ void swap_mpz_array(mpz_array_t* const a, mpz_array_t* const b);
     * \param[in] array A pointer to the recipient <tt>mpz_array_t</tt>.
     * \param[in] to_append The <tt>mpz_t</tt> to append.
     */
-void append_mpz_to_array(mpz_array_t* array, const mpz_t to_append);
+TIFA_API void append_mpz_to_array(mpz_array_t* array, const mpz_t to_append);
 
    /**
     * \brief Appends the content of an <tt>mpz_array_t</tt> to another one.
@@ -989,8 +1003,8 @@ void append_mpz_to_array(mpz_array_t* array, const mpz_t to_append);
     * \param[in] array A pointer to the recipient <tt>mpz_array_t</tt>.
     * \param[in] to_append A pointer to the <tt>mpz_array_t</tt> to append.
     */
-void append_mpz_array(mpz_array_t* const array,
-                      const mpz_array_t* const to_append);
+TIFA_API void append_mpz_array(mpz_array_t* const array,
+                               const mpz_array_t* const to_append);
 
    /**
     * \brief Prints a <tt>mpz_array_t</tt>.
@@ -1003,7 +1017,7 @@ void append_mpz_array(mpz_array_t* const array,
     *
     * \param[in] array A pointer to the <tt>mpz_array_t</tt> to print.
     */
-void print_mpz_array(const mpz_array_t* const array);
+TIFA_API void print_mpz_array(const mpz_array_t* const array);
 
    /**
     * \brief Returns the position of a \c mpz_t in a <tt>mpz_array_t</tt>.
@@ -1021,8 +1035,8 @@ void print_mpz_array(const mpz_array_t* const array);
     * \returns The index of \c to_find in the array if \c to_find is found.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_mpz_array(const mpz_t to_find,
-                            const mpz_array_t* const array);
+TIFA_API uint32_t index_in_mpz_array(const mpz_t to_find,
+                                     const mpz_array_t* const array);
    /**
     * \brief Returns the position of an \c mpz_t in a \e sorted portion of an
     * <tt>mpz_array_t</tt>.
@@ -1043,9 +1057,12 @@ uint32_t index_in_mpz_array(const mpz_t to_find,
     * \returns The index of \c to_find in the array if \c to_find is found.
     * \returns <tt>NOT_IN_ARRAY</tt> otherwise.
     */
-uint32_t index_in_sorted_mpz_array(const mpz_t to_find,
-                                   const mpz_array_t* const sorted_array,
-                                   uint32_t min_index, uint32_t max_index);
+TIFA_API uint32_t index_in_sorted_mpz_array(
+    const mpz_t to_find,
+    const mpz_array_t* const sorted_array,
+    uint32_t min_index,
+    uint32_t max_index
+);
 
    /**
     * \brief Returns true if a given integer is in a given array.
@@ -1075,7 +1092,7 @@ is_in_mpz_array(const mpz_t to_find, const mpz_array_t* const array) {
     *
     * \param[in] array A pointer to the <tt>mpz_array_t</tt> to sort.
     */
-void ins_sort_mpz_array(mpz_array_t* const array);
+TIFA_API void ins_sort_mpz_array(mpz_array_t* const array);
 
    /**
     * \brief Sorts the mpz_t elements of a <tt>mpz_array_t</tt> with a quick
@@ -1089,7 +1106,7 @@ void ins_sort_mpz_array(mpz_array_t* const array);
     *
     * \param[in] array A pointer to the <tt>mpz_array_t</tt> to sort.
     */
-void qsort_mpz_array(mpz_array_t* const array);
+TIFA_API void qsort_mpz_array(mpz_array_t* const array);
 
    /**
     * \brief Returns true if a given integer is in a given array.
@@ -1171,7 +1188,7 @@ typedef struct struct_binary_array_t binary_array_t;
     * Note that this array may hold more that length bits if length is not a
     * multiple of 8 * <tt>sizeof(TIFA_BITSTRING_T)</tt>.
     */
-binary_array_t* alloc_binary_array(uint32_t length);
+TIFA_API binary_array_t* alloc_binary_array(uint32_t length);
 
    /**
     * \brief Frees a <tt>binary_array_t</tt>.
@@ -1185,7 +1202,7 @@ binary_array_t* alloc_binary_array(uint32_t length);
     *
     * \param[in] array A pointer to the <tt>binary_array_t</tt> to clear.
     */
-void free_binary_array(binary_array_t* array);
+TIFA_API void free_binary_array(binary_array_t* array);
 
    /**
     * \brief Resets a <tt>binary_array_t</tt>.
@@ -1212,7 +1229,8 @@ void free_binary_array(binary_array_t* array);
     *                    \c binary_array_t to resize.
     * \param[in] array A pointer to the \c binary_array_t to resize.
     */
-void resize_binary_array(binary_array_t* const array, uint32_t alloced);
+TIFA_API void resize_binary_array(binary_array_t* const array,
+                                  uint32_t alloced);
 
    /**
     * \brief Appends a bit to a <tt>binary_array_t</tt>.
@@ -1227,7 +1245,8 @@ void resize_binary_array(binary_array_t* const array, uint32_t alloced);
     * \param[in] to_append The bit to append (1 if <tt>to_append != 0</tt>,
     *                      0 otherwise).
     */
-void append_bit_to_array(binary_array_t* array, const unsigned int to_append);
+TIFA_API void append_bit_to_array(binary_array_t* array,
+                                  const unsigned int to_append);
 
    /**
     * \brief Prints a <tt>binary_array_t</tt>.
@@ -1236,7 +1255,7 @@ void append_bit_to_array(binary_array_t* array, const unsigned int to_append);
     *
     * \param[in] array A pointer to the <tt>binary_array_t</tt> to print.
     */
-void print_binary_array(const binary_array_t* const array);
+TIFA_API void print_binary_array(const binary_array_t* const array);
 
    /**
     * \brief Returns the value of a given bit in a <tt>binary_array_t</tt>.

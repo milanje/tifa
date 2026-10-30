@@ -62,6 +62,8 @@ extern "C" {
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "tifa_config.h"
+
    /**
     * \def TIFA_TUNING_MAX_COLS
     * Maximum number of tunable parameter columns per row (excluding
@@ -184,15 +186,15 @@ typedef struct struct_tuning_table_t tuning_table_t;
     *         error, column-count mismatch, or no data rows). On failure
     *         <tt>*out_table</tt> is set to NULL.
     */
-int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
-                          tuning_table_t** out_table);
+TIFA_API int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
+                                   tuning_table_t** out_table);
 
    /**
     * \brief Frees a tuning table.
     *
     * \param[in] table The table to free (may be NULL).
     */
-void tifa_tuning_free(tuning_table_t* table);
+TIFA_API void tifa_tuning_free(tuning_table_t* table);
 
    /**
     * \brief Looks up the row applicable to a given bit-size.
@@ -204,8 +206,8 @@ void tifa_tuning_free(tuning_table_t* table);
     * \param[in] bitsize The bit-size to look up.
     * \return The applicable row, or NULL if \c table is NULL or empty.
     */
-const tuning_row_t* tifa_tuning_lookup(const tuning_table_t* table,
-                                       uint32_t bitsize);
+TIFA_API const tuning_row_t* tifa_tuning_lookup(const tuning_table_t* table,
+                                                uint32_t bitsize);
 
    /**
     * \brief Interpolates a row of a table for a given bit-size.
@@ -221,8 +223,9 @@ const tuning_row_t* tifa_tuning_lookup(const tuning_table_t* table,
     * \param[out] out         The row for \c bitsize.
     * \return false if \c table is NULL or empty (\c out is then untouched).
     */
-bool tifa_tuning_interpolate(const tuning_table_t* table, uint32_t bitsize,
-                             uint32_t interp_cols, tuning_row_t* out);
+TIFA_API bool tifa_tuning_interpolate(const tuning_table_t* table,
+                                      uint32_t bitsize, uint32_t interp_cols,
+                                      tuning_row_t* out);
 
    /**
     * \brief Sets the directory searched for tuning files.
@@ -240,7 +243,7 @@ bool tifa_tuning_interpolate(const tuning_table_t* table, uint32_t bitsize,
     * \param[in] dir The directory to search, NULL to clear the override, or
     *                "" to use the built-in defaults only.
     */
-void tifa_tuning_set_dir(const char* dir);
+TIFA_API void tifa_tuning_set_dir(const char* dir);
 
    /**
     * \brief Returns the tuning row for an algorithm and bit-size, if any.
@@ -263,8 +266,9 @@ void tifa_tuning_set_dir(const char* dir);
     * \param[in] bitsize      The bit-size of the number to factor.
     * \return The applicable tuning row, or NULL if no tuning data applies.
     */
-const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
-                                        uint32_t bitsize);
+TIFA_API const tuning_row_t* tifa_tuning_row_for(const char* algo,
+                                                 uint32_t expect_ncols,
+                                                 uint32_t bitsize);
 
    /**
     * \brief Copies the tuning row for an algorithm and bit-size, if any.
@@ -281,9 +285,9 @@ const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
     * \param[out] out          The applicable tuning row, if any.
     * \return true if a tuning row applies (and was copied into \c out).
     */
-bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
-                         uint32_t bitsize, uint32_t interp_cols,
-                         tuning_row_t* out);
+TIFA_API bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
+                                  uint32_t bitsize, uint32_t interp_cols,
+                                  tuning_row_t* out);
 
 #ifdef __cplusplus
 }

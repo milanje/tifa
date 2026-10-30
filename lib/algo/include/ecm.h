@@ -114,7 +114,8 @@ typedef struct struct_ecm_params_t ecm_params_t;
     * \param[in]  n The \c mpz_t integer to factor.
     * \param[out] params A pointer to the \c ecm_params_t structure to fill.
     */
-void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params);
+TIFA_API void set_ecm_params_to_default(const mpz_t n,
+                                        ecm_params_t* const params);
 
    /**
     * \brief Fills an \c ecm_params_t for factors of a given size.
@@ -127,8 +128,8 @@ void set_ecm_params_to_default(const mpz_t n, ecm_params_t* const params);
     * \param[in]  fbits The size of the factor sought, in bits.
     * \param[out] params A pointer to the \c ecm_params_t structure to fill.
     */
-void set_ecm_params_for_factor_size(uint32_t fbits,
-                                    ecm_params_t* const params);
+TIFA_API void set_ecm_params_for_factor_size(uint32_t fbits,
+                                             ecm_params_t* const params);
 
    /**
     * \brief Integer factorization with the elliptic curve method (ECM).
@@ -159,7 +160,7 @@ void set_ecm_params_for_factor_size(uint32_t fbits,
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t ecm(
+TIFA_API ecode_t ecm(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

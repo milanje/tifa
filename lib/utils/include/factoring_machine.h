@@ -223,7 +223,7 @@ typedef struct struct_factoring_machine factoring_machine_t;
     *
     * \param machine A pointer to the \c factoring_machine_t to use.
     */
-ecode_t run_machine(factoring_machine_t* machine);
+TIFA_API ecode_t run_machine(factoring_machine_t* machine);
 
    /**
     * \brief Turns the factors found by a single run into the result expected
@@ -243,7 +243,7 @@ ecode_t run_machine(factoring_machine_t* machine);
     *                    used for \c FIND_COMPLETE_FACTORIZATION).
     * \return The exit code \c run_machine would have returned.
     */
-ecode_t process_found_factors(
+TIFA_API ecode_t process_found_factors(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

@@ -49,8 +49,7 @@ extern "C" {
 
 #include "first_primes.h"
 #include "array.h"
-#include "lindep.h"
-#include "smooth_filter.h"
+#include "methods.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
 
@@ -131,7 +130,8 @@ typedef struct struct_cfrac_params_t cfrac_params_t;
     * \param[in]  n The \c mpz_t integer to factor.
     * \param[out] params A pointer to the \c cfrac_params_t structure to fill.
     */
-void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params);
+TIFA_API void set_cfrac_params_to_default(const mpz_t n,
+                                          cfrac_params_t* const params);
 
    /**
     * \brief Integer factorization via the continued fraction (CFRAC) algorithm.
@@ -163,7 +163,7 @@ void set_cfrac_params_to_default(const mpz_t n, cfrac_params_t* const params);
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t cfrac(
+TIFA_API ecode_t cfrac(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

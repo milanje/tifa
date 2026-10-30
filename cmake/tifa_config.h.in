@@ -20,6 +20,13 @@
 // time. This keeps configuration free of run-tests and cross-compile safe.
 #include <limits.h>
 
+/* Marks the public API: the shared library exports nothing else. */
+#if defined(__GNUC__)
+#define TIFA_API __attribute__((visibility("default")))
+#else
+#define TIFA_API
+#endif
+
 /* Name of package */
 #define TIFA_SHORTNAME "@TIFA_CFG_SHORTNAME@"
 

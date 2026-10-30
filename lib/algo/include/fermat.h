@@ -92,7 +92,7 @@ typedef struct struct_fermat_params_t fermat_params_t;
     *
     * \param params A pointer to the \c fermat_params_t structure to fill.
     */
-void set_fermat_params_to_default(fermat_params_t* const params);
+TIFA_API void set_fermat_params_to_default(fermat_params_t* const params);
 
    /**
     * \brief Integer factorization via McKee's speedup of Fermat's factorization
@@ -131,7 +131,7 @@ void set_fermat_params_to_default(fermat_params_t* const params);
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t fermat(
+TIFA_API ecode_t fermat(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

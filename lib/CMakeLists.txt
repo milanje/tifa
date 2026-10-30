@@ -64,7 +64,12 @@ set(TIFA_BUILD_INCLUDE_DIRS
 # Compile the sources once into an object library.
 #------------------------------------------------------------------------------
 add_library(tifa_objects OBJECT ${TIFA_SOURCES})
-set_target_properties(tifa_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# Only the declarations marked TIFA_API (the public headers) are exported by
+# the shared library.
+set_target_properties(tifa_objects PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    C_VISIBILITY_PRESET hidden
+)
 target_include_directories(tifa_objects PRIVATE ${TIFA_BUILD_INCLUDE_DIRS})
 # GMP::GMP brings in gmp.h's include directory for compilation.
 target_link_libraries(tifa_objects PRIVATE GMP::GMP)
@@ -129,45 +134,17 @@ set(TIFA_PUBLIC_HEADERS
     algo/include/tdiv.h
     algo/include/tifa_factor.h
     algo/include/tuning.h
-    algo/include/tuning_baked.h
     # Data
     data/include/first_primes.h
-    data/include/z2z8_curves.h
-    # Structures, utilities, etc.
-    utils/include/approx.h
+    # Structures and utilities
     utils/include/array.h
-    utils/include/bernsteinisms.h
     utils/include/bitstring_t.h
-    utils/include/buckets.h
     utils/include/exit_codes.h
     utils/include/factoring_machine.h
     utils/include/factor_u64.h
-    utils/include/funcs.h
-    utils/include/gauss_elim.h
-    utils/include/gmp_utils.h
-    utils/include/hashtable.h
-    utils/include/lindep.h
-    utils/include/linked_list.h
-    utils/include/lp_table.h
-    utils/include/macros.h
-    utils/include/matrix.h
-    utils/include/ecm_schedule.h
-    utils/include/mont_ecm.h
-    utils/include/messages.h
-    utils/include/print_error.h
-    utils/include/res_tdiv.h
-    utils/include/siqs_poly.h
-    utils/include/siqs_sieve.h
-    utils/include/smooth_filter.h
-    utils/include/sqrt_cont_frac.h
-    utils/include/stopwatch.h
-    utils/include/tifa_alloc.h
-    utils/include/timer.h
-    utils/include/x_array_list.h
-    utils/include/x_tree.h
-    # Umbrella headers
+    utils/include/methods.h
+    # Umbrella header
     tifa.h
-    tifa_internals.h
 )
 
 install(FILES ${TIFA_PUBLIC_HEADERS}

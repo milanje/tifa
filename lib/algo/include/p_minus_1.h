@@ -94,7 +94,8 @@ typedef struct struct_p_minus_1_params_t p_minus_1_params_t;
     *               size-independent built-in defaults are used.
     * \param[out] params A pointer to the \c p_minus_1_params_t structure to fill.
     */
-void set_p_minus_1_params_to_default(const mpz_t n, p_minus_1_params_t* const params);
+TIFA_API void set_p_minus_1_params_to_default(const mpz_t n,
+                                              p_minus_1_params_t* const params);
 
    /**
     * \brief Integer factorization via Pollard's p-1 factorization algorithm.
@@ -122,7 +123,7 @@ void set_p_minus_1_params_to_default(const mpz_t n, p_minus_1_params_t* const pa
     * \param[in] mode The factoring mode to use.
     * \return An exit code.
     */
-ecode_t p_minus_1(
+TIFA_API ecode_t p_minus_1(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

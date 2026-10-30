@@ -50,6 +50,7 @@
 #include "bernsteinisms.h"
 #include "factoring_machine.h"
 #include "siqs.h"
+#include "lindep.h"
 #include "tuning.h"
 #include "tifa_factor.h"
 #include "siqs_poly.h"

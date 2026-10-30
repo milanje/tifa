@@ -96,6 +96,8 @@
 #include <hashtable.h>
 #include <gmp.h>
 
+#include "methods.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -107,47 +109,10 @@ extern "C" {
 #define MAX_NSTEPS 4
 
    /**
-    * \enum smooth_filter_method_enum
-    *
-    * An enumeration of the possible methods used to test residue smoothness.
-    */
-enum smooth_filter_method_enum {
-        /**
-         * Simple trial division.
-         */
-    TDIV = 0,
-        /**
-         * Simple trial division with (multi-step) early abort.
-         */
-    TDIV_EARLY_ABORT,
-        /**
-         * D. Bernstein's batch method described in "How to find smooth parts
-         * of integers", http://cr.yp.to/factorization/smoothparts-20040510.pdf.
-         */
-    DJB_BATCH,
-};
-
-   /**
     * \typedef smooth_filter_t
     * \brief Equivalent to <tt>struct struct_smooth_filter_t</tt>.
     */
 typedef struct struct_smooth_filter_t smooth_filter_t;
-
-   /**
-    * Global constant array mapping filter methods to their string 
-    * representations.
-    */
-static const char* const filter_method_to_str[3] = {
-    "trial division",
-    "trial division + early abort",
-    "batch",
-};
-
-   /**
-    * \typedef smooth_filter_method_t
-    * \brief Equivalent to <tt>enum smooth_filter_method_enum</tt>.
-    */
-typedef enum smooth_filter_method_enum smooth_filter_method_t;
 
    /**
     * \struct struct_smooth_filter_t smooth_filter.h

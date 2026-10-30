@@ -31,6 +31,11 @@
  * should only be included to access some internal structures or functions.
  * Be warned that conflicts with client code or external libraries are then
  * more likely to occur.
+ *
+ * \note Since 0.4.0, neither this file nor the internal headers it includes
+ * are installed, and the shared library exports only the public API (the
+ * declarations marked TIFA_API): the internals are for programs built in the
+ * source tree against the static library.
  */
 
 #if !defined(_TIFA_TIFA_INTERNALS_H_)

@@ -80,7 +80,7 @@ extern "C" {
     * \param[in] mode The factoring mode to use.
     * \return An exit code: \c NO_FACTOR_FOUND if \c n is prime.
     */
-ecode_t tifa_factor(
+TIFA_API ecode_t tifa_factor(
     mpz_array_t* const factors,
     uint32_array_t* const multis,
     const mpz_t n,

@@ -46,38 +46,7 @@ extern "C" {
 #include "x_array_list.h"
 #include "matrix.h"
 #include "exit_codes.h"
-
-   /**
-    * \enum linalg_method_enum
-    *
-    * Enumeration listing the different linear system resolution method
-    * implemented.
-    *
-    * For the time being, only one method is available.
-    */
-enum linalg_method_enum {
-       /**
-        * "Smart" gaussian elimination described in:
-        * "A compact algorithm for Gaussian elimination over GF(2) implemented
-        * on highly parallel computers", by D. Parkinson and M. Wunderlich
-        * (Parallel Computing 1 (1984) 65-73).
-        */
-    SMART_GAUSS_ELIM = 0
-};
-
-   /**
-    * \typedef linalg_method_t
-    * \brief Equivalent to <tt>enum linalg_method_enum</tt>.
-    */
-typedef enum linalg_method_enum linalg_method_t;
-
-   /**
-    * Global constant array mapping linalg methods to their string 
-    * representations.
-    */
-static const char* const linalg_method_to_str[1] = {
-    "smart gaussian elimination"
-};
+#include "methods.h"
 
    /**
     * \brief Fills a binary matrix via trial divisions.

@@ -64,7 +64,7 @@ extern "C" {
     * \param[in] n The integer to test.
     * \return true if \c n is prime, false otherwise.
     */
-bool is_prime_u64(uint64_t n);
+TIFA_API bool is_prime_u64(uint64_t n);
 
    /**
     * \brief A proper factor of a composite 64-bit integer.
@@ -72,7 +72,7 @@ bool is_prime_u64(uint64_t n);
     * \param[in] n A composite.
     * \return A proper factor of \c n, or 0 if none was found.
     */
-uint64_t split_u64(uint64_t n);
+TIFA_API uint64_t split_u64(uint64_t n);
 
    /**
     * \brief Complete factorization of a 64-bit integer.
@@ -87,7 +87,7 @@ uint64_t split_u64(uint64_t n);
     * \return The number of distinct prime factors, or 0 if \c n < 2 or a
     *         composite factor could not be split.
     */
-uint32_t factor_u64(uint64_t n, uint64_t* primes, uint32_t* multis);
+TIFA_API uint32_t factor_u64(uint64_t n, uint64_t* primes, uint32_t* multis);
 
 #endif
 
