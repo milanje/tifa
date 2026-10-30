@@ -1,5 +1,37 @@
 # TIFA news
 
+## 30 October 2026 &mdash; version 0.3.4
+
+Version 0.3.4 gathers the work below since 0.3.3: the default half widths of
+SIQS take one sieve chunk at most up to 190 bits (most x86-64 cores have
+32 KiB chunks, where they took two), each new polynomial shifts its roots in
+vectorized loops, and each new 'a' above 64 bits takes its residues without
+GMP. The ABI is unchanged: the shared library is still `libtifa.so.0.3`;
+siqs_sieve_chunk_size() is new. Against 0.3.3 (time of 0.3.4 over that of
+0.3.3, balanced semiprimes, one thread; 100 numbers per size up to 120 bits,
+30 up to 150 and 8 above), on an Apple M5 Pro and on GitHub's x86-64 runner
+(an EPYC 9V74, Zen 4):
+
+| SIQS, bits | 66 | 70 | 80 | 90 | 100 | 110 | 120 | 130 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.99 | 0.99 | 0.99 | 0.99 | 0.98 | 0.98 | 0.97 | 0.98 |
+| EPYC 9V74 | 1.00 | 0.99 | 1.00 | 0.97 | 0.94 | 0.95 | 0.96 | 0.97 |
+
+| SIQS, bits | 135 | 140 | 150 | 160 | 170 | 180 | 190 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | | 0.98 | 0.96 | 0.94 | 0.93 | 0.92 | 0.92 | 0.96 |
+| EPYC 9V74 | 0.83 | 0.83 | 0.80 | 0.84 | 0.85 | 0.82 | 0.82 | 0.95 |
+
+| `tifa_factor()`, bits | 40 | 64 | 66 | 80 | 100 | 128 | 140 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.99 | 1.00 | 1.00 | 1.01 | 0.99 | 1.00 | | 0.96 |
+| EPYC 9V74 | | | 0.99 | | 0.95 | 0.95 | 0.82 | 0.83 |
+
+siqs_sieve_chunk_size() first sat before the sieve's kernel in
+siqs_sieve.c, which moved its hot loops: tifa_factor() measured 2% slower at
+66 bits and SIQS alone 2% faster, with the same code. It now sits at the end
+of the file, and the kernel is laid out as in 0.3.3.
+
 ## 29 October 2026 &mdash; each new 'a' above 64 bits
 
 From about 150 bits 'a' passes 62 bits, and each new 'a' took a, b and every
