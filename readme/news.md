@@ -1,5 +1,27 @@
 # TIFA news
 
+## 30 October 2026 &mdash; a table of SIQS's own for the large primes (0.4.0)
+
+The road to 0.4.0, which may change the ABI, starts here. SIQS kept the
+partial relations of its large prime variation in the generic hashtable,
+which allocated a key, a pair, the pair's two integers and a list node for
+each (1000 per run at 105 bits, 1800 at 120, 26000 at 200), and freed them
+all at the end of the run: about 10% of a 120-bit run. lp_table_t
+(lp_table.h, new) keeps the large primes in an open-addressing table and
+copies the limbs of the relations into one buffer, read back as read-only
+views (mpz_roinit_n): a few reallocations per run, none per relation, and
+nothing kept between runs. bern_21_rt_pairs_lp_siqs() takes an lp_table_t
+instead of a hashtable_t; CFRAC keeps the hashtable.
+
+The same relations are paired as before (same candidates, hashed from 105 to
+200 bits). Against 0.3.4:
+
+| SIQS, bits | 90 | 100 | 105 | 110 | 120 | 130 | 140 | 150 | 160 | 180 | 200 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| time | 0.98 | 0.98 | 0.87 | 0.87 | 0.90 | 0.91 | 0.94 | 0.96 | 0.98 | 0.99 | 0.99 |
+
+`tifa_factor()`: 0.93 at 128 bits. SIQS uses large primes from 103 bits.
+
 ## 30 October 2026 &mdash; version 0.3.4
 
 Version 0.3.4 gathers the work below since 0.3.3: the default half widths of
