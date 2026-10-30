@@ -13,6 +13,15 @@ Here are some short term objectives:
     widths of several chunks from 200 bits were not tried there; a one-off
     workflow running bench/ab.sh on a runner is how to measure them.
 
+  - ECM on one to four limbs (mont_ecm.c), in shares of ecm() at 100 bits
+    (B1 of 50 to 200, profiled on 30 October 2026): the chains of xadd of
+    stage 2 (baby and giant steps, each from the previous ones) about 15%,
+    serial as the ladder's calls were; two chains interleaved, as in the
+    ladder step, could overlap them. The setup of each curve (GMP, the plan
+    of each level, the gcds) about 10%. tifa_cofactor's schedule
+    (ecm_schedule.c) still runs Suyama's curves, retuned for them, where
+    ecm() starts with the Z/2 x Z/8 table.
+
   - SIQS, in shares of a run on the M5 at 70, 120 and 160 bits (profiled
     on 29 October 2026): the sieve's fill 33%, 47% and 55%, at about one
     cycle per hit and without unpredictable branches; the smoothness test

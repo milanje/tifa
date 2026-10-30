@@ -1,5 +1,31 @@
 # TIFA news
 
+## 30 October 2026 &mdash; ECM: one ladder step, normalized giant steps (0.4.0)
+
+The ECM curves on one to four limbs (mont_ecm.c), which ecm(),
+tifa_factor() and tifa_cofactor() run below 256 bits, spent most of their
+stage 1 waiting: each bit of the ladder was a call to the addition, then
+one to the doubling, each a chain of dependent products that the core did
+not overlap (a two-limb product takes 6.5 ns alone, 1.6 ns among
+independent ones). One step now interleaves the products of both, in the
+order of RFC 7748. Stage 2 took two products per pair of primes; its giant
+steps are now normalized like the baby steps, by batch inversions of 256
+at a time, for one product per pair, spread over four accumulators.
+
+The curves find the same factors (4896 curves from 50 to 256 bits,
+hashed). Per curve, stage 1 takes 0.89 of its time on one limb, 0.71 on
+two, 0.62 on three and 0.84 on four; stage 2, 0.56 to 0.78. Against the
+previous version, ecm() with its default bounds on n = p.q:
+
+| n, bits | 90 | 100 | 120 | 128 | 160 | 190 | 200 | 240 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| p, bits | 25 | 30 | 35 | 40 | 40 | 40 | 50 | 45 |
+| Apple M5 Pro | 0.76 | 0.81 | 0.79 | 0.79 | 0.68 | 0.68 | 0.75 | 0.78 |
+| AMD EPYC 9V45 (GitHub runner) | 0.85 | 0.83 | 0.82 | 0.81 | 0.76 | 0.79 | 0.94 | 0.95 |
+
+`tifa_factor()` is unchanged on balanced semiprimes (0.98 to 1.00 on
+both). No ABI change.
+
 ## 30 October 2026 &mdash; Bainv2 by j only (0.4.0)
 
 siqs_poly_t's Bainv2 was a table of rows Bainv2[i][j], one per prime of the
