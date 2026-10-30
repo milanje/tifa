@@ -113,10 +113,12 @@ struct struct_siqs_poly_t {
      */
   mpz_array_t* Bl;
     /**
-     * \tt{Bainv2[i][j]} = 2 x \tt{Bl[j]} x inv(\tt{a}) mod \b{pi} for
-     * \b{pi} in the factor base and \b{j} in [0, \tt{nprimes_in_a}-1]
+     * \tt{Bainv2[j * fblen + i]} = 2 x \tt{Bl[j]} x inv(\tt{a}) mod \b{pi}
+     * for \b{pi} the i-th prime of the factor base (of length \tt{fblen})
+     * and \b{j} in [0, \tt{nprimes_in_a}-1]: by j, the values a new
+     * polynomial shifts the roots by follow each other.
      */
-  uint32_t**   Bainv2;
+  uint32_t*    Bainv2;
     /**
      * Number of different polynomials having the same \tt{a} coefficient
      */

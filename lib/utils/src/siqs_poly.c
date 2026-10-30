@@ -93,17 +93,8 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     poly->sol1   = alloc_int32_array(poly->factor_base->length);
     poly->sol2   = alloc_int32_array(poly->factor_base->length);
     poly->Bl     = alloc_mpz_array(poly->nprimes_in_a);
-    //
-    // Past the rows Bainv2[i], the same values by j, for fast_poly_init:
-    // Bainv2[fblen][j * fblen + i] = Bainv2[i][j], in the same block.
-    //
-    const uint32_t fblen = poly->factor_base->length;
-    poly->Bainv2    = tifa_malloc((fblen + 1) * sizeof(uint32_t*));
-    poly->Bainv2[0] = tifa_malloc(  2 * fblen * poly->nprimes_in_a
-                                  * sizeof(uint32_t));
-    for (uint32_t i = 1; i <= fblen; i++) {
-        poly->Bainv2[i] = poly->Bainv2[0] + i * poly->nprimes_in_a;
-    }
+    poly->Bainv2 = tifa_malloc(  poly->factor_base->length
+                               * poly->nprimes_in_a * sizeof(uint32_t));
     choose_a(poly);
     
     full_poly_init(poly);
@@ -117,7 +108,6 @@ free_siqs_poly(siqs_poly_t* poly)
     if (poly != NULL) {
         free_mpz_array(poly->Bl);
         
-        free(poly->Bainv2[0]);
         free(poly->Bainv2);
                 
         mpz_clear(poly->a);
@@ -314,7 +304,7 @@ static inline uint64_t two64_mod(const uint32_t p) {
 }
 //
 // For the i-th prime p of the base, not dividing a, given inv(a) mod p (0 if
-// p divides a): the 2.Bj.inv(a) mod p of Bainv2[i], and the two solutions to
+// p divides a): the 2.Bj.inv(a) mod p of Bainv2, and the two solutions to
 // g_{a,b}(x) = 0 mod p.
 //
 static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
@@ -322,8 +312,7 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
                           const uint32_t ainv) {
     const uint32_t nprimes_in_a = poly->nprimes_in_a;
     const uint32_t fblen        = poly->factor_base->length;
-    uint32_t* const bainv2 = poly->Bainv2[i];
-    uint32_t* const byj    = poly->Bainv2[fblen] + i;
+    uint32_t* const bainv2 = poly->Bainv2 + i;
 
     unsigned long int bmodp;
     uint64_t gamma;
@@ -340,8 +329,7 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
             gamma  = 2 * (w->Bl[j] % curprime);
             gamma *= ainv;
             gamma %= curprime;
-            bainv2[j] = (uint32_t) gamma;
-            byj[j * fblen] = (uint32_t) gamma;
+            bainv2[j * fblen] = (uint32_t) gamma;
         }
     } else if (w->fit2) {
         const uint64_t r64 = two64_mod(curprime);
@@ -350,8 +338,7 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
             gamma  = 2 * mod_2limbs(w->Bl[j], w->Blhi[j], curprime, r64);
             gamma *= ainv;
             gamma %= curprime;
-            bainv2[j] = (uint32_t) gamma;
-            byj[j * fblen] = (uint32_t) gamma;
+            bainv2[j * fblen] = (uint32_t) gamma;
         }
     } else {
         bmodp = mpz_fdiv_ui(poly->b, curprime);
@@ -359,8 +346,7 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
             gamma  = 2 * mpz_fdiv_ui(poly->Bl->data[j], curprime);
             gamma *= ainv;
             gamma %= curprime;
-            bainv2[j] = (uint32_t) gamma;
-            byj[j * fblen] = (uint32_t) gamma;
+            bainv2[j * fblen] = (uint32_t) gamma;
         }
     }
     //
@@ -487,7 +473,7 @@ full_poly_init(siqs_poly_t* const poly)
     // Also, for each prime p that does not divide the polynomial coefficient
     // 'a', computes and store the values 2 x Bj x inv(a).mod(p) mod p foreach
     // prime pj dividing 'a'. These values will be kept in the array
-    // Bainv2 indexed first by the primes p, then by the indexes j.
+    // Bainv2, by j first (see siqs_poly_t).
     //
     uint32_t* avoid = (uint32_t*)&(idx_of_a[0]);
 
@@ -659,7 +645,7 @@ fast_poly_init(siqs_poly_t* const poly)
     // Shift the roots of the primes but those of 'a' (rimin, rimax and the
     // ones between), one run of primes at a time.
     //
-    const uint32_t* const d  = poly->Bainv2[fb_length] + (nu - 1) * fb_length;
+    const uint32_t* const d  = poly->Bainv2 + (nu - 1) * fb_length;
     const bool            up = IS_ODD(io2nu);
 
     shift_roots(sol1ptr, sol2ptr, d, base->data, 0, rimin, up);
