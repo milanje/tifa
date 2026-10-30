@@ -47,6 +47,7 @@ extern "C" {
 #include "array.h"
 #include "x_array_list.h"
 #include "hashtable.h"
+#include "lp_table.h"
 #include "smooth_filter.h"
 
 //-----------------------------------------------------------------------------
@@ -220,7 +221,7 @@ uint32_t bern_21_rt_pairs_siqs(
     *
     * Moreover, this function implements the so-called large primes variation.
     * If a given y_i is not {p_j}-smooth but is the product of a prime \c p by
-    * a {p_j}-smooth number, it is stored in the hashtable <tt>htable</tt>.
+    * a {p_j}-smooth number, it is stored in the table <tt>lpt</tt>.
     * Subsequently, if another y_j is the product of a {p_j}-smooth number
     * by the same prime number \c p, then <tt>y_i*y_j*a_j/(p^2)</tt> (a_j the
     * \c a of y_j) is stored in \c smooth_yi with the index of y_i's \c a, and
@@ -245,8 +246,7 @@ uint32_t bern_21_rt_pairs_siqs(
     * http://cr.yp.to/factorization/smoothparts-20040510.pdf
     *
     * \param[in] n The integer to factor.
-    * \param[in] htable A pointer to the hashtable used for the large prime
-    *                   variation.
+    * \param[in] lpt The table of the partial relations, by large prime.
     * \param[out] xi A pointer to the \c x_i associated to the {p_j}-smooth
     *                \c y_i integer.
     * \param[out] smooth_yi A pointer to the {p_j}-smooth \c y_i integer.
@@ -261,7 +261,7 @@ uint32_t bern_21_rt_pairs_siqs(
     */
 uint32_t bern_21_rt_pairs_lp_siqs(
     const mpz_t n,
-    hashtable_t* const htable,
+    lp_table_t* const lpt,
     mpz_array_t* const xi,
     mpz_array_t* const smooth_yi,
     uint32_array_t* const a_for_smooth_yi,

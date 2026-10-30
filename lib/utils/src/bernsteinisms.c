@@ -968,7 +968,7 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
 }
 //------------------------------------------------------------------------------
 uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
-                                  hashtable_t* const htable,
+                                  lp_table_t* const lpt,
                                   mpz_array_t* const xi,
                                   mpz_array_t* const smooth_yi,
                                   uint32_array_t* const a_for_smooth_gx,
@@ -1061,44 +1061,28 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
             // product of its smooth part by a large prime?
             //
             if (mpz_cmp_ui(nsp, 15000000) <= 0 ) {
-                uint32_t nsp_ui = mpz_get_ui(nsp);
-                
-                //
-                // cand_yi->data[k] is the product of a smooth number with
-                // the cofactor nsp_ui
-                //
-                uint32_t *key = tifa_malloc(sizeof(uint32_t));
-                *key  = nsp_ui;
-                
-                mpz_pair_t *found = get_entry_in_hashtable(htable,key);
-                
-                if (found != NULL) {
+                const uint32_t nsp_ui = (uint32_t) mpz_get_ui(nsp);
+                const uint32_t found  = find_in_lp_table(lpt, nsp_ui);
+
+                if (found != LP_TABLE_NONE) {
                     //
-                    // The hashtable did contain another entry for this
+                    // The table did hold another relation for this
                     // particular prime number: we can compute a new
                     // pair to add in our arrays xi and smooth_yi
                     //
-                    if (0 == mpz_cmpabs(*candidate_x, found->x)) {
+                    mpz_t found_x;
+                    mpz_t found_y;
+                    get_from_lp_table(lpt, found, found_x, found_y);
+
+                    if (0 == mpz_cmpabs(*candidate_x, found_x)) {
                         //
                         // The same relation, found again with another
                         // polynomial: pairing it with itself would only
                         // give a trivial relation.
                         //
-                        free(key);
                         goto next_candidate;
                     }
-
-                    *matching_a = *candidate_a;
-                
-                    mpz_mul(*smooth_y, *candidate_y, found->y);
-                    mpz_mul(*x, *candidate_x, found->x);
-                    
-                    mpz_divexact_ui(*smooth_y, *smooth_y, nsp_ui);
-                    mpz_divexact_ui(*smooth_y, *smooth_y, nsp_ui);
-                
-                    if (0 != mpz_invert(nsp_inv, nsp, n)) {
-                        mpz_mul(*x, *x, nsp_inv);
-                    } else {
+                    if (0 == mpz_invert(nsp_inv, nsp, n)) {
                         //
                         // This should not happen: since nsp is a prime,
                         // it has an inverse in Z/nZ... unless n is a
@@ -1106,37 +1090,37 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
                         // found a factor of n, but handling it is quite
                         // cumbersome, so we just ignore it...
                         //
-                        free(key);
                         goto next_candidate;
                     }
+                    *matching_a = *candidate_a;
+
+                    mpz_mul(*smooth_y, *candidate_y, found_y);
+                    mpz_mul(*x, *candidate_x, found_x);
+
+                    mpz_divexact_ui(*smooth_y, *smooth_y, nsp_ui);
+                    mpz_divexact_ui(*smooth_y, *smooth_y, nsp_ui);
+
+                    mpz_mul(*x, *x, nsp_inv);
+
                     smooth_yi->length++;
                     xi->length++;
                     a_for_smooth_gx->length++;
-                    
+
                     smooth_y++;
                     x++;
                     matching_a++;
-                
-                    free(key);
-                
+
                     if (smooth_yi->length == smooth_yi->alloced) {
                         retval = k + 1;
                         break;
                     }
                 } else {
                     //
-                    // Add this pair in the hashtable with the cofactor as
-                    // key...
+                    // Keep this relation, its y times its a, with the
+                    // cofactor as key...
                     //
-                    mpz_pair_t* pair = tifa_malloc(sizeof(mpz_pair_t));
-                    mpz_init_set(pair->x, *candidate_x);
-                    mpz_init_set(pair->y, *candidate_y);
-                    mpz_mul(pair->y, pair->y, a_values->data[*candidate_a]);
-                    add_entry_in_hashtable(htable, (void*)key, (void*)pair);
-                    //
-                    // _WARNING_: Do not free key and pair as they are now
-                    //            referenced by the hashtable!
-                    //
+                    mpz_mul(yk, *candidate_y, a_values->data[*candidate_a]);
+                    add_to_lp_table(lpt, nsp_ui, *candidate_x, yk);
                 }
             }
         }

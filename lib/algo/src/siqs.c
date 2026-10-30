@@ -46,7 +46,7 @@
 #include "funcs.h"
 #include "macros.h"
 #include "x_tree.h"
-#include "hashtable.h"
+#include "lp_table.h"
 #include "bernsteinisms.h"
 #include "factoring_machine.h"
 #include "siqs.h"
@@ -63,11 +63,10 @@
 //-----------------------------------------------------------------------------
 
 //
-// In order to not degrade too much the performance of the hashtable used
-// for the large prime variation (due to too many collisions), we set its size
-// to the number of rows of the matrix multiplied by HTABLE_SIZE_MULTIPLIER.
+// The table of the partial relations starts with this many slots per row of
+// the matrix (it grows as needed).
 //
-#define HTABLE_SIZE_MULTIPLIER  16
+#define LP_TABLE_SLOTS_PER_ROW  4
 //
 // The sieve chunk size the half widths of best_params were measured with.
 //
@@ -281,11 +280,9 @@ struct struct_siqs_context_t {
     //
     uint32_array_t *a_primes;
     //
-    // Hashtable used in large primes variation. It will hold mpz_pair_t's
-    // such as ((a.xi + b), g_{a,b}(xi)) with an index in first_primes_array
-    // as key.
+    // The partial relations of the large prime variation, by large prime.
     //
-    hashtable_t *htable;
+    lp_table_t* lpt;
     //
     // Set once a run has produced only trivial dependencies: from then on,
     // duplicate relations are dropped as they are collected.
@@ -783,13 +780,12 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     context->relset          = NULL;
     context->relset_mask     = 0;
 
-    context->htable = NULL;
+    context->lpt = NULL;
 
     if (params->use_large_primes) {
-        uint32_t size = HTABLE_SIZE_MULTIPLIER * context->smooth_redgx->alloced;
-        context->htable = alloc_init_hashtable(
-                              size, uint32_cmp_func, hash_rj_32
-                          );
+        context->lpt = alloc_lp_table(
+                           LP_TABLE_SLOTS_PER_ROW * context->smooth_redgx->alloced
+                       );
     }
 
     context->sieve = alloc_siqs_sieve(
@@ -854,8 +850,8 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
         mpz_clear(context->n);
         mpz_clear(context->kn);
 
-        if (context->htable != NULL) {
-            free_mpzpair_htable(context->htable);
+        if (context->lpt != NULL) {
+            free_lp_table(context->lpt);
         }
         free(context->relset);
         free(context);
@@ -1499,7 +1495,7 @@ keep_relations_with_smooth_gx(siqs_context_t* const context) {
     if (context->params->use_large_primes) {
         bern_21_rt_pairs_lp_siqs(
             context->n,
-            context->htable,
+            context->lpt,
             context->u,
             context->smooth_redgx,
             context->a_idx_for_smooth,
