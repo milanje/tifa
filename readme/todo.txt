@@ -13,14 +13,27 @@ Here are some short term objectives:
     widths of several chunks from 200 bits were not tried there; a one-off
     workflow running bench/ab.sh on a runner is how to measure them.
 
-  - ECM on one to four limbs (mont_ecm.c), in shares of ecm() at 100 bits
-    (B1 of 50 to 200, profiled on 30 October 2026): the chains of xadd of
-    stage 2 (baby and giant steps, each from the previous ones) about 15%,
-    serial as the ladder's calls were; two chains interleaved, as in the
-    ladder step, could overlap them. The setup of each curve (GMP, the plan
-    of each level, the gcds) about 10%. tifa_cofactor's schedule
-    (ecm_schedule.c) still runs Suyama's curves, retuned for them, where
-    ecm() starts with the Z/2 x Z/8 table.
+  - ECM on one to four limbs (mont_ecm.c), measured on 30 October 2026:
+      - The setup of a curve takes 0.3 us (Z/2 x Z/8) to 0.6 us (Suyama),
+        3% to 6% of a curve with B1 = 50 on two limbs, 1% with B1 = 800;
+        its inversion is half of that. ecm() builds the plan of each level
+        at each call, 1 to 2 us each for B1 up to 200 (about 3% at 100
+        bits), half of it in allocations.
+      - The baby and giant steps of stage 2 are chains of dependent xadd,
+        13% of ecm() at 100 bits. As two chains each (steps of 4.P and of
+        2.d.P), their xadd in interleaved pairs, ecm() took 0.955 to 0.98
+        of its time from 70 to 128 bits on the M5, but 1.04 to 1.23 on
+        x86-64 with GCC (Zen 3 and Zen 5): the pairs spill there. Not kept.
+        GCC's inlining of add and sub in these kernels also shifts with the
+        size of mont_ecm.c: forcing it slowed x86 by 13% to 15% on three
+        and four limbs.
+      - Not faster: a dedicated Montgomery squaring in the ladder step
+        (0.97 to 1.00 of stage 1); two curves interleaved in one step (0.68
+        on one limb, whose numbers go to factor_u64 instead, 0.87 to 0.92
+        on two, 0.95 to 1.00 on three and four).
+      - tifa_cofactor's schedule (ecm_schedule.c) still runs Suyama's
+        curves, retuned for them, where ecm() starts with the Z/2 x Z/8
+        table.
 
   - SIQS, in shares of a run on the M5 at 70, 120 and 160 bits (profiled
     on 29 October 2026): the sieve's fill 33%, 47% and 55%, at about one
