@@ -37,10 +37,11 @@ static void usage(FILE* const out) {
         "\n"
         "Times tifa_factor() (a complete factorization), ecm() or squfof()\n"
         "(some factors), p_minus_1() or p_plus_1() (a single run) on <count>\n"
-        "numbers n = p.q of <bits> bits, p of <pbits> bits, run again and again\n"
-        "for at least <seconds> of CPU time, and prints the mean time per run\n"
-        "and the number of runs that found no factor. Defaults: 30 numbers,\n"
-        "3 seconds; --seed sets the seed of the numbers (default 1).\n"
+        "numbers n = p.q of <bits> bits, p of <pbits> bits (or random\n"
+        "composites of <bits> bits if <pbits> is 0), run again and again for at\n"
+        "least <seconds> of CPU time, and prints the mean time per run and the\n"
+        "number of runs that found no factor. Defaults: 30 numbers, 3 seconds;\n"
+        "--seed sets the seed of the numbers (default 1).\n"
     );
 }
 
@@ -74,7 +75,9 @@ int main(int argc, char** argv) {
                   || (0 == strcmp(algo, "squfof")))
               && parse_ulong(argv[i + 1], &bits)
               && parse_ulong(argv[i + 2], &pbits)
-              && (pbits >= 2) && (bits >= pbits + 2) && (bits <= 1024);
+              && ((pbits == 0) ? (bits >= 4)
+                               : ((pbits >= 2) && (bits >= pbits + 2)))
+              && (bits <= 1024);
     if (ok && (argc - i > 3)) {
         ok = parse_ulong(argv[i + 3], &count) && (count > 0);
     }
@@ -92,7 +95,11 @@ int main(int argc, char** argv) {
     mpz_t* const ns = malloc(count * sizeof(mpz_t));
     for (unsigned long k = 0; k < count; k++) {
         mpz_init(ns[k]);
-        random_semiprime(ns[k], state, bits, pbits);
+        if (pbits == 0) {
+            random_composite(ns[k], state, bits);
+        } else {
+            random_semiprime(ns[k], state, bits, pbits);
+        }
     }
     mpz_array_t*    const factors = alloc_mpz_array(8);
     uint32_array_t* const multis  = alloc_uint32_array(8);

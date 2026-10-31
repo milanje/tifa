@@ -69,6 +69,17 @@ static inline void random_semiprime(mpz_t n, gmp_randstate_t state,
     mpz_clears(p, q, NULL);
 }
 
+//
+// A composite n of exactly bits bits.
+//
+static inline void random_composite(mpz_t n, gmp_randstate_t state,
+                                    const unsigned long bits) {
+    do {
+        mpz_urandomb(n, state, bits);
+        mpz_setbit(n, bits - 1);
+    } while (mpz_probab_prime_p(n, 25));
+}
+
 static inline bool parse_ulong(const char* const s, unsigned long* const v) {
     char* end = NULL;
     if ((s[0] < '0') || (s[0] > '9')) {

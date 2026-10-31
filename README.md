@@ -297,7 +297,8 @@ built with `-DTIFA_BUILD_BENCH=ON` (they are never installed):
   `--large-primes`, `--nrelations`.
 - `factor-bench <factor|ecm|pm1|pp1|squfof> <bits> <pbits> [<count>
   [<seconds>]]` times `tifa_factor()`, ECM, p-1, p+1 or SQUFOF on numbers
-  n = p.q, p of `<pbits>` bits, and counts the runs that found no factor.
+  n = p.q, p of `<pbits>` bits (random composites if `<pbits>` is 0), and
+  counts the runs that found no factor.
 - `siqs-check <lo> <hi> <count>` factors semiprimes of random sizes with SIQS
   and counts the incomplete and wrong results; the test suite runs it from 50
   to 120 bits.
