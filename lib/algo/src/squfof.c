@@ -52,11 +52,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <math.h>
 #include <gmp.h>
 
 #include "funcs.h"
 #include "macros.h"
-#include "linked_list.h"
 #include "factoring_machine.h"
 #include "squfof.h"
 #include "tifa_factor.h"
@@ -98,15 +98,28 @@
 //
 // Maximum size of the queues.
 //
-#define MAX_QUEUE_ALLOC  64
+#define MAX_QUEUE_ALLOC 64
 //
-// Number of multipliers used if a multiplier race is performed.
+// Number of multipliers raced together. Their forward cycles run in the same
+// loop, so that the divisions and products of each overlap with the others'.
 //
-#define NMULTIPLIERS     15
+#define NRACERS 8
 //
-// Number of forward cycle iterations to perform in a row for each racer.
+// Number of forward steps between two checks of the abort bounds (even).
 //
-#define NSTEP_CYCLE_FWD  2000
+#define NSTEPS_ROUND 32
+//
+// The loops over the racers must be unrolled for the racers' forms to stay
+// in registers, and the rare queue and square checks kept out of them.
+//
+#define PRAGMA(X) _Pragma(#X)
+#if defined(__GNUC__)
+    #define UNROLLED(N) PRAGMA(GCC unroll N)
+    #define COLD        __attribute__ ((noinline, cold))
+#else
+    #define UNROLLED(N) /* intentionally left empty */
+    #define COLD        /* intentionally left empty */
+#endif
 
 //-----------------------------------------------------------------------------
 //           SYMBOLS AND FUNCTIONS RELATED TO THE LARGE STEP ALGORITHM
@@ -153,100 +166,77 @@
 //-----------------------------------------------------------------------------
 
 //
-// List of multipliers used in case of a multiplier race. These are the 15
-// squarefree divisors of 1155 = 3 * 5 * 7 * 11.
+// Multipliers, in order of use: 1 and the squarefree divisors of
+// 1155 = 3 * 5 * 7 * 11. The race starts with the first NRACERS, and the
+// next one replaces each racer that stops.
 //
-static const unsigned int multipliers[NMULTIPLIERS] = {
-       3,   5,   7,  11,   15,
-      21,  33,  35,  55,   77,
-     105, 165, 231, 385, 1155
+static const unsigned int multipliers[] = {
+       1,   3,   5,   7,  11,   15,
+      21,  33,  35,  55,  77,  105,
+     165, 231, 385, 1155
+};
+#define NMULTIPLIERS (sizeof(multipliers) / sizeof(multipliers[0]))
+//
+// Squares modulo 64, 221 = 13 * 17 and 437 = 19 * 23, as bit sets. At the
+// even steps, the Q are values of the principal form, hence squares modulo
+// the primes dividing D: only moduli prime to the multipliers sift them.
+// About 2.5% of them are squares modulo all three.
+//
+static const uint64_t squares_mod_64 = UINT64_C(0x0202021202030213);
+
+static const uint64_t squares_mod_221[4] = {
+    UINT64_C(0x00ba0c5846032213), UINT64_C(0x836001b040822035),
+    UINT64_C(0x868c17402b011040), UINT64_C(0x0000000012113018)
+};
+static const uint64_t squares_mod_437[7] = {
+    UINT64_C(0x44c2809807810253), UINT64_C(0x0ac80131b0a62201),
+    UINT64_C(0x5802020a10415c28), UINT64_C(0x6100870211a68030),
+    UINT64_C(0x0892605224208401), UINT64_C(0x32150242bc104518),
+    UINT64_C(0x000008c58019a085)
 };
 
 //-----------------------------------------------------------------------------
 //                   NON PUBLIC STRUCTURE(S) AND TYPEDEF(S)
 //-----------------------------------------------------------------------------
-
 //
-// An enumeration of the possible status of a squfof racer.
-//
-enum racer_status_enum {
-    RUNNING,
-    STOPPED
-};
-//-----------------------------------------------------------------------------
-typedef enum racer_status_enum racer_status_t;
-//-----------------------------------------------------------------------------
-//
-// Ad-hoc 'pair' structure used for elements placed in a queue.
-//
-struct struct_ulint_pair_t {
-    unsigned long int x;
-    unsigned long int y;
-};
-typedef struct struct_ulint_pair_t ulint_pair_t;
-//-----------------------------------------------------------------------------
-//
-// Ad-hoc structure holding variables needed for each SQUFOF racer
+// A SQUFOF racer: the cycle of the forms of discriminant D = k.n (or 2.k.n)
+// for a multiplier k. Notations follow Gower and Wagstaff's paper.
 //
 struct struct_squfof_racer_t {
-    //
-    // Multiplier used.
-    //
     unsigned long int multiplier;
-    //
-    // A basic queue implemented as a singly linked list.
-    //
-    linked_list_t queue;
-    //
-    // Nodes of the aforementionned linked list, "statically" allocated (so
-    // to speak) since we know in advance the maximum number of nodes...
-    //
-    linked_list_node_t queue_node[MAX_QUEUE_ALLOC];
-    //
-    // Nodes' data of the linked list...
-    //
-    ulint_pair_t       queue_data[MAX_QUEUE_ALLOC];
-    //
-    // SQUFOF's working variables: notations follow the one given in Gower and
-    // Wagstaff's paper.
-    //
-    mpz_t D;
-    mpz_t D_minus_P2;
-    mpz_t P2;
-    mpf_t sqrtD;
-
     unsigned long int S;
-
+    //
+    // The first form is (1, P0, Q0), the current one (QQ, P, Q).
+    //
+    unsigned long int P0;
+    unsigned long int Q0;
     unsigned long int P;
     unsigned long int Q;
     unsigned long int QQ;
-    unsigned long int PP;
-
-    unsigned long int P0;
-    unsigned long int Q0;
-    unsigned long int QQ0;
-
+    //
+    // Pairs (x, y) only go to the queue for x <= L = floor(sqrt(2S + 1)):
+    // since Q < 2 sqrt(D) < 2S + 2, larger x never match the root of a Q.
+    //
     unsigned long int L;
+    //
+    // Q / gcd(Q, 2k) <= L only if Q <= QL = 2k.L.
+    //
+    unsigned long int QL;
+    //
+    // Abort bound on the number of forward steps.
+    //
     unsigned long int B;
-    unsigned long int i;
-
-    unsigned long int q;
-    unsigned long int t;
-    unsigned long int r;
-
     //
-    // Misc. working variables...
+    // Number of forward steps of the race when this racer joined it.
     //
-    unsigned long int inode;
+    unsigned long int start;
 
-    linked_list_node_t* current;
-    ulint_pair_t* current_pair;
+    unsigned long int queue_x[MAX_QUEUE_ALLOC];
+    unsigned long int queue_y[MAX_QUEUE_ALLOC];
+    uint32_t queue_head;
+    uint32_t queue_length;
 
-    unsigned long int g;
-    uint64_t istep;
-
-    racer_status_t status;
-    bool number_is_too_large;
+    bool running;
 };
 //-----------------------------------------------------------------------------
 typedef struct struct_squfof_racer_t squfof_racer_t;
@@ -256,30 +246,26 @@ typedef struct struct_squfof_racer_t squfof_racer_t;
 // implementation.
 //
 struct struct_squfof_context_t {
-    //
-    // SQUFOF's parameters. Actually none for the time being...
-    //
     squfof_params_t* params;
-    //
-    // The number to factor.
-    //
     mpz_ptr n;
+
+    squfof_racer_t racers[NRACERS];
     //
-    // Number of racers used (relevant only if a race is performed).
+    // Number of racers set up so far, and index of the next multiplier.
     //
-    unsigned long int nracers;
+    uint32_t nracers;
+    uint32_t next;
     //
-    // Array of SQUFOF racers used (relevant only if a race is performed).
+    // Number of forward steps of the race.
     //
-    squfof_racer_t* racers;
+    unsigned long int nsteps;
     //
-    // Whether the context has been updated or not
+    // Temporaries: the discriminant of a racer, its square root and the
+    // remainder.
     //
-    bool updated;
-    //
-    // Whether the number to factor is too large
-    //
-    bool integer_too_large;
+    mpz_t D;
+    mpz_t root;
+    mpz_t rem;
 };
 //-----------------------------------------------------------------------------
 typedef struct struct_squfof_context_t squfof_context_t;
@@ -324,29 +310,23 @@ static ecode_t update_squfof_context(factoring_machine_t* const machine);
 //-----------------------------------------------------------------------------
 static ecode_t perform_squfof(factoring_machine_t* const machine);
 //-----------------------------------------------------------------------------
-static ecode_t perform_squfof_no_race(factoring_machine_t* const machine);
+static bool init_squfof_racer(squfof_racer_t* const racer,
+                              squfof_context_t* const context,
+                              unsigned long int multiplier);
 //-----------------------------------------------------------------------------
-static ecode_t perform_squfof_race(factoring_machine_t* const machine);
+static void next_racer(squfof_context_t* const context,
+                       squfof_racer_t* const racer);
 //-----------------------------------------------------------------------------
-static ecode_t init_squfof_racer(
-    squfof_racer_t* const racer,
-    const mpz_t n,
-    unsigned int multiplier
-);
+static int race(squfof_context_t* const context);
 //-----------------------------------------------------------------------------
-static ecode_t clear_squfof_racer(squfof_racer_t* const racer);
+static void enqueue(squfof_racer_t* const racer, unsigned long int P,
+                    unsigned long int Q);
 //-----------------------------------------------------------------------------
-static ecode_t cycle_forward(squfof_racer_t* const racer);
+static bool proper_square(squfof_racer_t* const racer, unsigned long int P,
+                          unsigned long int Q);
 //-----------------------------------------------------------------------------
-inline static void add_pair_in_queue(
-    unsigned long int x,
-    unsigned long int y,
-    linked_list_t* const queue
-);
-//-----------------------------------------------------------------------------
-#if SQUFOF_DEBUG
-void print_queue(linked_list_t* queue);
-#endif
+static unsigned long int reverse_cycle(squfof_racer_t* const racer,
+                                       squfof_context_t* const context);
 //-----------------------------------------------------------------------------
 inline static void
 single_step(unsigned long int* const P,  unsigned long int* const Q,
@@ -488,9 +468,17 @@ static ecode_t init_squfof_context(factoring_machine_t* const machine) {
 
     context->params  = machine->params;
     context->n       = machine->n;
-    context->updated = false;
-    context->integer_too_large = false;
+    context->nracers = 0;
+    context->next    = 0;
+    context->nsteps  = 0;
 
+    mpz_init(context->D);
+    mpz_init(context->root);
+    mpz_init(context->rem);
+
+    for (uint32_t i = 0; i < NRACERS; i++) {
+        next_racer(context, &context->racers[i]);
+    }
     STOP_TIMER;
     PRINT_TIMING;
 
@@ -516,12 +504,9 @@ static ecode_t clear_squfof_context(factoring_machine_t* const machine) {
 
     squfof_context_t* context = (squfof_context_t*) machine->context;
 
-    if (context->updated) {
-        for (uint32_t i = 0; i < context->nracers; i++) {
-            clear_squfof_racer(&context->racers[i]);
-        }
-        free(context->racers);
-    }
+    mpz_clear(context->D);
+    mpz_clear(context->root);
+    mpz_clear(context->rem);
     free(context);
 
     STOP_TIMER;
@@ -531,608 +516,155 @@ static ecode_t clear_squfof_context(factoring_machine_t* const machine) {
 }
 //-----------------------------------------------------------------------------
 static ecode_t update_squfof_context(factoring_machine_t* const machine) {
-
-    INIT_TIMER;
-    START_TIMER;
-
+    //
+    // The race only ends once all the racers have stopped: there is nothing
+    // left to try.
+    //
     squfof_context_t* const context = (squfof_context_t*) machine->context;
 
-    if (context->integer_too_large) {
-        PRINT_UPDATE_GIVEUP_MSG;
-        STOP_TIMER;
-        PRINT_TIMING;
-        return INTEGER_TOO_LARGE;
-    }
+    PRINT_UPDATE_GIVEUP_MSG;
 
-    ecode_t ecode = SUCCESS;
-
-    if (!context->updated) {
-        //
-        // Initialize all the SQUFOF racers needed. For each racer, this will
-        // perform the step 1) of the SQUFOF algorithm as described by Gower and
-        // Wagstaff in their paper.
-        //
-        PRINT_UPDATE_RACE_MSG;
-
-        context->nracers = NMULTIPLIERS;
-        context->racers  = tifa_malloc(context->nracers
-                                       * sizeof(squfof_racer_t));
-        for (uint32_t i = 0; i < context->nracers; i++) {
-            init_squfof_racer(&context->racers[i], context->n, multipliers[i]);
-        }
-        context->updated = true;
-        ecode = SUCCESS;
-    } else {
-        //
-        // The context has already been updated and a race has been performed.
-        // For the time being, just give up the factorization. It is hard to
-        // see what can be done in such case anyway...
-        //
-        PRINT_UPDATE_GIVEUP_MSG;
-        ecode = GIVING_UP;
-    }
-    STOP_TIMER;
-    PRINT_TIMING;
-
-    return ecode;
+    return (context->nracers == 0) ? INTEGER_TOO_LARGE : GIVING_UP;
 }
 //-----------------------------------------------------------------------------
 static ecode_t perform_squfof(factoring_machine_t* const machine) {
-    squfof_context_t* const context = (squfof_context_t*) machine->context;
-    //
-    // Begin by performing SQUFOF without multiplier. This will fail to find
-    // a factor approximately 5% of the time. Should it fail and if the
-    // factoring mode on the machine is different from SINGLE_RUN, continue
-    // the factorization attempt by using a multiplier race.
-    //
-    if (!context->updated) {
-        return perform_squfof_no_race(machine);
-    } else {
-        return perform_squfof_race(machine);
-    }
-}
-//-----------------------------------------------------------------------------
-static ecode_t perform_squfof_no_race(factoring_machine_t* const machine) {
 
     INIT_TIMER;
-    squfof_context_t* context = (squfof_context_t*) machine->context;
 
-    ecode_t ecode = SOME_FACTORS_FOUND;
+    squfof_context_t* const context = (squfof_context_t*) machine->context;
 
-    //
-    // Step 1: Initialization
-    //
-    mpz_t D;
-    mpz_t D_minus_P2;
-
-    mpz_init_set(D, context->n);
-
-    uint8_t n_mod_4 = mpz_get_ui(context->n) & 3;
-    if (n_mod_4 == 1) {
-        mpz_mul_2exp(D, D, 1);
-    }
-
-    //
-    // We need a floating point computation here. See next comment.
-    //
-    mpf_t sqrtD;
-    mpf_init2(sqrtD, 128);
-    mpf_set_z(sqrtD, D);
-    mpf_sqrt(sqrtD, sqrtD);
-
-    if (0 == mpf_fits_ulong_p(sqrtD)) {
-        mpz_clear(D);
-        mpf_clear(sqrtD);
-        context->integer_too_large = true;
+    if (context->nracers == 0) {
         return INTEGER_TOO_LARGE;
     }
-    unsigned long int S = mpf_get_ui(sqrtD);
-
-    if (S > TIFA_ULONG_MAX_DIVIDED_BY_6) {
-        mpz_clear(D);
-        mpf_clear(sqrtD);
-        context->integer_too_large = true;
-        return INTEGER_TOO_LARGE;
-    }
-
-    //
-    // Set up the linked list used as a queue...
-    //
-    linked_list_node_t* current = NULL;
-    linked_list_t queue;
-    //
-    // Nodes of the aforementionned linked list, "statically" allocated (so
-    // to speak) since we know in advance the maximum number of nodes...
-    //
-    linked_list_node_t queue_node[MAX_QUEUE_ALLOC];
-    //
-    // Nodes' data of the linked list...
-    //
-    ulint_pair_t       queue_data[MAX_QUEUE_ALLOC];
-
-    for (uint32_t i = 0; i < MAX_QUEUE_ALLOC-1; i++) {
-        queue_node[i].next = &(queue_node[i+1]);
-        queue_node[i].data = (void*)&(queue_data[i]);
-    }
-    queue_node[MAX_QUEUE_ALLOC-1].next = &queue_node[0];
-    queue_node[MAX_QUEUE_ALLOC-1].data = (void*)&queue_data[MAX_QUEUE_ALLOC-1];
-    queue.head   = &queue_node[0];
-    queue.tail   = queue.head;
-    queue.length = 0;
-
-    unsigned long int QQ = 1;
-    unsigned long int P  = S;
-
-    mpz_t P2;
-    mpz_init_set_ui(P2, P);
-    mpz_mul(P2, P2, P2);
-
-    mpz_init_set(D_minus_P2, D);
-    mpz_sub(D_minus_P2, D_minus_P2, P2);
-
-    unsigned long int Q  = mpz_get_ui(D_minus_P2);
-
-    mpf_mul_2exp(sqrtD, sqrtD, 1);
-    mpf_sqrt(sqrtD, sqrtD);
-    mpf_mul_2exp(sqrtD, sqrtD, 1);
-    //
-    // Now sqrtD = 2*sqrt(2*sqrt(D)).
-    //
-    // The use of floating point operation is made necessary to properly compute
-    // L = floor(2*sqrt(2*sqrt(D))) without introducing approximations that
-    // would lead to L = 2*floor(sqrt(2*floor(sqrt(D)))). However, such an
-    // approximation would probably have no impact whatsoever...
-    //
-    unsigned long int L  = mpf_get_ui(sqrtD);
-    unsigned long int B  = L << 1;
-    unsigned long int i  = 0;
-
-    unsigned long int q  = 0;
-    //
-    // _NOTE_: An amusing remark: the gmpl-impl.h header already defines
-    //         a symbol named PP. So make sure that gmp-impl.h is not included!
-    //
-    unsigned long int PP = 0;
-
-    unsigned long int t  = 0;
-    unsigned long int r  = 0;
-
-    unsigned long int inode = 0;
-
-    ulint_pair_t* current_pair = NULL;
-
-    PRINT_FWD_CYCL_MSG;
-    START_TIMER;
-
-    SQUFOF_GMP_PRINT("\nD = %Zd\n", D);
-    SQUFOF_PRINT("S = %lu\n", S);
-    SQUFOF_PRINT("B = %lu\n", B);
-
-    unsigned long int P0  = P;
-    unsigned long int Q0  = Q;
-    unsigned long int QQ0 = 1;
-
-
-    //start_stopwatch(&timer_fwd);
-
-    //
-    // Step 2: Cycle forward to find a proper square form
-    //
     while (true) {
-        SQUFOF_PRINT("\n----------------------------\n");
-        SQUFOF_PRINT("Step 2: Iteration %lu\n", i);
-        SQUFOF_PRINT("----------------------------\n");
-        //
-        // Step 2 a)
-        //
-        // Compute q  = (S + P)/Q;
-        //
-        q = (S + P) / Q;
+        PRINT_FWD_CYCL_MSG;
+        START_TIMER;
 
-        //
-        // Compute PP = q*Q - P;
-        //
-        PP  = q;
-        PP *= Q;
-        PP -= P;
+        int winner = race(context);
 
-        SQUFOF_PRINT("step 2a):\n");
-        SQUFOF_PRINT("-----------------------------------\n");
-        SQUFOF_PRINT("2a)     S  = %lu\n", S);
-        SQUFOF_PRINT("2a)     Q  = %lu\n", Q);
-        SQUFOF_PRINT("2a)     P  = %lu\n", P);
-        SQUFOF_PRINT("2a)     QQ = %lu\n", QQ);
-        SQUFOF_PRINT("2a)     PP = %lu\n", PP);
-        SQUFOF_PRINT("2a)     t  = %lu\n", t);
-        SQUFOF_PRINT("2a)     q  = %lu\n", q);
-        //
-        // Step 2 b)
-        //
-        if (Q <= L) {
-
-            if (IS_EVEN(Q)) {
-                if (queue.length == MAX_QUEUE_ALLOC) {
-                    ecode = QUEUE_OVERFLOW;
-                    STOP_TIMER;
-                    PRINT_QUEUE_OVERFLOW;
-                    PRINT_TIMING_ON_FAILURE;
-                    goto clean_and_return;
-                }
-                add_pair_in_queue(Q >> 1, P % (Q>>1), &queue);
-            } else {
-                if (Q <= (L >> 1)) {
-                    if (queue.length == MAX_QUEUE_ALLOC) {
-                        ecode = QUEUE_OVERFLOW;
-                        STOP_TIMER;
-                        PRINT_QUEUE_OVERFLOW;
-                        PRINT_TIMING_ON_FAILURE;
-                        goto clean_and_return;
-                    }
-                    add_pair_in_queue(Q, P % Q, &queue);
-                }
-            }
-        }
-        //
-        // Step 2 c)
-        //
-        // Compute t  = QQ + q * (P - PP);
-        //
-        t  = P;
-        t -= PP;
-        t *= q;
-        t += QQ;
-
-        QQ = Q;
-        Q  = t;
-        P  = PP;
-
-        SQUFOF_PRINT("step 2c):\n");
-        SQUFOF_PRINT("-----------------------------------\n");
-        SQUFOF_PRINT("2c)     Q  = %lu\n", Q);
-        SQUFOF_PRINT("2c)     P  = %lu\n", P);
-        SQUFOF_PRINT("2c)     QQ = %lu\n", QQ);
-        SQUFOF_PRINT("2c)     PP = %lu\n", PP);
-        SQUFOF_PRINT("2c)     t  = %lu\n", t);
-        SQUFOF_PRINT("2c)     q  = %lu\n", q);
-
-        //
-        // Step 2 d)
-        //
-        if (IS_EVEN(i) && ((r = is_square(Q)) != 0)) {
-
-            inode   = 0;
-            current = queue.head;
-
-            bool pair_found = false;
-
-            while (inode < queue.length) {
-
-                current_pair = (ulint_pair_t*)(current->data);
-
-                if (current_pair->x == r) {
-
-                    if (r == 1) {
-                        ecode = NO_PROPER_FORM_FOUND;
-                        STOP_TIMER;
-                        PRINT_NO_PROPER_FORM_FOUND;
-                        PRINT_TIMING_ON_FAILURE;
-                        goto clean_and_return;
-                    }
-                    if (r > 1) {
-                        if ((P - current_pair->y) % current_pair->x == 0) {
-                            //
-                            // Remove all pairs from the beginning of the queue
-                            // up to (and including) this pair
-                            //
-                            queue.head    = current->next;
-                            queue.length -= (inode + 1);
-                            pair_found    = true;
-
-                            break;
-                        }
-                    }
-                }
-                current = current->next;
-                inode++;
-            }
-
-            if (pair_found == false) {
-                //
-                // No pairs (r, t) in the queue for which r divides (P - t):
-                // exit the loop and go to Step 3.
-                //
-                break;
-            }
-        }
-        //
-        // Step 2 e)
-        //
-        i++;
-        if (IS_UNLIKELY(i > B)) {
-            ecode = GIVING_UP;
-            STOP_TIMER;
-            PRINT_UPPER_BOUND_REACHED;
-            PRINT_TIMING_ON_FAILURE;
-            goto clean_and_return;
-        }
-    }
-    STOP_TIMER;
-    PRINT_TIMING;
-    PRINT_INV_SQRT_MSG;
-    RESET_TIMER;
-    START_TIMER;
-
-    //stop_stopwatch(&timer_fwd);
-
-    //
-    // Step 3: Compute an inverse square root of the square form
-    //
-    QQ = r;
-    P += r * (unsigned long int)((S - P)/r);
-
-    mpz_set_ui(P2, P);
-    mpz_mul(P2, P2, P2);
-
-    mpz_sub(D_minus_P2, D, P2);
-    mpz_divexact_ui(D_minus_P2, D_minus_P2, QQ);
-
-    Q  = mpz_get_ui(D_minus_P2);
-
-    SQUFOF_PRINT("after step 3):\n");
-    SQUFOF_PRINT("-----------------------------------\n");
-    SQUFOF_PRINT("3)      Q  = %lu\n", Q);
-    SQUFOF_PRINT("3)      P  = %lu\n", P);
-    SQUFOF_PRINT("3)      QQ = %lu\n", QQ);
-    SQUFOF_PRINT("3)      PP = %lu\n", PP);
-    SQUFOF_PRINT("3)      S  = %lu\n", S);
-    SQUFOF_PRINT("3)      t  = %lu\n", t);
-    SQUFOF_PRINT("3)      q  = %lu\n", q);
-
-    STOP_TIMER;
-    PRINT_TIMING;
-    RESET_TIMER;
-    START_TIMER;
-
-    unsigned long int factor = 0;
-
-    //start_stopwatch(&timer_rev);
-    if ((i / 2) < LARGE_STEP_THRESHOLD) {
-        PRINT_REV_CYCL_MSG;
-        //
-        // Step 4: Cycle in the reverse direction to find a factor of N
-        //
-        while (!reverse_step(&P, &Q, &QQ, S, &factor)) { }
-    } else {
-        PRINT_FR_REV_CYCL_MSG;
-        //
-        // Use the large step algorithm to get closer to the point of symmetry.
-        //
-        factor = jump_near_sym_point(&P, &Q, &QQ, P0, Q0,
-                                     QQ0, S, D, i / 2, context->n);
-
-        if (factor == 0) {
-            //
-            // Step 4: Cycle in _both_ directions to find a factor of N
-            //
-            unsigned long int PR  = P;
-            unsigned long int QR  = QQ;
-            unsigned long int QQR = Q;
-
-            while (true) {
-                if (reverse_step(&P,  &Q,  &QQ,  S, &factor)) break;
-                if (reverse_step(&PR, &QR, &QQR, S, &factor)) break;
-            }
-        }
-    }
-    STOP_TIMER;
-    PRINT_TIMING;
-
-    //stop_stopwatch(&timer_rev);
-
-    //
-    // Step 5: We found a factor of n
-    //
-    if (IS_EVEN(factor)) {
-        factor >>= 1;
-    }
-    if (factor != 1) {
-        mpz_t factor_z;
-        mpz_init_set_ui(factor_z, factor);
-        append_mpz_to_array(machine->factors, factor_z);
-        mpz_divexact(factor_z, context->n, factor_z);
-        append_mpz_to_array(machine->factors, factor_z);
-        mpz_clear(factor_z);
-    } else {
-        ecode = NO_FACTOR_FOUND;
-    }
-
-  clean_and_return:
-
-    mpf_clear(sqrtD);
-    mpz_clear(D);
-    mpz_clear(D_minus_P2);
-    mpz_clear(P2);
-
-    return ecode;
-}
-//-----------------------------------------------------------------------------
-static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
-
-    INIT_TIMER;
-
-    squfof_context_t* const context = (squfof_context_t*) machine->context;
-
-    bool winner_found      = false;
-    squfof_racer_t *winner = NULL;
-
-    ecode_t rcode = 0;
-
-    PRINT_FWD_CYCL_MSG;
-    START_TIMER;
-    //
-    // Step 2: cycle forward to find a proper form.
-    //
-    // This is step 2) as described by Gower and Wagstaff in their paper. Note
-    // that the step 1) has already been performed by update_squfof_context
-    // (see init_squfof_racer).
-    //
-
-    //
-    // First get the number of racers still racing: indeed some may have stopped
-    // during their initialization if the number to factor multiplied by the
-    // multiplier is too large for this single-precision implementation.
-    //
-    unsigned int nrunning_racers = 0;
-
-    for (uint32_t iracer = 0; iracer < context->nracers; iracer++) {
-        if (RUNNING == context->racers[iracer].status) {
-            nrunning_racers++;
-        }
-    }
-
-    if (nrunning_racers == 0) {
-        //
-        // The only way this can happen is if the number given to factorize
-        // was too large...
-        //
-        STOP_TIMER;
-        PRINT_ALL_RACERS_FAILED;
-        PRINT_TIMING_ON_FAILURE;
-        return INTEGER_TOO_LARGE;
-    }
-
-    //start_stopwatch(&timer_fwd);
-
-    while (! winner_found) {
-        //
-        // Make each racer cycle forward for NSTEP_CYCLE_FWD iterations...
-        //
-        for (uint32_t iracer = 0; iracer < context->nracers; iracer++) {
-
-            if (RUNNING == context->racers[iracer].status) {;
-                rcode = cycle_forward(&context->racers[iracer]);
-
-                if (rcode == SUCCESS) {
-                    winner       = &context->racers[iracer];
-                    winner_found = true;
-                    break;
-                }
-                if (STOPPED == context->racers[iracer].status) {
-                    nrunning_racers--;
-                }
-            }
-        }
-        if (nrunning_racers == 0) {
-            //
-            // All the racers have stopped and none of them gave a proper
-            // square form: abort the factorization process and admit defeat.
-            // Note that we return as exit code the code returned by the last
-            // failing racer in the race...
-            //
+        if (winner < 0) {
             STOP_TIMER;
             PRINT_ALL_RACERS_FAILED;
             PRINT_TIMING_ON_FAILURE;
-            return rcode;
+            return GIVING_UP;
         }
-    }
-
-    //stop_stopwatch(&timer_fwd);
-
-    STOP_TIMER;
-    PRINT_TIMING;
-    PRINT_INV_SQRT_MSG;
-    RESET_TIMER;
-    START_TIMER;
-
-    //
-    // Step 3: Compute an inverse square root of the square form
-    //
-    winner->QQ = winner->r;
-    winner->P += winner->r * (unsigned long int)(
-                                 (winner->S - winner->P) /winner->r
-                             );
-
-    mpz_set_ui(winner->P2, winner->P);
-    mpz_mul(winner->P2, winner->P2, winner->P2);
-
-    mpz_sub(winner->D_minus_P2, winner->D, winner->P2);
-    mpz_divexact_ui(winner->D_minus_P2, winner->D_minus_P2, winner->QQ);
-
-    winner->Q = mpz_get_ui(winner->D_minus_P2);
-
-    STOP_TIMER;
-    PRINT_TIMING;
-    RESET_TIMER;
-    START_TIMER;
-
-    unsigned long int factor = 0;
-    //
-    // Use local variables to bypass readings of a non constant pointer. It is
-    // not clear to me if this makes for a measurable difference though...
-    //
-    unsigned long int S  = winner->S;
-    unsigned long int P  = winner->P;
-    unsigned long int Q  = winner->Q;
-    unsigned long int QQ = winner->QQ;
-
-    //start_stopwatch(&timer_rev);
-
-    if ((winner->i / 2) < LARGE_STEP_THRESHOLD) {
+        STOP_TIMER;
+        PRINT_TIMING;
         PRINT_REV_CYCL_MSG;
-        //
-        // Step 4: Cycle in the reverse direction to find a factor of N
-        //
-        while (!reverse_step(&P, &Q, &QQ, S, &factor)) { }
-    } else {
-        PRINT_FR_REV_CYCL_MSG;
+        RESET_TIMER;
+        START_TIMER;
 
-        unsigned long int P0  = winner->P0;
-        unsigned long int Q0  = winner->Q0;
-        unsigned long int QQ0 = winner->QQ0;
-        //
-        // Use the large step algorithm to get closer to the point of symmetry.
-        //
-        factor = jump_near_sym_point(&P, &Q, &QQ, P0, Q0, QQ0,
-                                     S, winner->D, winner->i / 2, context->n);
+        squfof_racer_t* const racer = &context->racers[winner];
 
-        if (factor == 0) {
-            //
-            // Step 4: Cycle in _both_ directions to find a factor of N
-            //
-            unsigned long int PR  = P;
-            unsigned long int QR  = QQ;
-            unsigned long int QQR = Q;
+        unsigned long int factor = reverse_cycle(racer, context);
 
-            while (true) {
-                if (reverse_step(&P,  &Q,  &QQ,  S, &factor)) break;
-                if (reverse_step(&PR, &QR, &QQR, S, &factor)) break;
-            }
+        STOP_TIMER;
+        PRINT_TIMING;
+        //
+        // Step 5: the factor found divides 2.k.n
+        //
+        factor /= gcd_ulint(factor, 2 * racer->multiplier);
+
+        if ((factor > 1) && (mpz_cmp_ui(context->n, factor) > 0)) {
+            mpz_t factor_z;
+            mpz_init_set_ui(factor_z, factor);
+            append_mpz_to_array(machine->factors, factor_z);
+            mpz_divexact(factor_z, context->n, factor_z);
+            append_mpz_to_array(machine->factors, factor_z);
+            mpz_clear(factor_z);
+
+            return SOME_FACTORS_FOUND;
+        }
+        //
+        // A trivial factor: let the other racers go on.
+        //
+        racer->running = false;
+        RESET_TIMER;
+    }
+}
+//-----------------------------------------------------------------------------
+
+/*
+ *-----------------------------------------------------------------------------
+ *              Step 1) of the SQUFOF algorithm: the racers
+ *-----------------------------------------------------------------------------
+ */
+
+//-----------------------------------------------------------------------------
+static void set_discriminant(mpz_t D, const mpz_t n,
+                             unsigned long int multiplier) {
+    mpz_mul_ui(D, n, multiplier);
+    if ((mpz_get_ui(D) & 3) == 1) {
+        mpz_mul_2exp(D, D, 1);
+    }
+}
+//-----------------------------------------------------------------------------
+static unsigned long int floor_sqrt(unsigned long int x) {
+    unsigned long int r = (unsigned long int) sqrt((double) x);
+    while (r * r > x) {
+        r--;
+    }
+    while ((r + 1) * (r + 1) <= x) {
+        r++;
+    }
+    return r;
+}
+//-----------------------------------------------------------------------------
+static bool init_squfof_racer(squfof_racer_t* const racer,
+                              squfof_context_t* const context,
+                              unsigned long int multiplier) {
+    //
+    // Sets up the racer of the given multiplier, unless k.n is a square or
+    // too large for single precision.
+    //
+    set_discriminant(context->D, context->n, multiplier);
+    mpz_sqrtrem(context->root, context->rem, context->D);
+
+    if (   (mpz_cmp_ui(context->root, TIFA_ULONG_MAX_DIVIDED_BY_6) > 0)
+        || (mpz_sgn(context->rem) == 0)) {
+        return false;
+    }
+    racer->multiplier   = multiplier;
+    racer->S            = mpz_get_ui(context->root);
+    racer->P0           = racer->S;
+    racer->Q0           = mpz_get_ui(context->rem);
+    racer->P            = racer->P0;
+    racer->Q            = racer->Q0;
+    racer->QQ           = 1;
+    racer->L            = floor_sqrt(2 * racer->S + 1);
+    racer->QL           = 2 * multiplier * racer->L;
+    //
+    // Gower and Wagstaff's 2 floor(2 sqrt(2 sqrt(D))), give or take a few.
+    //
+    racer->B            = 4 * racer->L;
+    racer->start        = context->nsteps;
+    racer->queue_head   = 0;
+    racer->queue_length = 0;
+    racer->running      = true;
+
+    return true;
+}
+//-----------------------------------------------------------------------------
+static void next_racer(squfof_context_t* const context,
+                       squfof_racer_t* const racer) {
+    //
+    // Sets up in the slot of a stopped racer the racer of the next usable
+    // multiplier. With none left, the slot cycles through (1, 1, 1), a form
+    // of discriminant 2, while the race goes on.
+    //
+    while (context->next < NMULTIPLIERS) {
+        unsigned long int k = multipliers[context->next++];
+        if (init_squfof_racer(racer, context, k)) {
+            context->nracers++;
+            return;
         }
     }
-    STOP_TIMER;
-    PRINT_TIMING;
-
-    //stop_stopwatch(&timer_rev);
-
-    //
-    // Step 5: We found a factor of n
-    //
-    factor /= gcd_ulint(factor, 2 * winner->multiplier);
-
-    if ((factor == 1) || (mpz_cmp_ui(context->n, factor) == 0)) {
-        return NO_FACTOR_FOUND;
-    }
-
-    mpz_t factor_z;
-
-    mpz_init_set_ui(factor_z, factor);
-    append_mpz_to_array(machine->factors, factor_z);
-    mpz_divexact(factor_z, context->n, factor_z);
-    append_mpz_to_array(machine->factors, factor_z);
-
-    mpz_clear(factor_z);
-
-    return SOME_FACTORS_FOUND;
+    racer->S       = 1;
+    racer->P       = 1;
+    racer->Q       = 1;
+    racer->QQ      = 1;
+    racer->QL      = 0;
+    racer->running = false;
 }
 //-----------------------------------------------------------------------------
 
@@ -1143,304 +675,279 @@ static ecode_t perform_squfof_race(factoring_machine_t* const machine) {
  */
 
 //-----------------------------------------------------------------------------
-static ecode_t cycle_forward(squfof_racer_t* const racer) {
-    //
-    // Cycle forward the given racer to find a proper form, but stop after
-    // NSTEP_CYCLE_FWD iterations.
-    //
-    if (racer->status == STOPPED) {
-        return FAILURE;
+inline static void forward_step(unsigned long int* const P,
+                                unsigned long int* const Q,
+                                unsigned long int* const QQ,
+                                const unsigned long int S,
+                                const unsigned long int QL,
+                                squfof_racer_t* const racer) {
+    unsigned long int q  = (S + *P) / *Q;
+    unsigned long int PP = q * (*Q) - *P;
+
+    if (IS_UNLIKELY(*Q <= QL)) {
+        enqueue(racer, *P, *Q);
     }
-    racer->istep = 0;
+    unsigned long int t = *QQ + q * (*P - PP);
 
-    while (true) {
-        racer->istep++;
+    *QQ = *Q;
+    *Q  = t;
+    *P  = PP;
+}
+//-----------------------------------------------------------------------------
+inline static bool maybe_square(const unsigned long int x) {
+    unsigned long int r221 = x % 221;
+    unsigned long int r437 = x % 437;
 
-        //
-        // Step 2 a)
-        //
-        // Compute q  = (S + P)/Q;
-        //
-        racer->q = (racer->S + racer->P) / racer->Q;
-        //
-        // Compute PP = q*Q - P;
-        //
-        racer->PP  = racer->q;
-        racer->PP *= racer->Q;
-        racer->PP -= racer->P;
+    return 0 != (  (squares_mod_64 >> (x & 63))
+                 & (squares_mod_221[r221 >> 6] >> (r221 & 63))
+                 & (squares_mod_437[r437 >> 6] >> (r437 & 63))
+                 & 1);
+}
+//-----------------------------------------------------------------------------
+static int race(squfof_context_t* const context) {
+    //
+    // Gower and Wagstaff's step 2 for all the racers at once, until one of
+    // them finds a proper square form. Returns its index, or -1 once they
+    // have all stopped.
+    //
+    squfof_racer_t* const racers = context->racers;
 
-        //
-        // Step 2 b)
-        //
-        racer->g = racer->Q / gcd_ulint(racer->Q, 2 * racer->multiplier);
+    unsigned long int S[NRACERS];
+    unsigned long int P[NRACERS];
+    unsigned long int Q[NRACERS];
+    unsigned long int QQ[NRACERS];
+    unsigned long int QL[NRACERS];
 
-        if (racer->g <= racer->L) {
+    for (uint32_t j = 0; j < NRACERS; j++) {
+        S[j]  = racers[j].S;
+        P[j]  = racers[j].P;
+        Q[j]  = racers[j].Q;
+        QQ[j] = racers[j].QQ;
+        QL[j] = racers[j].QL;
+    }
+    unsigned long int nsteps = context->nsteps;
+    int winner = -1;
 
-            if (racer->queue.length == MAX_QUEUE_ALLOC) {
-                racer->status = STOPPED;
-                PRINT_QUEUE_OVERFLOW_MULT(racer->multiplier);
-                return QUEUE_OVERFLOW;
-            }
-            add_pair_in_queue(racer->g, racer->P % racer->g, &(racer->queue));
+    if (!IS_EVEN(nsteps)) {
+        //
+        // The last race stopped after the first step of a pair.
+        //
+        UNROLLED(NRACERS)
+        for (uint32_t j = 0; j < NRACERS; j++) {
+            forward_step(&P[j], &Q[j], &QQ[j], S[j], QL[j], &racers[j]);
         }
-        //
-        // Step 2 c)
-        //
-        // Compute t  = QQ + q * (P - PP);
-        //
-        racer->t   = racer->P;
-        racer->t  -= racer->PP;
-        racer->t  *= racer->q;
-        racer->t  += racer->QQ;
-        racer->QQ  = racer->Q;
-        racer->Q   = racer->t;
-        racer->P   = racer->PP;
+        nsteps++;
+    }
+    while (winner < 0) {
+        bool running = false;
+        for (uint32_t j = 0; j < NRACERS; j++) {
+            squfof_racer_t* const racer = &racers[j];
 
-        //
-        // Step 2 d)
-        //
-        if (IS_EVEN(racer->i) && ((racer->r = is_square(racer->Q)) != 0)) {
-
-            racer->inode   = 0;
-            racer->current = racer->queue.head;
-
-            bool pair_found = false;
-
-            while (racer->inode < racer->queue.length) {
-
-                racer->current_pair = (ulint_pair_t*)(racer->current->data);
-
-                if (racer->current_pair->x == racer->r) {
-                    if (racer->r == 1) {
-                        racer->status = STOPPED;
-                        PRINT_NO_PROPER_FORM_FOUND_MULT(racer->multiplier);
-                        return NO_PROPER_FORM_FOUND;
-                    }
-                    if (racer->r > 1) {
-                        if ( (racer->P - racer->current_pair->y)
-                            % racer->current_pair->x == 0) {
-                            //
-                            // Remove all pairs from the beginning of the queue
-                            // up to (and including) this pair
-                            //
-                            racer->queue.head    = racer->current->next;
-                            racer->queue.length -= (racer->inode + 1);
-                            pair_found           = true;
-                            break;
-                        }
-                    }
-                }
-                racer->current = racer->current->next;
-                racer->inode++;
+            if (racer->running && (nsteps - racer->start > racer->B)) {
+                racer->running = false;
+                PRINT_UPPER_BOUND_REACHED_MULT(racer->multiplier);
             }
-            if (pair_found == false) {
-                //
-                // No pairs (r, t) in the queue for which r divides (P - t):
-                // exit the loop and go to Step 3 (i.e. we have a winner!).
-                //
+            if (!racer->running && (context->next < NMULTIPLIERS)) {
+                context->nsteps = nsteps;
+                next_racer(context, racer);
+                S[j]  = racer->S;
+                P[j]  = racer->P;
+                Q[j]  = racer->Q;
+                QQ[j] = racer->QQ;
+                QL[j] = racer->QL;
+            }
+            running = running || racer->running;
+        }
+        if (!running) {
+            break;
+        }
+        for (uint32_t s = 0; s < NSTEPS_ROUND; s += 2) {
+            UNROLLED(NRACERS)
+            for (uint32_t j = 0; j < NRACERS; j++) {
+                forward_step(&P[j], &Q[j], &QQ[j], S[j], QL[j], &racers[j]);
+            }
+            nsteps++;
+            //
+            // Square forms only count after an odd number of steps.
+            //
+            UNROLLED(NRACERS)
+            for (uint32_t j = 0; j < NRACERS; j++) {
+                if (   IS_UNLIKELY(maybe_square(Q[j]))
+                    && proper_square(&racers[j], P[j], Q[j])) {
+                    winner = (int) j;
+                    break;
+                }
+            }
+            if (winner >= 0) {
                 break;
             }
-        }
-        //
-        // Step 2 e)
-        //
-        racer->i++;
-        if (racer->i > racer->B) {
-            //
-            // Giving up: stop the race as the abort limit has been reached
-            //
-            racer->status = STOPPED;
-            PRINT_UPPER_BOUND_REACHED_MULT(racer->multiplier);
-            return GIVING_UP;
-        }
-        if (IS_UNLIKELY(racer->istep == NSTEP_CYCLE_FWD)) {
-            //
-            // The racer failed to find a proper form for now, but keep this
-            // racer in the race...
-            //
-            return FAILURE;
+            UNROLLED(NRACERS)
+            for (uint32_t j = 0; j < NRACERS; j++) {
+                forward_step(&P[j], &Q[j], &QQ[j], S[j], QL[j], &racers[j]);
+            }
+            nsteps++;
         }
     }
+    for (uint32_t j = 0; j < NRACERS; j++) {
+        racers[j].P  = P[j];
+        racers[j].Q  = Q[j];
+        racers[j].QQ = QQ[j];
+    }
+    context->nsteps = nsteps;
+
+    if (winner >= 0) {
+        PRINT_SUCCESS_MULT(racers[winner].multiplier);
+    }
+    return winner;
+}
+//-----------------------------------------------------------------------------
+COLD static void enqueue(squfof_racer_t* const racer, unsigned long int P,
+                         unsigned long int Q) {
     //
-    // We found a proper form. We have our winning racer!
+    // Gower and Wagstaff's step 2b), for a Q <= QL: the pair
+    // (g, P mod g) goes to the queue if g = Q / gcd(Q, 2k) <= L. As 2k is
+    // a squarefree product of 2, 3, 5, 7 and 11, gcd(Q, 2k) is the product
+    // of those of its primes that divide Q.
     //
-    PRINT_SUCCESS_MULT(racer->multiplier);
-    return SUCCESS;
+    unsigned long int k = racer->multiplier;
+    unsigned long int d = IS_EVEN(Q) ? 2 : 1;
+
+    if ((k % 3 == 0) && (Q % 3 == 0)) {
+        d *= 3;
+    }
+    if ((k % 5 == 0) && (Q % 5 == 0)) {
+        d *= 5;
+    }
+    if ((k % 7 == 0) && (Q % 7 == 0)) {
+        d *= 7;
+    }
+    if ((k % 11 == 0) && (Q % 11 == 0)) {
+        d *= 11;
+    }
+    if ((Q > d * racer->L) || !racer->running) {
+        return;
+    }
+    if (racer->queue_length == MAX_QUEUE_ALLOC) {
+        racer->running = false;
+        PRINT_QUEUE_OVERFLOW_MULT(racer->multiplier);
+        return;
+    }
+    unsigned long int g    = Q / d;
+    uint32_t          tail =   (racer->queue_head + racer->queue_length)
+                             % MAX_QUEUE_ALLOC;
+
+    racer->queue_x[tail] = g;
+    racer->queue_y[tail] = P % g;
+    racer->queue_length++;
+}
+//-----------------------------------------------------------------------------
+COLD static bool proper_square(squfof_racer_t* const racer,
+                               unsigned long int P, unsigned long int Q) {
+    //
+    // Gower and Wagstaff's step 2d): whether Q = r^2 with no pair (r, y) in
+    // the queue such that r divides P - y. Such a pair is removed, with all
+    // the pairs before it.
+    //
+    if (!racer->running) {
+        return false;
+    }
+    unsigned long int r = is_square(Q);
+
+    if (r == 0) {
+        return false;
+    }
+    for (uint32_t i = 0; i < racer->queue_length; i++) {
+        uint32_t j = (racer->queue_head + i) % MAX_QUEUE_ALLOC;
+
+        if (racer->queue_x[j] != r) {
+            continue;
+        }
+        if (r == 1) {
+            racer->running = false;
+            PRINT_NO_PROPER_FORM_FOUND_MULT(racer->multiplier);
+            return false;
+        }
+        if ((P % r) == racer->queue_y[j]) {
+            racer->queue_head    = (j + 1) % MAX_QUEUE_ALLOC;
+            racer->queue_length -= i + 1;
+            return false;
+        }
+    }
+    return true;
 }
 //-----------------------------------------------------------------------------
 
 /*
  *-----------------------------------------------------------------------------
- *              SQUFOF racer's initialization and clean-up
+ *          Steps 3) and 4) of the SQUFOF algorithm: reverse cycle
  *-----------------------------------------------------------------------------
  */
 
 //-----------------------------------------------------------------------------
-static ecode_t init_squfof_racer(squfof_racer_t* const racer, const mpz_t n,
-                                 unsigned int multiplier) {
+static unsigned long int reverse_cycle(squfof_racer_t* const racer,
+                                       squfof_context_t* const context) {
     //
-    // Initialize the SQUFOF 'racer' and execute the Step 1) of the SQUFOF
-    // algorithm as described by Gower and Wagstaff in their paper "Square Form
-    // Factorization".
+    // Returns the factor of D given by the proper square form (QQ, P, Q)
+    // that the racer just found.
     //
+    mpz_ptr D = context->D;
 
+    set_discriminant(D, context->n, racer->multiplier);
+
+    unsigned long int S = racer->S;
+    unsigned long int P = racer->P;
+    unsigned long int r = is_square(racer->Q);
     //
-    // Step 1: Initialization
+    // Step 3: Compute an inverse square root of the square form
     //
-    mpz_init_set(racer->D, n);
+    unsigned long int QQ = r;
+    P += r * ((S - P) / r);
 
-    racer->multiplier = multiplier;
+    mpz_t t;
+    mpz_init_set_ui(t, P);
+    mpz_mul(t, t, t);
+    mpz_sub(t, D, t);
+    mpz_divexact_ui(t, t, QQ);
 
-    mpz_mul_ui(racer->D, racer->D, racer->multiplier);
+    unsigned long int Q = mpz_get_ui(t);
 
-    uint8_t n_mod_4 = mpz_get_ui(racer->D) & 3;
-    if (n_mod_4 == 1) {
-        mpz_mul_2exp(racer->D, racer->D, 1);
-    }
+    mpz_clear(t);
+
+    unsigned long int factor = 0;
     //
-    // We need a floating point computation here. See next comment.
+    // About as many forms separate the inverse square root from the point
+    // of symmetry as the square form from the first form, half as many as
+    // the steps taken.
     //
-    mpf_init2(racer->sqrtD, 128);
-    mpf_set_z(racer->sqrtD, racer->D);
-    mpf_sqrt(racer->sqrtD, racer->sqrtD);
+    unsigned long int half = (context->nsteps - racer->start - 1) / 2;
 
-    if (0 == mpf_fits_ulong_p(racer->sqrtD)) {
-        racer->status = STOPPED;
-        racer->number_is_too_large = true;
-        return SUCCESS;
-    }
-    racer->S = mpf_get_ui(racer->sqrtD);
-
-    if (racer->S > TIFA_ULONG_MAX_DIVIDED_BY_6) {
-        racer->status = STOPPED;
-        racer->number_is_too_large = true;
-        return SUCCESS;
-    }
-
-    racer->status = RUNNING;
-    racer->number_is_too_large = false;
-
-    racer->QQ = 1;
-    racer->P  = racer->S;
-
-    mpz_init_set_ui(racer->P2, racer->P);
-    mpz_mul(racer->P2, racer->P2, racer->P2);
-
-    mpz_init_set(racer->D_minus_P2, racer->D);
-    mpz_sub(racer->D_minus_P2, racer->D_minus_P2, racer->P2);
-
-    racer->Q = mpz_get_ui(racer->D_minus_P2);
-    if (racer->Q == 0) {
+    if (half < LARGE_STEP_THRESHOLD) {
         //
-        // D = k.n is a square (n even): no reduced form to cycle through.
+        // Step 4: Cycle in the reverse direction to find a factor of N
         //
-        racer->status = STOPPED;
-        return SUCCESS;
-    }
-
-    mpf_mul_2exp(racer->sqrtD, racer->sqrtD, 1);
-    mpf_sqrt(racer->sqrtD, racer->sqrtD);
-    mpf_mul_2exp(racer->sqrtD, racer->sqrtD, 1);
-    //
-    // Now sqrtD = 2*sqrt(2*sqrt(D)).
-    //
-    // The use of floating point operation is made necessary to properly compute
-    // L = floor(2*sqrt(2*sqrt(D))) without introducing approximations that
-    // would lead to L = 2*floor(sqrt(2*floor(sqrt(D)))).
-    //
-    racer->L  = mpf_get_ui(racer->sqrtD);
-    racer->B  = racer->L << 1;
-    racer->i  = 0;
-    racer->q  = 0;
-    //
-    // _NOTE_: An amusing remark: the gmpl-impl.h header already defines a
-    //         symbol named PP. So make sure that gmp-impl.h is not included!
-    //
-    racer->PP = 0;
-    racer->t  = 0;
-    racer->r  = 0;
-
-    racer->P0  = racer->P;
-    racer->Q0  = racer->Q;
-    racer->QQ0 = 1;
-
-    //
-    // Set up the linked list used as the racer's queue and make it circular...
-    //
-    for (uint32_t i = 0; i < MAX_QUEUE_ALLOC-1; i++) {
-        racer->queue_node[i].next = &(racer->queue_node[i+1]);
-        racer->queue_node[i].data = (void*)&(racer->queue_data[i]);
-    }
-    racer->queue_node[MAX_QUEUE_ALLOC-1].next = &(racer->queue_node[0]);
-    racer->queue_node[MAX_QUEUE_ALLOC-1].data =
-                                (void*)&(racer->queue_data[MAX_QUEUE_ALLOC-1]);
-    racer->queue.head   = &(racer->queue_node[0]);
-    racer->queue.tail   = racer->queue.head;
-    racer->queue.length = 0;
-
-    racer->inode        = 0;
-    racer->current_pair = NULL;
-    racer->current      = NULL;
-
-    racer->g     = 0;
-    racer->istep = 0;
-
-    return SUCCESS;
-}
-//-----------------------------------------------------------------------------
-static ecode_t clear_squfof_racer(squfof_racer_t* const racer) {
-    mpz_clear(racer->D);
-    mpf_clear(racer->sqrtD);
-    if (false == racer->number_is_too_large) {
-        mpz_clear(racer->P2);
-        mpz_clear(racer->D_minus_P2);
-    }
-    return SUCCESS;
-}
-//-----------------------------------------------------------------------------
-
-/*
- *-----------------------------------------------------------------------------
- *                      Queue management functions
- *-----------------------------------------------------------------------------
- */
-
-//-----------------------------------------------------------------------------
-inline static void add_pair_in_queue(unsigned long int x, unsigned long int y,
-                                     linked_list_t* const queue) {
-
-    ulint_pair_t* current_pair = NULL;
-    if (queue->length == 0) {
-        queue->tail = queue->head;
+        while (!reverse_step(&P, &Q, &QQ, S, &factor)) { }
     } else {
-        queue->tail = queue->tail->next;
-    }
-    current_pair = (ulint_pair_t*)(queue->tail->data);
-    current_pair->x = x;
-    current_pair->y = y;
+        //
+        // Use the large step algorithm to get closer to the point of symmetry.
+        //
+        factor = jump_near_sym_point(&P, &Q, &QQ, racer->P0, racer->Q0, 1,
+                                     S, D, half, context->n);
+        if (factor == 0) {
+            //
+            // Step 4: Cycle in _both_ directions to find a factor of N
+            //
+            unsigned long int PR  = P;
+            unsigned long int QR  = QQ;
+            unsigned long int QQR = Q;
 
-    queue->length++;
-}
-//-----------------------------------------------------------------------------
-#if SQUFOF_DEBUG
-void print_queue(linked_list_t* queue) {
-    //
-    // Only used for debugging purpose
-    //
-    linked_list_node_t* current_node = queue->head;
-    ulint_pair_t*       current_pair = NULL;
-
-    uint32_t inode = 0;
-    printf("\t-------- Queue --------\n");
-    while (inode < queue->length) {
-        current_pair = (ulint_pair_t*)(current_node->data);
-        printf("\t(%ld, %ld)\n", current_pair->x, current_pair->y);
-        current_node = current_node->next;
-        inode++;
+            while (true) {
+                if (reverse_step(&P,  &Q,  &QQ,  S, &factor)) break;
+                if (reverse_step(&PR, &QR, &QQR, S, &factor)) break;
+            }
+        }
     }
-    printf("\t-----------------------\n");
+    return factor;
 }
-#endif
 //-----------------------------------------------------------------------------
 
 /*
