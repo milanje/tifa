@@ -109,27 +109,6 @@
 #define NSTEP_CYCLE_FWD  2000
 
 //-----------------------------------------------------------------------------
-//          SYMBOLS AND FUNCTIONS RELATED TO OUR CHEAP "DIVISION TRICK"
-//-----------------------------------------------------------------------------
-//
-// A switch toggling our cheap division trick on and off
-//
-#define USE_DIVISION_TRICK 1
-//
-// Switch from the standard division to our cheap trick here, to avoid
-// disseminating #if's in the code...
-//
-#if USE_DIVISION_TRICK
-    #define divide(N, D)  divide_trick((N), (D))
-#else
-    #define divide(N, D)  ((N) / (D))
-#endif
-//-----------------------------------------------------------------------------
-inline static unsigned long int
-divide_trick(const unsigned long int N, const unsigned long int D);
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
 //           SYMBOLS AND FUNCTIONS RELATED TO THE LARGE STEP ALGORITHM
 //-----------------------------------------------------------------------------
 
@@ -748,7 +727,7 @@ static ecode_t perform_squfof_no_race(factoring_machine_t* const machine) {
         //
         // Compute q  = (S + P)/Q;
         //
-        q = divide(S + P, Q);
+        q = (S + P) / Q;
 
         //
         // Compute PP = q*Q - P;
@@ -1182,7 +1161,7 @@ static ecode_t cycle_forward(squfof_racer_t* const racer) {
         //
         // Compute q  = (S + P)/Q;
         //
-        racer->q = divide(racer->S + racer->P, racer->Q);
+        racer->q = (racer->S + racer->P) / racer->Q;
         //
         // Compute PP = q*Q - P;
         //
@@ -1466,86 +1445,6 @@ void print_queue(linked_list_t* queue) {
 
 /*
  *-----------------------------------------------------------------------------
- *                 Functions used for our cheap division trick
- *-----------------------------------------------------------------------------
- */
-
-inline static unsigned long int divide_trick(const unsigned long int N,
-                                             const unsigned long int D) {
-    //
-    // A really quick and dirty trick to (hopefully) speed up divisions if
-    // we know with a relatively high probability that the result will be one
-    // or two _and_ that the result *won't be zero*. In our case, the quotient
-    // distribution has been experimentally determined to be roughly:
-    //
-    //      Quotient Percentage
-    //          1      41.50 %
-    //          2      17.00 %
-    //          3       9.30 %
-    //          4       5.88 %
-    //          5       4.06 %
-    //          6       2.97 %
-    //          7       2.27 %
-    //          8       1.79 %
-    //          9       1.44 %
-    //         10       1.19 %
-    //
-    unsigned long int __D__ = D << 1;
-
-    if (N < __D__) {
-        return 1;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 2;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 3;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 4;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 5;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 6;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 7;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 8;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 9;
-    }
-    __D__ += D;
-
-    if (N < __D__) {
-        return 10;
-    }
-    return (N / D);
-}
-//-----------------------------------------------------------------------------
-
-/*
- *-----------------------------------------------------------------------------
  *                 Functions used for the large step algorithm
  *-----------------------------------------------------------------------------
  */
@@ -1596,7 +1495,7 @@ inline static void single_step(unsigned long int* const P,
     unsigned long int  PP = 0;
     unsigned long int  t  = 0;
 
-    q = divide(S + *P, *Q);
+    q = (S + *P) / *Q;
     PP   =  q;
     PP  *= *Q;
     PP  -= *P;
@@ -1619,7 +1518,7 @@ inline static bool reverse_step(unsigned long int* const P,
     // check inserted before the state update. Returns true (and sets *factor)
     // when P == PP, i.e. the point of symmetry giving a factor of N.
     //
-    unsigned long int q  = divide(S + *P, *Q);
+    unsigned long int q  = (S + *P) / *Q;
     unsigned long int PP = q;
     PP *= *Q;
     PP -= *P;
@@ -1756,32 +1655,12 @@ static unsigned long int large_step(unsigned long int* const P,
     // or the next value of Q depending on whether or not we've gone
     // beyond the period of the form cycle)
     //
-    qk = divide(S + *P, *Q);
+    qk = (S + *P) / *Q;
     PP = qk * (*Q) - *P;
     if (S >= *P) {
-        //
-        // Remember that the 'division_trick' function potentially used by
-        // the 'divide' macro doesn't work if the result is zero, so we
-        // handle this case separately...
-        //
-        if ((S - *P) >= *Q) {
-            unsigned long int tmp = 0;
-            tmp = divide(S - *P, *Q);
-            qk += tmp;
-        }
+        qk += (S - *P) / *Q;
     } else {
-        if ((*P - S) >= *Q) {
-            unsigned long int tmp = 0;
-            tmp = divide(*P - S, *Q);
-            qk -= tmp;
-            if ((*P - S) != tmp * (*Q) ) {
-                qk--;
-            }
-        } else {
-            if (*P != S) {
-                qk--;
-            }
-        }
+        qk -= (*P - S + *Q - 1) / *Q;
     }
     *P = qk * (*Q) - PP;
 
