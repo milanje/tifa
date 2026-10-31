@@ -52,6 +52,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <math.h>
 #include <gmp.h>
 
@@ -175,7 +176,8 @@ static const unsigned int multipliers[] = {
       21,  33,  35,  55,  77,  105,
      165, 231, 385, 1155
 };
-#define NMULTIPLIERS (sizeof(multipliers) / sizeof(multipliers[0]))
+#define NMULTIPLIERS   (sizeof(multipliers) / sizeof(multipliers[0]))
+#define MAX_MULTIPLIER 1155
 //
 // Squares modulo 64, 221 = 13 * 17 and 437 = 19 * 23, as bit sets. At the
 // even steps, the Q are values of the principal form, hence squares modulo
@@ -216,6 +218,7 @@ struct struct_squfof_racer_t {
     //
     // Pairs (x, y) only go to the queue for x <= L = floor(sqrt(2S + 1)):
     // since Q < 2 sqrt(D) < 2S + 2, larger x never match the root of a Q.
+    // With S <= ULONG_MAX / 6, x and y < x fit in 32 bits.
     //
     unsigned long int L;
     //
@@ -231,8 +234,8 @@ struct struct_squfof_racer_t {
     //
     unsigned long int start;
 
-    unsigned long int queue_x[MAX_QUEUE_ALLOC];
-    unsigned long int queue_y[MAX_QUEUE_ALLOC];
+    uint32_t queue_x[MAX_QUEUE_ALLOC];
+    uint32_t queue_y[MAX_QUEUE_ALLOC];
     uint32_t queue_head;
     uint32_t queue_length;
 
@@ -248,6 +251,10 @@ typedef struct struct_squfof_racer_t squfof_racer_t;
 struct struct_squfof_context_t {
     squfof_params_t* params;
     mpz_ptr n;
+    //
+    // n, if 2.k.n fits in an unsigned long for all the multipliers k.
+    //
+    unsigned long int n_ui;
 
     squfof_racer_t racers[NRACERS];
     //
@@ -261,7 +268,7 @@ struct struct_squfof_context_t {
     unsigned long int nsteps;
     //
     // Temporaries: the discriminant of a racer, its square root and the
-    // remainder.
+    // remainder, when 2.k.n does not fit in an unsigned long.
     //
     mpz_t D;
     mpz_t root;
@@ -316,6 +323,9 @@ static bool init_squfof_racer(squfof_racer_t* const racer,
 //-----------------------------------------------------------------------------
 static void next_racer(squfof_context_t* const context,
                        squfof_racer_t* const racer);
+//-----------------------------------------------------------------------------
+inline static unsigned long int gcd_2k(unsigned long int x,
+                                       unsigned long int k);
 //-----------------------------------------------------------------------------
 static int race(squfof_context_t* const context);
 //-----------------------------------------------------------------------------
@@ -471,7 +481,12 @@ static ecode_t init_squfof_context(factoring_machine_t* const machine) {
     context->nracers = 0;
     context->next    = 0;
     context->nsteps  = 0;
+    context->n_ui    = 0;
 
+    if (   mpz_fits_ulong_p(context->n)
+        && (mpz_get_ui(context->n) <= ULONG_MAX / (2 * MAX_MULTIPLIER))) {
+        context->n_ui = mpz_get_ui(context->n);
+    }
     mpz_init(context->D);
     mpz_init(context->root);
     mpz_init(context->rem);
@@ -563,7 +578,7 @@ static ecode_t perform_squfof(factoring_machine_t* const machine) {
         //
         // Step 5: the factor found divides 2.k.n
         //
-        factor /= gcd_ulint(factor, 2 * racer->multiplier);
+        factor /= gcd_2k(factor, racer->multiplier);
 
         if ((factor > 1) && (mpz_cmp_ui(context->n, factor) > 0)) {
             mpz_t factor_z;
@@ -600,14 +615,43 @@ static void set_discriminant(mpz_t D, const mpz_t n,
 }
 //-----------------------------------------------------------------------------
 static unsigned long int floor_sqrt(unsigned long int x) {
+    const unsigned long int rmax = ULONG_MAX >> (4 * sizeof(unsigned long int));
+
     unsigned long int r = (unsigned long int) sqrt((double) x);
+
+    if (r > rmax) {
+        r = rmax;
+    }
     while (r * r > x) {
         r--;
     }
-    while ((r + 1) * (r + 1) <= x) {
+    while ((r < rmax) && ((r + 1) * (r + 1) <= x)) {
         r++;
     }
     return r;
+}
+//-----------------------------------------------------------------------------
+inline static unsigned long int gcd_2k(unsigned long int x,
+                                       unsigned long int k) {
+    //
+    // gcd(x, 2k) for a multiplier k: as 2k is a squarefree product of 2, 3,
+    // 5, 7 and 11, the product of those of its primes that divide x.
+    //
+    unsigned long int d = IS_EVEN(x) ? 2 : 1;
+
+    if ((k % 3 == 0) && (x % 3 == 0)) {
+        d *= 3;
+    }
+    if ((k % 5 == 0) && (x % 5 == 0)) {
+        d *= 5;
+    }
+    if ((k % 7 == 0) && (x % 7 == 0)) {
+        d *= 7;
+    }
+    if ((k % 11 == 0) && (x % 11 == 0)) {
+        d *= 11;
+    }
+    return d;
 }
 //-----------------------------------------------------------------------------
 static bool init_squfof_racer(squfof_racer_t* const racer,
@@ -617,17 +661,33 @@ static bool init_squfof_racer(squfof_racer_t* const racer,
     // Sets up the racer of the given multiplier, unless k.n is a square or
     // too large for single precision.
     //
-    set_discriminant(context->D, context->n, multiplier);
-    mpz_sqrtrem(context->root, context->rem, context->D);
+    unsigned long int S  = 0;
+    unsigned long int Q0 = 0;
 
-    if (   (mpz_cmp_ui(context->root, TIFA_ULONG_MAX_DIVIDED_BY_6) > 0)
-        || (mpz_sgn(context->rem) == 0)) {
+    if (context->n_ui != 0) {
+        unsigned long int D = multiplier * context->n_ui;
+        if ((D & 3) == 1) {
+            D <<= 1;
+        }
+        S  = floor_sqrt(D);
+        Q0 = D - S * S;
+    } else {
+        set_discriminant(context->D, context->n, multiplier);
+        mpz_sqrtrem(context->root, context->rem, context->D);
+
+        if (mpz_cmp_ui(context->root, TIFA_ULONG_MAX_DIVIDED_BY_6) > 0) {
+            return false;
+        }
+        S  = mpz_get_ui(context->root);
+        Q0 = mpz_get_ui(context->rem);
+    }
+    if (Q0 == 0) {
         return false;
     }
     racer->multiplier   = multiplier;
-    racer->S            = mpz_get_ui(context->root);
-    racer->P0           = racer->S;
-    racer->Q0           = mpz_get_ui(context->rem);
+    racer->S            = S;
+    racer->P0           = S;
+    racer->Q0           = Q0;
     racer->P            = racer->P0;
     racer->Q            = racer->Q0;
     racer->QQ           = 1;
@@ -805,25 +865,10 @@ COLD static void enqueue(squfof_racer_t* const racer, unsigned long int P,
                          unsigned long int Q) {
     //
     // Gower and Wagstaff's step 2b), for a Q <= QL: the pair
-    // (g, P mod g) goes to the queue if g = Q / gcd(Q, 2k) <= L. As 2k is
-    // a squarefree product of 2, 3, 5, 7 and 11, gcd(Q, 2k) is the product
-    // of those of its primes that divide Q.
+    // (g, P mod g) goes to the queue if g = Q / gcd(Q, 2k) <= L.
     //
-    unsigned long int k = racer->multiplier;
-    unsigned long int d = IS_EVEN(Q) ? 2 : 1;
+    unsigned long int d = gcd_2k(Q, racer->multiplier);
 
-    if ((k % 3 == 0) && (Q % 3 == 0)) {
-        d *= 3;
-    }
-    if ((k % 5 == 0) && (Q % 5 == 0)) {
-        d *= 5;
-    }
-    if ((k % 7 == 0) && (Q % 7 == 0)) {
-        d *= 7;
-    }
-    if ((k % 11 == 0) && (Q % 11 == 0)) {
-        d *= 11;
-    }
     if ((Q > d * racer->L) || !racer->running) {
         return;
     }
@@ -836,8 +881,8 @@ COLD static void enqueue(squfof_racer_t* const racer, unsigned long int P,
     uint32_t          tail =   (racer->queue_head + racer->queue_length)
                              % MAX_QUEUE_ALLOC;
 
-    racer->queue_x[tail] = g;
-    racer->queue_y[tail] = P % g;
+    racer->queue_x[tail] = (uint32_t) g;
+    racer->queue_y[tail] = (uint32_t) (P % g);
     racer->queue_length++;
 }
 //-----------------------------------------------------------------------------
@@ -890,28 +935,17 @@ static unsigned long int reverse_cycle(squfof_racer_t* const racer,
     // Returns the factor of D given by the proper square form (QQ, P, Q)
     // that the racer just found.
     //
-    mpz_ptr D = context->D;
-
-    set_discriminant(D, context->n, racer->multiplier);
-
     unsigned long int S = racer->S;
-    unsigned long int P = racer->P;
     unsigned long int r = is_square(racer->Q);
+    unsigned long int m = (S - racer->P) / r;
     //
-    // Step 3: Compute an inverse square root of the square form
+    // Step 3: the inverse square root (r, P + m.r, Q) of the square form.
+    // As D = P^2 + r^2.QQ, Q = (D - (P + m.r)^2) / r = QQ.r - m.(2P + m.r),
+    // exact modulo the word size.
     //
     unsigned long int QQ = r;
-    P += r * ((S - P) / r);
-
-    mpz_t t;
-    mpz_init_set_ui(t, P);
-    mpz_mul(t, t, t);
-    mpz_sub(t, D, t);
-    mpz_divexact_ui(t, t, QQ);
-
-    unsigned long int Q = mpz_get_ui(t);
-
-    mpz_clear(t);
+    unsigned long int P  = racer->P + m * r;
+    unsigned long int Q  = racer->QQ * r - m * (2 * racer->P + m * r);
 
     unsigned long int factor = 0;
     //
@@ -930,8 +964,10 @@ static unsigned long int reverse_cycle(squfof_racer_t* const racer,
         //
         // Use the large step algorithm to get closer to the point of symmetry.
         //
+        set_discriminant(context->D, context->n, racer->multiplier);
+
         factor = jump_near_sym_point(&P, &Q, &QQ, racer->P0, racer->Q0, 1,
-                                     S, D, half, context->n);
+                                     S, context->D, half, context->n);
         if (factor == 0) {
             //
             // Step 4: Cycle in _both_ directions to find a factor of N
