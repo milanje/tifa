@@ -18,8 +18,8 @@
 
 /**
  * \file    factor_bench.c
- * \brief   factor-bench: mean time of tifa_factor(), ecm(), p_minus_1() or
- *          p_plus_1() on numbers n = p.q with p of a given size.
+ * \brief   factor-bench: mean time of tifa_factor(), ecm(), p_minus_1(),
+ *          p_plus_1() or squfof() on numbers n = p.q with p of a given size.
  */
 
 #include "bench_utils.h"
@@ -27,18 +27,20 @@
 #include "ecm.h"
 #include "p_minus_1.h"
 #include "p_plus_1.h"
+#include "squfof.h"
 #include "tifa_factor.h"
 
 static void usage(FILE* const out) {
     fprintf(out,
-        "usage: factor-bench [--seed <s>] <factor|ecm|pm1|pp1> <bits> <pbits>\n"
-        "                    [<count> [<seconds>]]\n"
+        "usage: factor-bench [--seed <s>] <factor|ecm|pm1|pp1|squfof> <bits>\n"
+        "                    <pbits> [<count> [<seconds>]]\n"
         "\n"
-        "Times tifa_factor() (a complete factorization), ecm() (some factors),\n"
-        "p_minus_1() or p_plus_1() (a single run) on <count> numbers n = p.q\n"
-        "of <bits> bits, p of <pbits> bits, run again and again for at least\n"
-        "<seconds> of CPU time, and prints the mean time per run. Defaults: 30\n"
-        "numbers, 3 seconds; --seed sets the seed of the numbers (default 1).\n"
+        "Times tifa_factor() (a complete factorization), ecm() or squfof()\n"
+        "(some factors), p_minus_1() or p_plus_1() (a single run) on <count>\n"
+        "numbers n = p.q of <bits> bits, p of <pbits> bits, run again and again\n"
+        "for at least <seconds> of CPU time, and prints the mean time per run\n"
+        "and the number of runs that found no factor. Defaults: 30 numbers,\n"
+        "3 seconds; --seed sets the seed of the numbers (default 1).\n"
     );
 }
 
@@ -68,7 +70,8 @@ int main(int argc, char** argv) {
     double secs = 3.0;
 
     bool ok =    (   (0 == strcmp(algo, "factor")) || (0 == strcmp(algo, "ecm"))
-                  || (0 == strcmp(algo, "pm1")) || (0 == strcmp(algo, "pp1")))
+                  || (0 == strcmp(algo, "pm1")) || (0 == strcmp(algo, "pp1"))
+                  || (0 == strcmp(algo, "squfof")))
               && parse_ulong(argv[i + 1], &bits)
               && parse_ulong(argv[i + 2], &pbits)
               && (pbits >= 2) && (bits >= pbits + 2) && (bits <= 1024);
@@ -94,7 +97,8 @@ int main(int argc, char** argv) {
     mpz_array_t*    const factors = alloc_mpz_array(8);
     uint32_array_t* const multis  = alloc_uint32_array(8);
 
-    unsigned long runs = 0;
+    unsigned long runs  = 0;
+    unsigned long fails = 0;
     const double t0 = cpu_seconds();
     do {
         for (unsigned long k = 0; k < count; k++) {
@@ -112,16 +116,23 @@ int main(int argc, char** argv) {
                 p_plus_1_params_t params;
                 set_p_plus_1_params_to_default(ns[k], &params);
                 p_plus_1(factors, NULL, ns[k], &params, SINGLE_RUN);
+            } else if (0 == strcmp(algo, "squfof")) {
+                squfof_params_t params;
+                set_squfof_params_to_default(&params);
+                squfof(factors, NULL, ns[k], &params, FIND_SOME_FACTORS);
             } else {
                 tifa_factor(factors, multis, ns[k],
                             FIND_COMPLETE_FACTORIZATION);
+            }
+            if (factors->length == 0) {
+                fails++;
             }
             runs++;
         }
     } while (cpu_seconds() - t0 < secs);
 
-    printf("%lu bits: %.2f us per run\n", bits,
-           1e6 * (cpu_seconds() - t0) / (double) runs);
+    printf("%lu bits: %.2f us per run (%lu of %lu runs without a factor)\n",
+           bits, 1e6 * (cpu_seconds() - t0) / (double) runs, fails, runs);
 
     for (unsigned long k = 0; k < count; k++) {
         mpz_clear(ns[k]);
