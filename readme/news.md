@@ -1,5 +1,35 @@
 # TIFA news
 
+## 31 October 2026 &mdash; SQUFOF: the multipliers race together (0.4.1)
+
+`squfof()` cycled through the forms of n (or 2n) alone first and, only when
+that failed, raced 15 multipliers one after the other, 2000 steps each; its
+quotients came from comparisons with 2Q, 3Q, ..., which mispredicted more
+than a division costs. It now divides with the hardware and races 8 of 16
+multipliers (1 and the squarefree divisors of 1155) from the start, their
+forward cycles interleaved in one loop so that their divisions and products
+overlap; the next multiplier takes the place of each racer that stops. At
+the even steps, Q is a square modulo the primes of the multiplier, so the
+squares are now sifted modulo 64, 221 and 437, which 2.5% of the Q pass.
+Below 2^52, a racer's set-up, the inverse square root and the gcd with 2k
+no longer go through GMP.
+
+It factors as many numbers as before, none wrong: balanced and unbalanced
+semiprimes, products of three primes, p^2.q, even and random integers from
+20 to 66 bits; it gives up on primes 15 times sooner. Against 0.4.0 (time
+of the new version over that of 0.4.0, one thread, balanced semiprimes,
+4000 numbers at 24 bits down to 60 at 70 bits):
+
+| `squfof()`, bits | 24 | 32 | 40 | 44 | 50 | 56 | 60 | 64 | 70 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.24 | 0.17 | 0.14 | 0.13 | 0.14 | 0.12 | 0.14 | 0.13 | 0.12 |
+| AMD EPYC 7763 (GitHub runner) | 0.40 | 0.30 | 0.27 | 0.26 | 0.27 | 0.25 | 0.28 | 0.27 | 0.26 |
+
+On 64-bit platforms with 128-bit integers, `tifa_factor()` factors the
+numbers below 2^64 without SQUFOF and is unchanged; elsewhere SQUFOF is its
+algorithm from 27 to 64 bits (58 on 32-bit machines). `factor-bench` has a
+`squfof` mode. No ABI change.
+
 ## 30 October 2026 &mdash; version 0.4.0
 
 Version 0.4.0 gathers the work below since 0.3.4: SIQS keeps its partial
