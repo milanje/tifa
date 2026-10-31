@@ -57,19 +57,12 @@
 // 2p and on factors shared with its multipliers.
 //
 #define TFACTOR_NPRIMES_PRE_TDIV 168
-#if TIFA_WORDSIZE < 64
-    //
-    // Bitsize threshold for SQUFOF on 32 bit machines. On 32 bit machines
-    // TIFA's single precision SQUFOF will start to fail for 59-ish bit
-    // numbers. (Untested for less than 32 bit machines!)
-    //
-    #define TFACTOR_SQUFOF_THRESH 58
-#else
-    //
-    // Bitsize threshold for SQUFOF on 64 bit machines.
-    //
-    #define TFACTOR_SQUFOF_THRESH 64
-#endif
+//
+// Bitsize threshold for SQUFOF (only used without factor_u64), above which
+// SIQS is faster. On 32 bit machines SQUFOF also starts to fail for 59-ish
+// bit numbers.
+//
+#define TFACTOR_SQUFOF_THRESH 58
 //
 // Bitsize from which the p-1 and p+1 pre-stages are tried before SIQS. Below
 // it, a single run of both costs more than about 10% of the SIQS run.
@@ -285,7 +278,14 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
     if (sizen <= TFACTOR_SQUFOF_THRESH) {
         squfof_params_t params;
         set_squfof_params_to_default(&params);
-        return squfof(factors, multis, n, &params, mode);
+        ecode_t ecode = squfof(factors, multis, n, &params, mode);
+        if (   (ecode == (ecode_t) mode_to_outcome[mode])
+            || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
+            return ecode;
+        }
+        //
+        // SQUFOF gave up (rarely): SIQS.
+        //
     }
 #if TIFA_HAVE_MONT_ECM
     if (mont_ecm_handles(n)) {
