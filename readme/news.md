@@ -1,5 +1,41 @@
 # TIFA news
 
+## 31 October 2026 &mdash; `tifa_factor()`: the ECM pre-pass retuned (0.4.1)
+
+Before SIQS, `tifa_factor()` searches n for a factor with ECM, for a
+fraction of the time SIQS would take. It read both times from tables
+measured before the recent speed-ups of ECM and SIQS: SIQS now takes 0.2 to
+0.5 of the time they gave, so the pre-pass meant to cost 5% of SIQS's time
+cost balanced semiprimes 15 to 55% of it at 80 to 120 bits, and the p-1 and
+p+1 pre-stages, tried from 90 bits, added 55 us more. Both tables are
+measured again, and the pre-pass may now take 20% of SIQS's time, the best
+of 5% to 50% on random composites. The p-1 and p+1 pre-stages only run
+where ECM can not (without 128-bit integers, or above 256 bits): for their
+time, ECM finds more.
+
+Time of the new version over that of the previous one, one thread
+(`factor-bench`, which now takes 0 as `<pbits>` for random composites):
+
+| random composites, bits | 90 | 100 | 110 | 120 | 140 | 160 | 180 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.99 | 0.95 | 0.90 | 0.93 | 0.83 | 0.89 | 1.01 |
+| AMD EPYC 7763 (GitHub runner) | 1.00 | 0.96 | 0.90 | 0.94 | 0.82 | 0.88 | 1.01 |
+
+| balanced semiprimes, bits | 80 | 90 | 100 | 110 | 120 | 140 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.85 | 0.81 | 0.89 | 1.01 | 1.06 | 1.03 | 1.07 |
+| AMD EPYC 7763 (GitHub runner) | 0.86 | 0.81 | 0.92 | 1.02 | 1.05 | 1.03 | 1.06 |
+
+| n bits / bits of its smaller factor | 80/22 | 100/22 | 120/26 | 140/30 | 160/35 | 160/40 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 1.68 | 1.23 | 0.38 | 0.09 | 0.17 | 0.13 |
+| AMD EPYC 7763 (GitHub runner) | 1.75 | 1.40 | 0.33 | 0.08 | 0.15 | 0.11 |
+
+Without `factor_u64` (no 128-bit integers), SQUFOF now stops at 58 bits,
+above which SIQS is faster: `tifa_factor()` takes 0.94 of the time at 59
+bits, 0.84 at 60, 0.69 at 62 and 0.60 at 64 (M5). SIQS also takes over if
+SQUFOF gives up. No ABI change.
+
 ## 31 October 2026 &mdash; SQUFOF: the multipliers race together (0.4.1)
 
 `squfof()` cycled through the forms of n (or 2n) alone first and, only when
