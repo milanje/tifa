@@ -46,6 +46,7 @@ static void factor_and_check(const char* label, const mpz_t n) {
 }
 
 // Modes other than FIND_COMPLETE_FACTORIZATION may pass a NULL multis array.
+// An algorithm that splits n completely (SIQS) may say so in any mode.
 static void some_factors_and_check(const char* label, const mpz_t n) {
     mpz_array_t* factors = alloc_mpz_array(8);
 
@@ -53,7 +54,8 @@ static void some_factors_and_check(const char* label, const mpz_t n) {
 
     char msg[160];
     snprintf(msg, sizeof(msg), "%s: rc == SOME_FACTORS_FOUND", label);
-    CHECK(rc == SOME_FACTORS_FOUND, msg);
+    CHECK(   (rc == SOME_FACTORS_FOUND)
+          || (rc == COMPLETE_FACTORIZATION_FOUND), msg);
 
     int ok = (factors->length > 0);
     for (uint32_t i = 0; i < factors->length; i++) {
@@ -143,10 +145,11 @@ int main(void) {
         free_mpz_array(factors);
     }
 
-    // 128 bits, p - 1 is 2000-smooth: found by the p-1 pre-stage
+    // 128 bits, p - 1 is 2000-smooth: found by the p-1 pre-stage without
+    // ECM, by SIQS with it
     mpz_set_str(n, "206010655745875572166197184221848916071", 10);
     factor_and_check("340730379077795843*604614875560711445197 (128 bits)", n);
-    some_factors_and_check("FIND_SOME_FACTORS, p-1 pre-stage (128 bits)", n);
+    some_factors_and_check("FIND_SOME_FACTORS (128 bits)", n);
 
     mpz_set_ui(n, 8051UL);
     some_factors_and_check("FIND_SOME_FACTORS, 8051 = 83*97", n);

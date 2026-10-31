@@ -64,8 +64,9 @@
 //
 #define TFACTOR_SQUFOF_THRESH 58
 //
-// Bitsize from which the p-1 and p+1 pre-stages are tried before SIQS. Below
-// it, a single run of both costs more than about 10% of the SIQS run.
+// Bitsize from which the p-1 and p+1 pre-stages are tried before SIQS, when
+// the ECM pre-pass can not run (it finds their factors for less). Below it, a
+// single run of both costs more than about 10% of the SIQS run.
 //
 #define TFACTOR_PRESTAGE_THRESH 90
 //
@@ -79,10 +80,10 @@
 //
 #define TFACTOR_PP1_B1 2000
 //
-// Fraction of the expected SIQS time the ECM pre-pass may take (balanced
-// semiprimes pay it in vain).
+// Fraction of the expected SIQS time the ECM pre-pass may take. Balanced
+// semiprimes pay it in vain, but random composites gain the most from 0.2.
 //
-#define TFACTOR_ECM_BUDGET 0.05
+#define TFACTOR_ECM_BUDGET 0.2
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -287,19 +288,20 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         // SQUFOF gave up (rarely): SIQS.
         //
     }
+    ecode_t ecode = NO_FACTOR_FOUND;
 #if TIFA_HAVE_MONT_ECM
-    if (mont_ecm_handles(n)) {
-        ecode_t ecode = run_ecm_prepass(factors, multis, n, mode);
-        if (ecode != NO_FACTOR_FOUND) {
-            return ecode;
-        }
+    const bool ecm = mont_ecm_handles(n);
+    if (ecm) {
+        ecode = run_ecm_prepass(factors, multis, n, mode);
     }
+#else
+    const bool ecm = false;
 #endif
-    if (sizen >= TFACTOR_PRESTAGE_THRESH) {
-        ecode_t ecode = run_prestages(factors, multis, n, mode);
-        if (ecode != NO_FACTOR_FOUND) {
-            return ecode;
-        }
+    if (!ecm && (sizen >= TFACTOR_PRESTAGE_THRESH)) {
+        ecode = run_prestages(factors, multis, n, mode);
+    }
+    if (ecode != NO_FACTOR_FOUND) {
+        return ecode;
     }
     siqs_params_t params;
     set_siqs_params_to_default(n, &params);

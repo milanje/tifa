@@ -43,34 +43,35 @@ static const struct {
     uint32_t ncurves;
     double   cost;
 } levels[] = {
-    { 15,    50,  2,    9.0 },
-    { 20,   100,  2,   17.0 },
-    { 25,   200,  3,   31.0 },
-    { 30,   400,  4,   58.0 },
-    { 35,   800,  7,  112.0 },
-    { 40,  1600,  8,  220.0 },
-    { 45,  3200, 10,  410.0 },
-    { 50,  6400, 15,  800.0 },
-    { 55, 12800, 17, 1600.0 },
-    { 60, 25600, 25, 3200.0 }
+    { 15,    50,  2,   11.7 },
+    { 20,   100,  2,   13.5 },
+    { 25,   200,  3,   22.9 },
+    { 30,   400,  4,   41.3 },
+    { 35,   800,  7,   77.4 },
+    { 40,  1600,  8,  152.0 },
+    { 45,  3200, 10,  280.0 },
+    { 50,  6400, 15,  535.0 },
+    { 55, 12800, 17, 1030.0 },
+    { 60, 25600, 25, 2050.0 }
 };
 #define NLEVELS (sizeof(levels) / sizeof(levels[0]))
 //
 // Curve time on n limbs relative to two limbs.
 //
 static const double limb_factor[MONT_ECM_MAX_LIMBS + 1] = {
-    0.0, 0.6, 1.0, 2.0, 3.3
+    0.0, 0.37, 1.0, 1.82, 2.85
 };
 //
-// Time of tifa_factor on a balanced semiprime (us, same machine).
+// Time of SIQS on a balanced semiprime (us, same machine).
 //
 static const struct {
     double bits;
     double cost;
 } siqs_costs[] = {
-    {  64,     200 }, {  72,    320 }, {  80,    480 }, {  90,    740 },
-    { 100,    1400 }, { 110,   2600 }, { 120,   4500 }, { 128,   7300 },
-    { 140,   15000 }, { 160,  60000 }, { 200, 1000000 }
+    {  64,      35 }, {  72,      54 }, {  80,      89 }, {  90,     177 },
+    { 100,     378 }, { 110,     797 }, { 120,    1490 }, { 128,    2880 },
+    { 140,    7240 }, { 160,   30400 }, { 180,  123000 }, { 200,  628000 },
+    { 220, 3300000 }
 };
 #define NSIQS_COSTS (sizeof(siqs_costs) / sizeof(siqs_costs[0]))
 
@@ -112,15 +113,17 @@ static double siqs_cost(const double bits) {
     if (bits <= siqs_costs[0].bits) {
         return siqs_costs[0].cost;
     }
-    for (uint32_t i = 1; i < NSIQS_COSTS; i++) {
-        if (bits <= siqs_costs[i].bits) {
-            const double t = (bits - siqs_costs[i - 1].bits)
-                           / (siqs_costs[i].bits - siqs_costs[i - 1].bits);
-            return exp(  (1 - t) * log(siqs_costs[i - 1].cost)
-                       + t * log(siqs_costs[i].cost));
-        }
+    uint32_t i = 1;
+    while ((i < NSIQS_COSTS - 1) && (bits > siqs_costs[i].bits)) {
+        i++;
     }
-    return siqs_costs[NSIQS_COSTS - 1].cost;
+    //
+    // Log-linear between two sizes, and past the last one.
+    //
+    const double t = (bits - siqs_costs[i - 1].bits)
+                   / (siqs_costs[i].bits - siqs_costs[i - 1].bits);
+    return exp((1 - t) * log(siqs_costs[i - 1].cost)
+               + t * log(siqs_costs[i].cost));
 }
 //------------------------------------------------------------------------------
 bool ecm_schedule_split(mpz_t g, const mpz_t n,
