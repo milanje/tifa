@@ -81,9 +81,11 @@
 #define TFACTOR_PP1_B1 2000
 //
 // Fraction of the expected SIQS time the ECM pre-pass may take. Balanced
-// semiprimes pay it in vain, but random composites gain the most from 0.2.
+// semiprimes pay it in vain, but random composites gain the most from 0.2,
+// and numbers with a factor below a third of their size from 1.
 //
 #define TFACTOR_ECM_BUDGET 0.2
+#define TFACTOR_ECM_BUDGET_UNBALANCED 1.0
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -93,7 +95,8 @@
 static ecode_t add_cofactor(mpz_array_t* const factors,
                             uint32_array_t* const multis,
                             const mpz_t c,
-                            const factoring_mode_t mode) {
+                            const factoring_mode_t mode,
+                            const tifa_factor_hint_t hint) {
     if (mode != FIND_COMPLETE_FACTORIZATION) {
         if (mode != FIND_SOME_PRIME_FACTORS) {
             append_mpz_to_array(factors, c);
@@ -103,7 +106,7 @@ static ecode_t add_cofactor(mpz_array_t* const factors,
     mpz_array_t*    cfactors = alloc_mpz_array(ELONGATION);
     uint32_array_t* cmultis  = alloc_uint32_array(ELONGATION);
 
-    ecode_t ecode = tifa_factor(cfactors, cmultis, c, mode);
+    ecode_t ecode = tifa_factor_with_hint(cfactors, cmultis, c, mode, hint);
 
     if (   (ecode == COMPLETE_FACTORIZATION_FOUND)
         || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
@@ -155,15 +158,15 @@ static void build_ecm_schedule(void) {
 //
 static ecode_t run_ecm_prepass(mpz_array_t* const factors,
                                uint32_array_t* const multis,
-                               const mpz_t n, const factoring_mode_t mode) {
+                               const mpz_t n, const factoring_mode_t mode,
+                               const double budget) {
     pthread_once(&ecm_schedule_once, build_ecm_schedule);
 
     ecode_t ecode = NO_FACTOR_FOUND;
     mpz_t g;
     mpz_init(g);
     if (ecm_schedule_split(g, n, ecm_schedule, 0,
-                           (double) mpz_sizeinbase(n, 2) / 2,
-                           TFACTOR_ECM_BUDGET)) {
+                           (double) mpz_sizeinbase(n, 2) / 2, budget)) {
         mpz_array_t* found = alloc_mpz_array(4);
         append_mpz_to_array(found, g);
         mpz_divexact(g, n, g);
@@ -219,7 +222,8 @@ static ecode_t run_prestages(mpz_array_t* const factors,
 static ecode_t factor_without_small_primes(mpz_array_t* const factors,
                                            uint32_array_t* const multis,
                                            const mpz_t n,
-                                           const factoring_mode_t mode) {
+                                           const factoring_mode_t mode,
+                                           const tifa_factor_hint_t hint) {
     //
     // Perfect powers can be problematic for some algorithms (i.e. SQUFOF), and
     // a congruence of squares never splits a prime power. Note that we can not
@@ -256,7 +260,8 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         if (mode == FIND_COMPLETE_FACTORIZATION) {
             old_length = multis->length;
         }
-        ecode_t ecode = tifa_factor(factors, multis, rootn, mode);
+        ecode_t ecode = tifa_factor_with_hint(factors, multis, rootn, mode,
+                                              hint);
 
         if (mode == FIND_COMPLETE_FACTORIZATION) {
             for (uint32_t i = old_length; i < multis->length; i++) {
@@ -289,15 +294,19 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         //
     }
     ecode_t ecode = NO_FACTOR_FOUND;
+    const bool prepass = (hint != TIFA_FACTOR_BALANCED);
 #if TIFA_HAVE_MONT_ECM
     const bool ecm = mont_ecm_handles(n);
-    if (ecm) {
-        ecode = run_ecm_prepass(factors, multis, n, mode);
+    if (ecm && prepass) {
+        ecode = run_ecm_prepass(factors, multis, n, mode,
+                                (hint == TIFA_FACTOR_UNBALANCED)
+                                    ? TFACTOR_ECM_BUDGET_UNBALANCED
+                                    : TFACTOR_ECM_BUDGET);
     }
 #else
     const bool ecm = false;
 #endif
-    if (!ecm && (sizen >= TFACTOR_PRESTAGE_THRESH)) {
+    if (!ecm && prepass && (sizen >= TFACTOR_PRESTAGE_THRESH)) {
         ecode = run_prestages(factors, multis, n, mode);
     }
     if (ecode != NO_FACTOR_FOUND) {
@@ -347,9 +356,19 @@ static ecode_t factor_with_u64(mpz_array_t* const factors,
 //-----------------------------------------------------------------------------
 ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
                     const mpz_t n, const factoring_mode_t mode) {
+    return tifa_factor_with_hint(factors, multis, n, mode, TIFA_FACTOR_RANDOM);
+}
+//-----------------------------------------------------------------------------
+ecode_t tifa_factor_with_hint(mpz_array_t* const factors,
+                              uint32_array_t* const multis,
+                              const mpz_t n, const factoring_mode_t mode,
+                              const tifa_factor_hint_t hint) {
 
     if (mode > FIND_COMPLETE_FACTORIZATION) {
         return UNKNOWN_FACTORING_MODE;
+    }
+    if (hint > TIFA_FACTOR_UNBALANCED) {
+        return FAILURE;
     }
     if (mpz_cmp_ui(n, 1) <= 0) {
         return NO_FACTOR_FOUND;
@@ -379,7 +398,8 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
     }
     if (ecode == NO_FACTOR_FOUND) {
         if (!tdiv_only && !MPZ_IS_PRIME(n)) {
-            ecode = factor_without_small_primes(factors, multis, n, mode);
+            ecode = factor_without_small_primes(factors, multis, n, mode,
+                                                hint);
         }
     } else {
         //
@@ -400,7 +420,7 @@ ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
             append_uint32_array(multis, tmultis);
         }
         if (composite_left) {
-            ecode = add_cofactor(factors, multis, cofactor, mode);
+            ecode = add_cofactor(factors, multis, cofactor, mode, hint);
         } else {
             ecode = mode_to_outcome[mode];
         }

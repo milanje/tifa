@@ -32,8 +32,8 @@
 
 static void usage(FILE* const out) {
     fprintf(out,
-        "usage: factor-bench [--seed <s>] <factor|ecm|pm1|pp1|squfof> <bits>\n"
-        "                    <pbits> [<count> [<seconds>]]\n"
+        "usage: factor-bench [--seed <s>] <algo> <bits> <pbits>\n"
+        "                    [<count> [<seconds>]]\n"
         "\n"
         "Times tifa_factor() (a complete factorization), ecm() or squfof()\n"
         "(some factors), p_minus_1() or p_plus_1() (a single run) on <count>\n"
@@ -41,7 +41,9 @@ static void usage(FILE* const out) {
         "composites of <bits> bits if <pbits> is 0), run again and again for at\n"
         "least <seconds> of CPU time, and prints the mean time per run and the\n"
         "number of runs that found no factor. Defaults: 30 numbers, 3 seconds;\n"
-        "--seed sets the seed of the numbers (default 1).\n"
+        "--seed sets the seed of the numbers (default 1). <algo> is factor,\n"
+        "factor-balanced, factor-unbalanced (tifa_factor_with_hint()), ecm,\n"
+        "pm1, pp1 or squfof.\n"
     );
 }
 
@@ -70,7 +72,14 @@ int main(int argc, char** argv) {
     unsigned long count = 30;
     double secs = 3.0;
 
-    bool ok =    (   (0 == strcmp(algo, "factor")) || (0 == strcmp(algo, "ecm"))
+    tifa_factor_hint_t hint = TIFA_FACTOR_RANDOM;
+    if (0 == strcmp(algo, "factor-balanced")) {
+        hint = TIFA_FACTOR_BALANCED;
+    } else if (0 == strcmp(algo, "factor-unbalanced")) {
+        hint = TIFA_FACTOR_UNBALANCED;
+    }
+    bool ok =    (   (0 == strcmp(algo, "factor"))
+                  || (hint != TIFA_FACTOR_RANDOM) || (0 == strcmp(algo, "ecm"))
                   || (0 == strcmp(algo, "pm1")) || (0 == strcmp(algo, "pp1"))
                   || (0 == strcmp(algo, "squfof")))
               && parse_ulong(argv[i + 1], &bits)
@@ -128,8 +137,8 @@ int main(int argc, char** argv) {
                 set_squfof_params_to_default(&params);
                 squfof(factors, NULL, ns[k], &params, FIND_SOME_FACTORS);
             } else {
-                tifa_factor(factors, multis, ns[k],
-                            FIND_COMPLETE_FACTORIZATION);
+                tifa_factor_with_hint(factors, multis, ns[k],
+                                      FIND_COMPLETE_FACTORIZATION, hint);
             }
             if (factors->length == 0) {
                 fails++;

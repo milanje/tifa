@@ -22,7 +22,8 @@
 // factorization; we verify the returned factors are all prime and multiply
 // back (with multiplicities) to n. This exercises the size-based dispatch to
 // factor_u64 (trial division / SQUFOF without it) / ECM and p-1 pre-passes /
-// SIQS, including inputs with small factors.
+// SIQS, including inputs with small factors, and with each hint of
+// tifa_factor_with_hint().
 
 #include "tifa_test.h"
 #include "tifa_factor.h"
@@ -40,6 +41,25 @@ static void factor_and_check(const char* label, const mpz_t n) {
     snprintf(msg, sizeof(msg), "%s: factors are prime and multiply back to n",
              label);
     CHECK(tifa_is_complete_factorization(n, factors, multis), msg);
+
+    free_mpz_array(factors);
+    free_uint32_array(multis);
+}
+
+// A hint changes the methods tried, never the factors found.
+static void hinted_and_check(const char* label, const mpz_t n,
+                             const tifa_factor_hint_t hint) {
+    static const char* const names[] = { "random", "balanced", "unbalanced" };
+    mpz_array_t*    factors = alloc_mpz_array(8);
+    uint32_array_t* multis  = alloc_uint32_array(8);
+
+    ecode_t rc = tifa_factor_with_hint(factors, multis, n,
+                                       FIND_COMPLETE_FACTORIZATION, hint);
+    char msg[160];
+    snprintf(msg, sizeof(msg), "%s, %s: complete factorization", label,
+             names[hint]);
+    CHECK(   (rc == COMPLETE_FACTORIZATION_FOUND)
+          && tifa_is_complete_factorization(n, factors, multis), msg);
 
     free_mpz_array(factors);
     free_uint32_array(multis);
@@ -202,6 +222,65 @@ int main(void) {
         free_uint32_array(multis);
     }
     CHECK_EQ_UI(nmisreported, 0, "primes of 20-200 bits: NO_FACTOR_FOUND");
+
+    for (int h = TIFA_FACTOR_RANDOM; h <= TIFA_FACTOR_UNBALANCED; h++) {
+        const tifa_factor_hint_t hint = (tifa_factor_hint_t) h;
+
+        mpz_set_ui(p, 1UL);
+        mpz_mul_2exp(p, p, 49);
+        mpz_nextprime(p, p);
+        mpz_set_ui(n, 1UL);
+        mpz_mul_2exp(n, n, 50);
+        mpz_nextprime(n, n);
+        mpz_mul(n, n, p);
+        hinted_and_check("balanced semiprime (100 bits)", n, hint);
+
+        // What trial division leaves keeps the hint.
+        mpz_mul_ui(n, n, 6UL);
+        hinted_and_check("6 * balanced semiprime (103 bits)", n, hint);
+
+        mpz_set_ui(p, 1UL);
+        mpz_mul_2exp(p, p, 34);
+        mpz_nextprime(p, p);
+        mpz_set_ui(n, 1UL);
+        mpz_mul_2exp(n, n, 85);
+        mpz_nextprime(n, n);
+        mpz_mul(n, n, p);
+        hinted_and_check("35-bit factor (120 bits)", n, hint);
+
+        mpz_set_str(n, "1329231983523305052739811905113505143624013", 10);
+        hinted_and_check("1000003*(2^40+15)^3 (141 bits)", n, hint);
+
+        for (uint32_t bits = 66; bits <= 156; bits += 10) {
+            do {
+                mpz_urandomb(n, state, bits);
+                mpz_setbit(n, bits - 1);
+            } while (mpz_probab_prime_p(n, 25));
+            hinted_and_check("random composite (66-156 bits)", n, hint);
+        }
+        mpz_set_str(n, "206010655745875572166197184221848916071", 10);
+        mpz_array_t* factors = alloc_mpz_array(4);
+        ecode_t rc = tifa_factor_with_hint(factors, NULL, n,
+                                           FIND_SOME_FACTORS, hint);
+        CHECK(   ((rc == SOME_FACTORS_FOUND)
+                  || (rc == COMPLETE_FACTORIZATION_FOUND))
+              && (factors->length > 0)
+              && mpz_divisible_p(n, factors->data[0]),
+              "FIND_SOME_FACTORS with a hint (128 bits)");
+
+        mpz_nextprime(n, n);
+        reset_mpz_array(factors);
+        CHECK(tifa_factor_with_hint(factors, NULL, n, FIND_SOME_FACTORS, hint)
+                  == NO_FACTOR_FOUND, "a prime has no factor, with a hint");
+        free_mpz_array(factors);
+    }
+    mpz_array_t* factors = alloc_mpz_array(4);
+    CHECK(tifa_factor_with_hint(factors, NULL, n, FIND_SOME_FACTORS,
+                                (tifa_factor_hint_t) 3) == FAILURE,
+          "an unknown hint fails");
+    CHECK_EQ_UI(factors->length, 0, "an unknown hint finds nothing");
+    free_mpz_array(factors);
+
     gmp_randclear(state);
 
     mpz_clear(n);

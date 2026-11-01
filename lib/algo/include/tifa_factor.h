@@ -57,10 +57,11 @@ extern "C" {
     * machine-word arithmetic where the compiler supports it (see
     * factor_u64.h). Otherwise, prime factors below 1000 (below 8192 for
     * numbers of at most 26 bits) are found by trial division before any
-    * other algorithm runs. The composites left go to SQUFOF up to 64 bits
-    * (58 on 32-bit machines); above, a short ECM search (see ecm_schedule.h,
-    * up to 256 bits) looks for a medium factor, then, from 90 bits, single
-    * p-1 and p+1 runs, before SIQS.
+    * other algorithm runs. The composites left go to SQUFOF up to 58 bits;
+    * above, a short ECM search (see ecm_schedule.h, up to 256 bits) looks
+    * for a medium factor, or, where it can not run, single p-1 and p+1 runs
+    * from 90 bits, before SIQS. \c tifa_factor_with_hint changes this when
+    * more is known of <tt>n</tt>.
     *
     * \note If the factoring mode used is different from
     * \c FIND_COMPLETE_FACTORIZATION, \c multis is allowed to be a NULL
@@ -85,6 +86,67 @@ TIFA_API ecode_t tifa_factor(
     uint32_array_t* const multis,
     const mpz_t n,
     const factoring_mode_t mode
+);
+
+   /**
+    * \enum tifa_factor_hint_enum
+    * \brief What is known of the number given to \c tifa_factor_with_hint.
+    *
+    * A hint never changes the factors found, only the time taken to find
+    * them. It applies to the prime factors of n above 1000, and is ignored up
+    * to 64 bits (58 without 128-bit integers), where machine words (or
+    * SQUFOF) factor n.
+    */
+enum tifa_factor_hint_enum {
+        /**
+         * Nothing is known: ECM searches for a factor for 20% of the time
+         * SIQS would take, then SIQS runs. This is what \c tifa_factor does.
+         */
+    TIFA_FACTOR_RANDOM = 0,
+        /**
+         * n has two prime factors of about the same size (an RSA modulus):
+         * SIQS runs right away.
+         */
+    TIFA_FACTOR_BALANCED,
+        /**
+         * n has a prime factor of less than about a third of its size: ECM
+         * searches for as long as SIQS would take (up to 256 bits, with
+         * 128-bit integers; otherwise as \c TIFA_FACTOR_RANDOM).
+         */
+    TIFA_FACTOR_UNBALANCED
+};
+   /**
+    * \typedef tifa_factor_hint_t
+    * \brief Equivalent to <tt>enum tifa_factor_hint_enum</tt>.
+    */
+typedef enum tifa_factor_hint_enum tifa_factor_hint_t;
+
+   /**
+    * \brief Integer factorization, given what is known of the number.
+    *
+    * Same as \c tifa_factor, with the methods tried before SIQS chosen
+    * according to <tt>hint</tt>. On numbers of the shape it names, a hint
+    * saves time; on others, it can cost much more (readme/news.md). The
+    * hint carries over to what is left of n after trial division, and to
+    * the root of a perfect power, but the parts of n split by the other
+    * methods are factored as by \c tifa_factor.
+    *
+    * \param[out] factors Pointer to the found factors of <tt>n</tt>.
+    * \param[out] multis Pointer to the multiplicities of the found factors
+    *                    (only computed if \c mode is set to
+    *                     \c FIND_COMPLETE_FACTORIZATION).
+    * \param[in] n The integer to factor.
+    * \param[in] mode The factoring mode to use.
+    * \param[in] hint What is known of <tt>n</tt>.
+    * \return An exit code: \c NO_FACTOR_FOUND if \c n is prime,
+    *         \c FAILURE if \c hint is not a \c tifa_factor_hint_t.
+    */
+TIFA_API ecode_t tifa_factor_with_hint(
+    mpz_array_t* const factors,
+    uint32_array_t* const multis,
+    const mpz_t n,
+    const factoring_mode_t mode,
+    const tifa_factor_hint_t hint
 );
 
 #ifdef __cplusplus

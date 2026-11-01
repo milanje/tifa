@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "tool_utils.h"
 #include "tifa_factor.h"
@@ -37,11 +38,17 @@
 #include "common_funcs.h"
 
 //------------------------------------------------------------------------------
+static const char* const hint_names[] = { "random", "balanced", "unbalanced" };
+//------------------------------------------------------------------------------
 static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "%15s <number_to_factor>\n", program->argv[0]);
+    fprintf(stderr, "%15s [random|balanced|unbalanced] <number_to_factor>\n",
+            program->argv[0]);
     fprintf(stderr, "Or, to be asked for the number:\n");
     fprintf(stderr, "%15s\n\n", program->argv[0]);
+    fprintf(stderr, "balanced: two prime factors of about the same size;\n");
+    fprintf(stderr, "unbalanced: a prime factor below a third of the size;\n");
+    fprintf(stderr, "random (the default): nothing known.\n\n");
     print_exit_statuses();
 }
 //------------------------------------------------------------------------------
@@ -49,6 +56,8 @@ static void process_args(factoring_program_t* const program) {
 
     int    argc = program->argc;
     char** argv = program->argv;
+
+    tifa_factor_hint_t* hint = (tifa_factor_hint_t*) program->params;
 
     print_hello_msg(program->algo_name);
 
@@ -80,6 +89,28 @@ static void process_args(factoring_program_t* const program) {
         mpz_init_set_str(program->n, argv[1], 10);
         break;
 
+    case 3: {
+        bool known = false;
+        for (int i = TIFA_FACTOR_RANDOM; i <= TIFA_FACTOR_UNBALANCED; i++) {
+            if (0 == strcmp(argv[1], hint_names[i])) {
+                *hint = (tifa_factor_hint_t) i;
+                known = true;
+            }
+        }
+        if (!known) {
+            fprintf(stderr, "Unknown hint: %s\n", argv[1]);
+            print_usage(program);
+            exit(TIFA_EXIT_USAGE);
+        }
+        if (!is_a_number(argv[2], MAX_NDIGITS)) {
+            PRINT_NAN_ERROR(argv[2]);
+            print_usage(program);
+            exit(TIFA_EXIT_USAGE);
+        }
+        mpz_init_set_str(program->n, argv[2], 10);
+        break;
+    }
+
     default:
         PRINT_BAD_ARGC_ERROR();
         print_usage(program);
@@ -94,21 +125,23 @@ static void set_params_to_default(factoring_program_t* const program,
 }
 //------------------------------------------------------------------------------
 static void print_params(factoring_program_t* const program) {
-    (void) program;
-    printf("\tnone: tifa_factor chooses the methods and their parameters\n");
+    const tifa_factor_hint_t hint = *(tifa_factor_hint_t*) program->params;
+    printf("\thint: %s (tifa_factor chooses the methods and their parameters)\n",
+           hint_names[hint]);
 }
 //------------------------------------------------------------------------------
 static ecode_t tifa_factor_func(mpz_array_t* const factors,
                                 uint32_array_t* const multis, const mpz_t n,
                                 const void* const params,
                                 factoring_mode_t mode) {
-    (void) params;
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_with_hint(factors, multis, n, mode,
+                                 *(const tifa_factor_hint_t*) params);
 }
 //------------------------------------------------------------------------------
 int main(int argc, char** argv) {
 
     factoring_program_t program;
+    tifa_factor_hint_t  hint = TIFA_FACTOR_RANDOM;
 
     program.argc = argc;
     program.argv = argv;
@@ -117,7 +150,7 @@ int main(int argc, char** argv) {
     program.timing  = false;
 
     program.algo_name = "tifa_factor()";
-    program.params    = NULL;
+    program.params    = &hint;
     program.mode      = FIND_COMPLETE_FACTORIZATION;
     program.nfactors  = 2;
 

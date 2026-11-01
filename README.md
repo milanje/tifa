@@ -85,8 +85,11 @@ changes.
 
 - `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
   methods by size: machine-word arithmetic below 2^64; above, trial division by
-  the primes below 1000, a short ECM search, single p-1 and p+1 runs from 90
-  bits, then SIQS.
+  the primes below 1000, a short ECM search (single p-1 and p+1 runs without
+  128-bit integers), then SIQS.
+  `tifa_factor_with_hint()` does the same, told what is known of the number:
+  two prime factors of about the same size (SIQS runs right away), or one
+  below a third of its size (ECM searches for longer).
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).
@@ -140,10 +143,12 @@ The build produces both a static (`libtifa.a`) and a shared (`libtifa.so` /
 `libtifa.dylib`) library, plus the command-line factorization programs and the
 `tifa-tune` parameter-tuning tool (see [Parameter tuning](#parameter-tuning)
 below). `tifa-factor` factors a number with the methods the `tifa_factor()`
-function chooses:
+function chooses, given a hint (`random`, the default, `balanced` or
+`unbalanced`) if there is one:
 
 ```sh
 ./build/tools/tifa-factor 19409887069306060631113
+./build/tools/tifa-factor balanced 206010655745875572166197184221848916071
 ```
 
 The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
@@ -295,10 +300,11 @@ built with `-DTIFA_BUILD_BENCH=ON` (they are never installed):
   again and again for at least `<seconds>` of CPU time. Its options scale or
   shift the default parameters: `--fb-mul`, `--hw-mul`, `--threshold-delta`,
   `--large-primes`, `--nrelations`.
-- `factor-bench <factor|ecm|pm1|pp1|squfof> <bits> <pbits> [<count>
-  [<seconds>]]` times `tifa_factor()`, ECM, p-1, p+1 or SQUFOF on numbers
-  n = p.q, p of `<pbits>` bits (random composites if `<pbits>` is 0), and
-  counts the runs that found no factor.
+- `factor-bench <algo> <bits> <pbits> [<count> [<seconds>]]` times
+  `tifa_factor()` (`factor`, or `factor-balanced` and `factor-unbalanced`
+  with a hint), ECM (`ecm`), p-1 (`pm1`), p+1 (`pp1`) or SQUFOF (`squfof`) on
+  numbers n = p.q, p of `<pbits>` bits (random composites if `<pbits>` is 0),
+  and counts the runs that found no factor.
 - `siqs-check <lo> <hi> <count>` factors semiprimes of random sizes with SIQS
   and counts the incomplete and wrong results; the test suite runs it from 50
   to 120 bits.
