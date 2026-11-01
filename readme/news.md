@@ -1,5 +1,50 @@
 # TIFA news
 
+## 1 November 2026 &mdash; `tifa_factor_with_hint()`: what is known of n (0.4.1)
+
+`tifa_factor_with_hint()` is `tifa_factor()` told what is known of the
+number to factor:
+
+- `TIFA_FACTOR_BALANCED`: two prime factors of about the same size. SIQS
+  runs right away, without the ECM search that such numbers pay in vain (or,
+  without 128-bit integers, the p-1 and p+1 runs).
+- `TIFA_FACTOR_UNBALANCED`: a prime factor below about a third of the size
+  of the number. ECM searches for as long as SIQS would take, instead of 20%
+  of that time.
+- `TIFA_FACTOR_RANDOM`: nothing is known. This is `tifa_factor()`, unchanged.
+
+A hint never changes the factors found, only the time taken. It carries over
+to what trial division leaves and to the root of a perfect power, not to the
+parts of a split, and is ignored up to 64 bits (58 without 128-bit
+integers). `tifa-factor` takes it as an optional first argument (`random`,
+`balanced` or `unbalanced`), `factor-bench` as the algorithms
+`factor-balanced` and `factor-unbalanced`.
+
+Time with the hint over that without, one thread:
+
+| `BALANCED`, balanced semiprimes, bits | 80 | 90 | 100 | 110 | 120 | 128 | 140 | 160 | 180 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.90 | 0.83 | 0.86 | 0.86 | 0.84 | 0.91 | 0.92 | 0.89 | 0.84 |
+| AMD EPYC 9V74 (GitHub runner) | 0.93 | 0.85 | 0.87 | 0.87 | 0.86 | 0.90 | 0.92 | 0.91 | 0.87 |
+
+| `UNBALANCED`, n bits / bits of its smaller factor | 100/26 | 100/30 | 120/30 | 120/35 | 120/40 | 140/35 | 140/40 | 140/45 | 160/45 | 160/50 | 180/50 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.33 | 0.56 | 0.42 | 0.57 | 0.85 | 0.37 | 0.55 | 0.69 | 0.30 | 0.41 | 0.42 |
+| AMD EPYC 9V74 (GitHub runner) | 0.29 | 0.52 | 0.40 | 0.56 | 0.85 | 0.36 | 0.54 | 0.68 | 0.26 | 0.37 | 0.34 |
+
+Factors that the shorter search already finds (160/30) take the same time.
+On other numbers, a hint can cost more than it saves on the right ones:
+
+| hint, numbers | Apple M5 Pro | AMD EPYC 9V74 |
+|---|---:|---:|
+| `BALANCED`, random composites of 100, 120, 140, 160 bits | 2.47, 3.64, 4.47, 4.60 | 2.59, 3.80, 4.61, 4.78 |
+| `UNBALANCED`, balanced semiprimes of 80 to 180 bits | 1.18 to 1.58 | 1.17 to 1.58 |
+| `UNBALANCED`, 100/40, 120/45, 140/50 (a factor above a third of n's size) | 1.41, 1.15, 1.20 | 1.33, 1.15, 1.17 |
+| `UNBALANCED`, random composites of 100, 120, 140, 160 bits | 0.98, 0.91, 1.13, 0.82 | 0.95, 0.91, 1.12, 0.79 |
+
+`tifa_factor()` takes the same time as before (0.99 to 1.01). The ABI only
+grows, by `tifa_factor_with_hint()`.
+
 ## 31 October 2026 &mdash; `tifa_factor()`: the ECM pre-pass retuned (0.4.1)
 
 Before SIQS, `tifa_factor()` searches n for a factor with ECM, for a
