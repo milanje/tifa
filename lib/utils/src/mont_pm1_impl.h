@@ -215,8 +215,16 @@ FN(lucas_stage2_body)(uint64_t* const acc, const uint64_t* const q,
     } else {
         FN(lucas_ladder)(gprev, gcur, vd, plan->m_first - 1, m);
     }
-    for (int j = 0; j < NL; j++) {
-        acc[j] = m->one[j];
+    //
+    // Four products side by side (one with check): a single one is a chain
+    // of dependent multiplications, and four in turn in a loop still ran
+    // one after the other.
+    //
+    uint64_t a[4][NL];
+    for (int c = 0; c < 4; c++) {
+        for (int j = 0; j < NL; j++) {
+            a[c][j] = m->one[j];
+        }
     }
     for (uint32_t k = 0; k < plan->nm; k++) {
         if (k > 0) {
@@ -227,15 +235,33 @@ FN(lucas_stage2_body)(uint64_t* const acc, const uint64_t* const q,
                 gcur[j]  = next[j];
             }
         }
-        for (uint32_t i = plan->offsets[k]; i < plan->offsets[k + 1]; i++) {
+        uint32_t i = plan->offsets[k];
+        if (!check) {
+            for (; i + 4 <= plan->offsets[k + 1]; i += 4) {
+                uint64_t t4[4][NL];
+                for (int c = 0; c < 4; c++) {
+                    FN(sub)(t4[c], gcur, baby[plan->pairs[i + c]], m);
+                }
+                for (int c = 0; c < 4; c++) {
+                    FN(mul_inline)(a[c], a[c], t4[c], m);
+                }
+            }
+        }
+        for (; i < plan->offsets[k + 1]; i++) {
             FN(sub)(t, gcur, baby[plan->pairs[i]], m);
-            FN(mul)(acc, acc, t, m);
-            if (check && (limbs_gcd(g, acc, NL, n) != 0)) {
+            FN(mul)(a[0], a[0], t, m);
+            if (check && (limbs_gcd(g, a[0], NL, n) != 0)) {
+                for (int j = 0; j < NL; j++) {
+                    acc[j] = a[0][j];
+                }
                 free(baby);
                 return;
             }
         }
     }
+    FN(mul)(a[0], a[0], a[1], m);
+    FN(mul)(a[2], a[2], a[3], m);
+    FN(mul)(acc, a[0], a[2], m);
     free(baby);
 }
 

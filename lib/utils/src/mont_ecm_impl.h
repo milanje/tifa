@@ -109,16 +109,16 @@ static inline void FN(sub)(uint64_t* const r, const uint64_t* const a,
         t[j]   = (uint64_t) d;
         borrow = (d >> 64) & 1;
     }
-    if (borrow) {
-        u128 c = 0;
-        for (int j = 0; j < NL; j++) {
-            c += (u128) t[j] + m->n[j];
-            t[j] = (uint64_t) c;
-            c >>= 64;
-        }
-    }
+    //
+    // n added under a mask, not a branch: whether a - b < 0 is random, and
+    // each mispredicted branch stalled the products around it.
+    //
+    const uint64_t mask = -(uint64_t) borrow;
+    u128 c = 0;
     for (int j = 0; j < NL; j++) {
-        r[j] = t[j];
+        c += (u128) t[j] + (m->n[j] & mask);
+        r[j] = (uint64_t) c;
+        c >>= 64;
     }
 }
 
@@ -372,17 +372,16 @@ FN(stage2_body)(uint64_t* const acc, const FN(pt_t)* const p,
         FN(ladder)(&gcur, &dp, plan->m_first, a24, m);
     }
     //
-    // Four products in turn (one with check): a single one would be a chain
-    // of dependent multiplications.
+    // Four products side by side (one with check): a single one is a chain
+    // of dependent multiplications, and four in turn in a loop still ran
+    // one after the other.
     //
-    const uint32_t mask = check ? 0 : 3;
     uint64_t t[NL], a[4][NL];
     for (int c = 0; c < 4; c++) {
         for (int j = 0; j < NL; j++) {
             a[c][j] = m->one[j];
         }
     }
-    uint32_t c = 0;
     bool ok = true;
     for (uint32_t k0 = 0; ok && (k0 < plan->nm); k0 += blk) {
         const uint32_t cnt = (plan->nm - k0 < blk) ? plan->nm - k0 : blk;
@@ -403,19 +402,29 @@ FN(stage2_body)(uint64_t* const acc, const FN(pt_t)* const p,
                        : FN(normalize)(xs + nb, pts + nb, cnt, m, g, n);
         for (uint32_t i = 0; ok && (i < cnt); i++) {
             const uint32_t k = k0 + i;
-            for (uint32_t q = plan->offsets[k]; q < plan->offsets[k + 1];
-                 q++) {
+            uint32_t q = plan->offsets[k];
+            if (!check) {
+                for (; q + 4 <= plan->offsets[k + 1]; q += 4) {
+                    uint64_t t4[4][NL];
+                    for (int c = 0; c < 4; c++) {
+                        FN(sub)(t4[c], xs[nb + i], xs[plan->pairs[q + c]], m);
+                    }
+                    for (int c = 0; c < 4; c++) {
+                        FN(mul_inline)(a[c], a[c], t4[c], m);
+                    }
+                }
+            }
+            for (; q < plan->offsets[k + 1]; q++) {
                 FN(sub)(t, xs[nb + i], xs[plan->pairs[q]], m);
-                FN(mul)(a[c], a[c], t, m);
-                if (check && (limbs_gcd(g, a[c], NL, n) != 0)) {
+                FN(mul)(a[0], a[0], t, m);
+                if (check && (limbs_gcd(g, a[0], NL, n) != 0)) {
                     for (int j = 0; j < NL; j++) {
-                        acc[j] = a[c][j];
+                        acc[j] = a[0][j];
                     }
                     free(xs);
                     free(pts);
                     return true;
                 }
-                c = (c + 1) & mask;
             }
         }
     }
