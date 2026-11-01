@@ -58,6 +58,18 @@ Here are some short term objectives:
         but 1 or 2 more or less were slower at 70, 90 and 110 bits, and
         from 120 to 180 bits. A 128-bit binary gcd of the cofactors was
         twice slower than GMP's.
+      - Trial division of every candidate instead of the batch test
+        (1 November 2026) keeps the same relations but was slower: 1.06 at
+        110 bits, 1.11 at 120, 1.24 at 140 and 160, 1.27 to 1.28 at 180 and
+        200. Unlike the relations, the candidates that are not smooth go
+        through the whole factor base: 470 ns per candidate at 160 bits
+        (1.6 cycles per prime, 28000 candidates per run) against 212 ns for
+        the batch test. Testing them against the roots of their polynomial
+        instead, four primes per NEON vector, took 65 to 80 ns per candidate
+        at 120 bits (batch test: 112) and 185 to 195 at 160 (212), before
+        dividing out the primes found, the small primes not sieved and
+        those of 'a' (about 30 ns): not enough to pay for testing during
+        the sieve and for an x86 path.
       - The setup of each run: the square roots modulo the primes of the
         base (3% at 70 bits: four at a time measured 1.5 times faster, on
         half of the primes only), the first 'a' (3%), the multiplier (2%,
