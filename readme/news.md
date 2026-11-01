@@ -1,5 +1,64 @@
 # TIFA news
 
+## 1 November 2026 &mdash; p-1, p+1 and ECM: products side by side (0.4.1)
+
+The Montgomery kernels of p-1, p+1 and ECM (one to four limbs, up to 256
+bits) still left some of their products waiting on one another:
+
+- The stage 2 of p-1 and p+1 multiplied every pair of primes into a single
+  product, a chain of dependent multiplications; ECM's took four products
+  in turn in a loop, which still ran nearly one after the other. Both now
+  take the pairs four at a time, the four products side by side.
+- The modular subtraction added n back behind a branch on its borrow,
+  which is random: it now adds n under a mask.
+- A step of p+1's stage 1 multiplied, then squared, across a branch on a
+  bit of the exponent: two independent products that did not overlap. They
+  are now side by side, as in ECM's ladder step.
+
+The same factors are found (25920 runs of p-1, p+1 and ECM on six pairs of
+bounds, 20 to 256 bits, hashed). Time of the new version over that of the
+previous one, one thread (`factor-bench`; p-1 and p+1 with their default
+bounds on balanced semiprimes, ECM with its default bounds on n = p.q):
+
+| p-1, bits | 64 | 100 | 160 | 220 |
+|---|---:|---:|---:|---:|
+| Apple M5 Pro | 0.92 | 0.89 | 0.96 | 0.97 |
+| AMD EPYC 7763 (GitHub runner) | 0.98 | 0.96 | 0.98 | 0.99 |
+
+| p+1, bits | 64 | 100 | 160 | 220 |
+|---|---:|---:|---:|---:|
+| Apple M5 Pro | 0.88 | 0.86 | 0.75 | 0.79 |
+| AMD EPYC 7763 (GitHub runner) | 0.76 | 0.79 | 0.68 | 0.76 |
+
+| ECM, n bits / p bits | 90/25 | 100/30 | 120/35 | 128/40 | 160/40 | 200/50 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 1.00 | 0.95 | 0.97 | 0.97 | 0.95 | 0.95 |
+| AMD EPYC 7763 (GitHub runner) | 0.92 | 0.91 | 0.91 | 0.94 | 0.92 | 0.95 |
+
+Every search for a factor with ECM, in `tifa_factor()` and
+`tifa_cofactor()`, starts with a p-1 run (B1 = 315, B2 = 15750) whose time
+is not counted in its budget; it now takes 0.60 of its time on one limb and
+0.85 on two (M5). `tifa_factor()`:
+
+| `tifa_factor()`, random composites, bits | 70 | 80 | 90 | 100 | 120 | 140 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.95 | 0.94 | 0.95 | 0.97 | 0.98 | 0.99 |
+| AMD EPYC 7763 (GitHub runner) | 0.99 | 0.99 | 0.98 | 0.98 | 0.98 | 0.99 |
+
+| `tifa_factor()`, balanced semiprimes, bits | 72 | 80 | 90 | 100 | 128 |
+|---|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.96 | 0.98 | 0.98 | 0.99 | 1.00 |
+| AMD EPYC 7763 (GitHub runner) | 0.98 | 0.99 | 0.99 | 1.00 | 0.99 |
+
+and 0.92 to 0.98 on numbers with a factor of 30 to 40 bits (120/30,
+160/40, and 140/40 with `TIFA_FACTOR_UNBALANCED`).
+
+A dedicated Montgomery squaring was tried as well (SOS: each cross product
+once, doubled, then the reduction). Only p-1's stage 1 on three and four
+limbs gained (`p_minus_1()` took 0.91 of its time at 160 bits, 0.94 at
+220); on two limbs it lost 6%, and ECM up to 7% on four. It was left out.
+No ABI change.
+
 ## 1 November 2026 &mdash; `tifa_factor_with_hint()`: what is known of n (0.4.1)
 
 `tifa_factor_with_hint()` is `tifa_factor()` told what is known of the
