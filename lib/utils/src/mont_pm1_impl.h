@@ -50,6 +50,22 @@ static void FN(pm1_stage1)(uint64_t* const x, const uint64_t* const base,
 }
 
 //
+// (r, s) <- (V_{2i}, V_{2i+1}) from (V_i, V_{i+1}), with p = V_1:
+// V_{2i} = V_i^2 - 2 and V_{2i+1} = V_i.V_{i+1} - p. The two products are
+// independent, and side by side: as one after the other, across a branch
+// on a random bit, they did not overlap.
+//
+static inline __attribute__((always_inline)) void
+FN(lucas_step)(uint64_t* const r, uint64_t* const s, const uint64_t* const p,
+               const uint64_t* const two, const mod_t* const m) {
+    uint64_t t[NL];
+    FN(mul_inline)(t, r, s, m);
+    FN(mul_inline)(r, r, r, m);
+    FN(sub)(s, t, p, m);
+    FN(sub)(r, r, two, m);
+}
+
+//
 // (v0, v1) <- (V_k(p), V_{k+1}(p)) for k >= 1, where V is the Lucas
 // sequence V_0 = 2, V_1 = p, V_{i+1} = p.V_i - V_{i-1}.
 //
@@ -66,32 +82,21 @@ static void FN(lucas_ladder)(uint64_t* const v0, uint64_t* const v1,
     FN(sub)(v1, v1, two, m);
 
     for (int b = 62 - __builtin_clzll(k); b >= 0; b--) {
-        uint64_t t[NL];
-        FN(mul)(t, v0, v1, m);
-        FN(sub)(t, t, p, m);
         if ((k >> b) & 1) {
-            for (int j = 0; j < NL; j++) {
-                v0[j] = t[j];
-            }
-            FN(mul)(v1, v1, v1, m);
-            FN(sub)(v1, v1, two, m);
+            FN(lucas_step)(v1, v0, p, two, m);
         } else {
-            for (int j = 0; j < NL; j++) {
-                v1[j] = t[j];
-            }
-            FN(mul)(v0, v0, v0, m);
-            FN(sub)(v0, v0, two, m);
+            FN(lucas_step)(v0, v1, p, two, m);
         }
     }
 }
 
 //
-// v <- V_E(p): V_{2k} = V_k^2 - 2, V_{2k+1} = V_k.V_{k+1} - p.
+// v <- V_E(p).
 //
 static void FN(pp1_stage1)(uint64_t* const v, const uint64_t* const p,
                            const mont_ecm_plan_t* const plan,
                            const mod_t* const m) {
-    uint64_t two[NL], v1[NL], t[NL];
+    uint64_t two[NL], v1[NL];
     FN(add)(two, m->one, m->one, m);
 
     for (int j = 0; j < NL; j++) {
@@ -101,20 +106,10 @@ static void FN(pp1_stage1)(uint64_t* const v, const uint64_t* const p,
     FN(sub)(v1, v1, two, m);
 
     for (long i = (long) plan->ebits - 2; i >= 0; i--) {
-        FN(mul)(t, v, v1, m);
-        FN(sub)(t, t, p, m);
         if (E_BIT(plan, i)) {
-            for (int j = 0; j < NL; j++) {
-                v[j] = t[j];
-            }
-            FN(mul)(v1, v1, v1, m);
-            FN(sub)(v1, v1, two, m);
+            FN(lucas_step)(v1, v, p, two, m);
         } else {
-            for (int j = 0; j < NL; j++) {
-                v1[j] = t[j];
-            }
-            FN(mul)(v, v, v, m);
-            FN(sub)(v, v, two, m);
+            FN(lucas_step)(v, v1, p, two, m);
         }
     }
 }
