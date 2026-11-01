@@ -21,6 +21,14 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
+Version 0.4.1 (November 2026) makes SQUFOF 4 to 8 times faster on an Apple
+M5 Pro (2.5 to 4 times on x86-64, an EPYC 7763, Zen 3) and p+1 12% to 32%
+faster; `tifa_factor()` is 5% to 19% faster on random composites from 100 to
+160 bits, and 3 to 10 times faster on numbers with a factor of 26 to 40 bits
+from 120 to 160 bits. The new `tifa_factor_with_hint()` takes what is known
+of the number to factor (two factors of about the same size, or a small
+one). The ABI only grows: the shared library is still `libtifa.so.0.4`.
+
 Version 0.4.0 (October 2026) makes ECM 19% to 33% faster on an Apple M5 Pro
 and 9% to 19% on x86-64 (an EPYC 7763, Zen 3), and SIQS 10% to 14% faster
 from 110 to 130 bits on the M5 (7% to 11% on x86-64) and 3% to 9% above;

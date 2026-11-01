@@ -1,5 +1,59 @@
 # TIFA news
 
+## 1 November 2026 &mdash; version 0.4.1
+
+Version 0.4.1 gathers the work below since 0.4.0: SQUFOF races its
+multipliers together; `tifa_factor()` searches with ECM before SIQS from
+re-measured costs, and `tifa_factor_with_hint()` takes what is known of n;
+the products of p-1, p+1 and ECM run side by side. The ABI only grows, by
+`tifa_factor_with_hint()`: the shared library is still `libtifa.so.0.4`.
+Against 0.4.0 (time of 0.4.1 over that of 0.4.0, one thread,
+`factor-bench` of 0.4.1 built against each library), on an Apple M5 Pro and
+on GitHub's x86-64 runner (an EPYC 7763, Zen 3):
+
+| `tifa_factor()`, random composites, bits | 70 | 80 | 90 | 100 | 110 | 120 | 140 | 160 | 180 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.96 | 0.95 | 0.95 | 0.92 | 0.88 | 0.92 | 0.82 | 0.88 | 1.00 |
+| EPYC 7763 | 0.99 | 1.00 | 0.99 | 0.95 | 0.88 | 0.92 | 0.82 | 0.87 | 1.00 |
+
+| `tifa_factor()`, balanced semiprimes, bits | 72 | 80 | 90 | 100 | 110 | 120 | 128 | 140 | 160 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.96 | 0.82 | 0.79 | 0.89 | 1.00 | 1.05 | 1.03 | 1.03 | 1.06 |
+| EPYC 7763 | 0.99 | 0.85 | 0.81 | 0.90 | 0.99 | 1.03 | 1.04 | 1.01 | 1.03 |
+| M5 Pro, `BALANCED` | | 0.77 | | 0.77 | | 0.90 | 0.94 | | 0.95 |
+| EPYC 7763, `BALANCED` | | 0.80 | | 0.80 | | 0.94 | 0.95 | | 0.98 |
+
+| `tifa_factor()`, n bits / bits of its smaller factor | 80/22 | 100/22 | 120/26 | 140/30 | 160/35 | 160/40 |
+|---|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 1.61 | 1.22 | 0.30 | 0.18 | 0.16 | 0.13 |
+| EPYC 7763 | 1.73 | 1.33 | 0.24 | 0.16 | 0.14 | 0.10 |
+
+| `UNBALANCED`, n bits / bits of its smaller factor | 100/30 | 120/35 | 140/40 | 160/45 |
+|---|---:|---:|---:|---:|
+| M5 Pro | 0.44 | 0.38 | 0.52 | 0.19 |
+| EPYC 7763 | 0.38 | 0.34 | 0.50 | 0.15 |
+
+| `squfof()`, bits | 24 | 32 | 40 | 50 | 56 | 60 | 64 | 70 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.25 | 0.17 | 0.14 | 0.14 | 0.12 | 0.14 | 0.13 | 0.12 |
+| EPYC 7763 | 0.40 | 0.31 | 0.27 | 0.28 | 0.25 | 0.29 | 0.27 | 0.26 |
+
+| p-1 / p+1, bits | 64 | 100 | 160 | 220 |
+|---|---:|---:|---:|---:|
+| M5 Pro | 0.92 / 0.88 | 0.89 / 0.88 | 0.96 / 0.75 | 0.96 / 0.78 |
+| EPYC 7763 | 0.99 / 0.77 | 0.97 / 0.78 | 0.98 / 0.68 | 0.99 / 0.76 |
+
+| `ecm()`, n bits / p bits | 90/25 | 100/30 | 120/35 | 128/40 | 160/40 | 200/50 |
+|---|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.98 | 0.95 | 0.97 | 0.97 | 0.96 | 0.95 |
+| EPYC 7763 | 0.93 | 0.92 | 0.92 | 0.95 | 0.93 | 0.95 |
+
+The `BALANCED` and `UNBALANCED` rows compare 0.4.1's
+`tifa_factor_with_hint()` with 0.4.0's `tifa_factor()`. Balanced
+semiprimes from 120 to 160 bits, and small factors of 80- to 100-bit
+numbers, are slower with `tifa_factor()`: its search before SIQS now favours
+random composites, and `TIFA_FACTOR_BALANCED` skips it.
+
 ## 1 November 2026 &mdash; p-1, p+1 and ECM: products side by side (0.4.1)
 
 The Montgomery kernels of p-1, p+1 and ECM (one to four limbs, up to 256
