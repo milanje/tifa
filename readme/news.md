@@ -1,5 +1,34 @@
 # TIFA news
 
+## 2 November 2026 &mdash; `tifa_factor()`: the first ECM level from 74 bits (0.4.2)
+
+Before SIQS, `tifa_factor()` runs ECM level by level, each level whole, as
+long as it fits in 20% of the time SIQS would take. From 74 to 83 bits the
+first level (two curves) did not fit, so p-1 ran alone: an 80-bit number
+with a 22-bit factor took 1.66 times as long as with 0.4.0, which ran these
+two curves. The first level now runs whole as soon as one of its curves
+fits, as 0.4.0 did from 75 bits. Balanced semiprimes of these sizes pay
+for it: from 76 bits they still take 0.96 to 0.99 of their time with 0.4.0
+on the M5, but 1.24 at 74 bits, where 0.4.0 did not run these curves yet.
+Random composites, other sizes, `tifa_factor_with_hint()` and
+`tifa_cofactor()` are unchanged.
+
+Time of the new version over that of the previous one, one thread:
+
+| n bits / bits of its smaller factor | 74/20 | 76/20 | 80/22 | 80/26 | 82/24 | 84/24 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.54 | 0.54 | 0.56 | 0.86 | 0.73 | 1.00 |
+| AMD EPYC 7763 (GitHub runner) | 0.50 | 0.49 | 0.51 | 0.83 | 0.69 | 1.00 |
+
+| balanced semiprimes, bits | 72 | 74 | 76 | 80 | 82 | 84 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 1.00 | 1.28 | 1.24 | 1.19 | 1.18 | 1.00 |
+| AMD EPYC 7763 (GitHub runner) | 1.00 | 1.24 | 1.22 | 1.17 | 1.15 | 1.00 |
+
+The slowdown given for 0.4.1 on 100-bit numbers with a 22-bit factor (1.22
+over 0.4.0) was the luck of 60 numbers: on 400, 0.4.1 takes 0.97 of 0.4.0's
+time, the few that reach SIQS making most of it. No ABI change.
+
 ## 1 November 2026 &mdash; version 0.4.1
 
 Version 0.4.1 gathers the work below since 0.4.0: SQUFOF races its
