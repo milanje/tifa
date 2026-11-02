@@ -177,6 +177,21 @@ static uint32_t log2_sieve_chunk_size(void)
 // Bytes past the end of the sieve array, for sieve_primes.
 //
 #define SIEVE_SLACK 64
+#if defined(__SSE2__)
+#include <emmintrin.h>
+#define SIEVE_WITH_GROUPS 1
+//
+// From SIEVE_GROUPS_MIN_PRIME, the primes are sieved by sieve_primes_groups
+// on x86-64: they hit a chunk a few times each, and the bookkeeping of their
+// roots costs more than their hits in sieve_primes. With SSE2 groups of
+// eight, SIQS took 0.66 to 0.84 of the time from 160 to 220 bits (EPYC 7763,
+// 9V74 and 9V45), 3% to 8% less than with sieve_primes alone. NEON groups were
+// slower on an M5, whose sieve_primes takes about a cycle per hit.
+//
+#define SIEVE_GROUPS_MIN_PRIME 8192
+#else
+#define SIEVE_WITH_GROUPS 0
+#endif
 //-----------------------------------------------------------------------------
 siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const factor_base,
@@ -279,6 +294,14 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         sieve->nprimes_no_buckets = first_bucket_prime;
     }
 
+#if SIEVE_WITH_GROUPS
+    sieve->first_group_prime = 0;
+    while (   (sieve->first_group_prime < fblen)
+           && (factor_base->data[sieve->first_group_prime]
+               < SIEVE_GROUPS_MIN_PRIME)) {
+        sieve->first_group_prime++;
+    }
+#endif
     uint32_t sizecp = sieve->nprimes_no_buckets * sizeof(int32_t);
 
     sieve->sol1 = alloc_int32_array(sieve->nprimes_no_buckets);
@@ -508,7 +531,9 @@ void switch_polynomial(siqs_sieve_t* const sieve)
 // m = (iend + 1) / p times, or m + 1: consecutive primes share m, so the
 // loop on the first m hits keeps its count from one prime to the next, and
 // the last hit is subtracted without branching, from a byte of the slack
-// past the end of the sieve when it falls beyond.
+// past the end of the sieve when it falls beyond. Its position is chosen
+// with masks: GCC made branches of conditional expressions there, taken or
+// not at random, and SIQS took up to 1.4 times as long on x86-64.
 //
 static inline void sieve_primes(unsigned char* const sieve_data,
                                 const uint32_t iend,
@@ -547,10 +572,12 @@ static inline void sieve_primes(unsigned char* const sieve_data,
                 r2 += prime;
             }
             const uint32_t spill = length + (prime & (SIEVE_SLACK / 2 - 1));
-            sieve_data[(r1 <= iend) ? r1 : spill] -= lp;
-            sieve_data[(r2 <= iend) ? r2 : spill + SIEVE_SLACK / 2] -= lp;
-            r1 += (r1 <= iend) ? prime : 0;
-            r2 += (r2 <= iend) ? prime : 0;
+            const uint32_t in1   = 0U - (uint32_t) (r1 <= iend);
+            const uint32_t in2   = 0U - (uint32_t) (r2 <= iend);
+            sieve_data[(r1 & in1) | (spill & ~in1)] -= lp;
+            sieve_data[(r2 & in2) | ((spill + SIEVE_SLACK / 2) & ~in2)] -= lp;
+            r1 += prime & in1;
+            r2 += prime & in2;
 
             sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
             sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
@@ -563,15 +590,94 @@ static inline void sieve_primes(unsigned char* const sieve_data,
         uint32_t r1 = (uint32_t) sol1data[p];
         uint32_t r2 = (uint32_t) sol2data[p];
         const uint32_t spill = length + (prime & (SIEVE_SLACK / 2 - 1));
-        sieve_data[(r1 <= iend) ? r1 : spill] -= lp;
-        sieve_data[(r2 <= iend) ? r2 : spill + SIEVE_SLACK / 2] -= lp;
-        r1 += (r1 <= iend) ? prime : 0;
-        r2 += (r2 <= iend) ? prime : 0;
+        const uint32_t in1   = 0U - (uint32_t) (r1 <= iend);
+        const uint32_t in2   = 0U - (uint32_t) (r2 <= iend);
+        sieve_data[(r1 & in1) | (spill & ~in1)] -= lp;
+        sieve_data[(r2 & in2) | ((spill + SIEVE_SLACK / 2) & ~in2)] -= lp;
+        r1 += prime & in1;
+        r2 += prime & in2;
 
         sol1data[p] = (int32_t) r1 - (int32_t) sieve_length;
         sol2data[p] = (int32_t) r2 - (int32_t) sieve_length;
     }
 }
+#if SIEVE_WITH_GROUPS
+//
+// As sieve_primes, for eight primes at a time and both roots: each round
+// subtracts the logs at the roots still below iend + 1 (the others at spill
+// bytes of their own), then moves those roots on by their prime, until none
+// is left in the chunk. Roots, primes and positions stay below 2^31, so the
+// signed compares are exact.
+//
+static inline void sieve_primes_groups(unsigned char* const sieve_data,
+                                       const uint32_t iend,
+                                       const uint32_t sieve_length,
+                                       const uint32_t* const fbdata,
+                                       const uint8_t* const logs,
+                                       int32_t* const sol1data,
+                                       int32_t* const sol2data,
+                                       const uint32_t from, const uint32_t to) {
+    const __m128i vlen = _mm_set1_epi32((int32_t) (iend + 1));
+    const __m128i sp1  = _mm_add_epi32(vlen, _mm_setr_epi32(0, 1, 2, 3));
+    const __m128i sp2  = _mm_add_epi32(sp1, _mm_set1_epi32(4));
+    const __m128i sp3  = _mm_add_epi32(sp1, _mm_set1_epi32(8));
+    const __m128i sp4  = _mm_add_epi32(sp1, _mm_set1_epi32(12));
+    const __m128i vsl  = _mm_set1_epi32((int32_t) sieve_length);
+    uint32_t x[16] __attribute__((aligned(16)));
+
+    uint32_t i = from;
+    for (; i + 8 <= to; i += 8) {
+        const __m128i pa = _mm_loadu_si128((const __m128i*) (fbdata + i));
+        const __m128i pb = _mm_loadu_si128((const __m128i*) (fbdata + i + 4));
+        __m128i a1 = _mm_loadu_si128((const __m128i*) (sol1data + i));
+        __m128i a2 = _mm_loadu_si128((const __m128i*) (sol2data + i));
+        __m128i b1 = _mm_loadu_si128((const __m128i*) (sol1data + i + 4));
+        __m128i b2 = _mm_loadu_si128((const __m128i*) (sol2data + i + 4));
+        const uint8_t* const l = logs + i;
+        for (;;) {
+            const __m128i ma1 = _mm_cmplt_epi32(a1, vlen);
+            const __m128i ma2 = _mm_cmplt_epi32(a2, vlen);
+            const __m128i mb1 = _mm_cmplt_epi32(b1, vlen);
+            const __m128i mb2 = _mm_cmplt_epi32(b2, vlen);
+            const __m128i any = _mm_or_si128(_mm_or_si128(ma1, ma2),
+                                             _mm_or_si128(mb1, mb2));
+            if (_mm_movemask_epi8(any) == 0) {
+                break;
+            }
+            _mm_store_si128((__m128i*) x,
+                            _mm_or_si128(_mm_and_si128(ma1, a1),
+                                         _mm_andnot_si128(ma1, sp1)));
+            _mm_store_si128((__m128i*) (x + 4),
+                            _mm_or_si128(_mm_and_si128(ma2, a2),
+                                         _mm_andnot_si128(ma2, sp2)));
+            _mm_store_si128((__m128i*) (x + 8),
+                            _mm_or_si128(_mm_and_si128(mb1, b1),
+                                         _mm_andnot_si128(mb1, sp3)));
+            _mm_store_si128((__m128i*) (x + 12),
+                            _mm_or_si128(_mm_and_si128(mb2, b2),
+                                         _mm_andnot_si128(mb2, sp4)));
+            for (int k = 0; k < 4; k++) {
+                sieve_data[x[k]]      -= l[k];
+                sieve_data[x[4 + k]]  -= l[k];
+                sieve_data[x[8 + k]]  -= l[4 + k];
+                sieve_data[x[12 + k]] -= l[4 + k];
+            }
+            a1 = _mm_add_epi32(a1, _mm_and_si128(pa, ma1));
+            a2 = _mm_add_epi32(a2, _mm_and_si128(pa, ma2));
+            b1 = _mm_add_epi32(b1, _mm_and_si128(pb, mb1));
+            b2 = _mm_add_epi32(b2, _mm_and_si128(pb, mb2));
+        }
+        _mm_storeu_si128((__m128i*) (sol1data + i),     _mm_sub_epi32(a1, vsl));
+        _mm_storeu_si128((__m128i*) (sol2data + i),     _mm_sub_epi32(a2, vsl));
+        _mm_storeu_si128((__m128i*) (sol1data + i + 4), _mm_sub_epi32(b1, vsl));
+        _mm_storeu_si128((__m128i*) (sol2data + i + 4), _mm_sub_epi32(b2, vsl));
+    }
+    if (i < to) {
+        sieve_primes(sieve_data, iend, sieve_length, fbdata, logs,
+                     sol1data, sol2data, i, to);
+    }
+}
+#endif
 //-----------------------------------------------------------------------------
 //
 // The smallest primes are not sieved, but fewer of them for small factor
@@ -648,8 +754,21 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
                           ? MIN(avoid[k], sieve->nprimes_no_buckets)
                           : sieve->nprimes_no_buckets;
         if (to > from) {
+#if SIEVE_WITH_GROUPS
+            const uint32_t split = MIN(MAX(from, sieve->first_group_prime), to);
+            if (split > from) {
+                sieve_primes(sieve_data, iend, sieve_length, fbdata,
+                             log_primes->data, sol1data, sol2data, from, split);
+            }
+            if (to > split) {
+                sieve_primes_groups(sieve_data, iend, sieve_length, fbdata,
+                                    log_primes->data, sol1data, sol2data,
+                                    split, to);
+            }
+#else
             sieve_primes(sieve_data, iend, sieve_length, fbdata,
                          log_primes->data, sol1data, sol2data, from, to);
+#endif
         }
         if (to + 1 > from) {
             from = to + 1;

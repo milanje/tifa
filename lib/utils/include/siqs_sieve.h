@@ -156,6 +156,11 @@ struct struct_siqs_sieve_t {
       */
     uint32_t   nprimes_no_buckets;
      /**
+      * Index of the first prime sieved by groups on x86-64 (see
+      * sieve_primes_groups)
+      */
+    uint32_t   first_group_prime;
+     /**
       * Index (in the factor base) of the smallest prime for which the bucket 
       * sieving procedure is use
       */
