@@ -124,7 +124,7 @@
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
-#define NRANGES             35
+#define NRANGES             36
 //
 // Set to non zero to perform additional timing measurements. Has no effect
 // if __TIMING__ if set to 0.
@@ -364,18 +364,19 @@ static const u32triplet_t best_params[NRANGES] = {
     {.size_n = 130, .size_base =  400, .hwidth =  30000, .thres = 45},
     {.size_n = 140, .size_base =  700, .hwidth =  49152, .thres = 48},
     {.size_n = 150, .size_base =  800, .hwidth =  49152, .thres = 51},
-    {.size_n = 160, .size_base = 1300, .hwidth =  65536, .thres = 56},
-    {.size_n = 170, .size_base = 1900, .hwidth =  65536, .thres = 60},
-    {.size_n = 180, .size_base = 2100, .hwidth =  65536, .thres = 62},
+    {.size_n = 160, .size_base = 1300, .hwidth =  32768, .thres = 56},
+    {.size_n = 170, .size_base = 1900, .hwidth =  32768, .thres = 60},
+    {.size_n = 180, .size_base = 2520, .hwidth =  39322, .thres = 62},
     {.size_n = 190, .size_base = 3200, .hwidth =  65536, .thres = 67},
-    {.size_n = 200, .size_base = 4600, .hwidth = 196608, .thres = 71},
+    {.size_n = 195, .size_base = 3900, .hwidth = 131072, .thres = 69},
+    {.size_n = 200, .size_base = 4600, .hwidth = 196608, .thres = 73},
     //
     // The following parameters were optained by crude extrapolation... and
     // should thus be looked at with a very critical eye...
     //
-    {.size_n = 210, .size_base =  6500, .hwidth =  270000, .thres = 76},
-    {.size_n = 215, .size_base =  7400, .hwidth =  320000, .thres = 79},
-    {.size_n = 220, .size_base =  8800, .hwidth =  375000, .thres = 81},
+    {.size_n = 210, .size_base =  6500, .hwidth =  196608, .thres = 77},
+    {.size_n = 215, .size_base =  7400, .hwidth =  196608, .thres = 79},
+    {.size_n = 220, .size_base =  8800, .hwidth =  196608, .thres = 81},
     {.size_n = 225, .size_base = 10400, .hwidth =  450000, .thres = 84},
     {.size_n = 230, .size_base = 12300, .hwidth =  550000, .thres = 86},
     {.size_n = 235, .size_base = 14500, .hwidth =  650000, .thres = 89},
