@@ -47,12 +47,6 @@
 #include "tifa_config.h"
 #include "tifa_alloc.h"
 
-//
-// Set this to non zero to perform "safer" modular arithmetic. It involves
-// extra, most of the time (always?) unneeded modular reduction.
-//
-#define SAFE_MODULO 0
-
 //-----------------------------------------------------------------------------
 static void choose_a(siqs_poly_t* const poly);
 ecode_t  full_poly_init(siqs_poly_t* const poly);
@@ -100,6 +94,15 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
     poly->Bl     = alloc_mpz_array(poly->nprimes_in_a);
     poly->Bainv2 = tifa_malloc(  poly->factor_base->length
                                * poly->nprimes_in_a * sizeof(uint32_t));
+
+    const uint32_t fblen = poly->factor_base->length;
+    poly->pinv = tifa_malloc(fblen * sizeof(uint64_t));
+    poly->r64  = tifa_malloc(fblen * sizeof(uint32_t));
+    for (uint32_t i = 0; i < fblen; i++) {
+        const uint32_t p = poly->factor_base->data[i];
+        poly->pinv[i] = UINT64_MAX / p;
+        poly->r64[i]  = (uint32_t) ((UINT64_MAX % p + 1) % p);
+    }
     choose_a(poly);
     
     full_poly_init(poly);
@@ -114,6 +117,8 @@ free_siqs_poly(siqs_poly_t* poly)
         free_mpz_array(poly->Bl);
         
         free(poly->Bainv2);
+        free(poly->pinv);
+        free(poly->r64);
                 
         mpz_clear(poly->a);
         mpz_clear(poly->b);
@@ -297,15 +302,28 @@ typedef struct {
     uint64_t Blhi[MAX_NPRIMES_IN_A_U64];
 } poly_u64_t;
 //
+// x mod p from m = (2^64 - 1) / p: floor(x.m / 2^64) is the quotient or one
+// less (Barrett). A 64-bit division costs several times as much on x86-64.
+//
+static inline uint32_t mod_pre(const uint64_t x, const uint32_t p,
+                               const uint64_t m) {
+#if defined(__SIZEOF_INT128__)
+    const uint64_t q = (uint64_t) (((unsigned __int128) x * m) >> 64);
+    const uint64_t r = x - q * p;
+    return (uint32_t) ((r >= p) ? r - p : r);
+#else
+    (void) m;
+    return (uint32_t) (x % p);
+#endif
+}
+//
 // (hi.2^64 + lo) mod p, given r64 = 2^64 mod p.
 //
-static inline uint64_t mod_2limbs(const uint64_t lo, const uint64_t hi,
-                                  const uint32_t p, const uint64_t r64) {
-    return ((hi % p) * r64 + lo % p) % p;
-}
-
-static inline uint64_t two64_mod(const uint32_t p) {
-    return (UINT64_MAX % p + 1) % p;
+static inline uint32_t mod_2limbs(const uint64_t lo, const uint64_t hi,
+                                  const uint32_t p, const uint64_t m,
+                                  const uint32_t r64) {
+    return mod_pre((uint64_t) mod_pre(hi, p, m) * r64 + mod_pre(lo, p, m),
+                   p, m);
 }
 //
 // For the i-th prime p of the base, not dividing a, given inv(a) mod p (0 if
@@ -317,10 +335,9 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
                           const uint32_t ainv) {
     const uint32_t nprimes_in_a = poly->nprimes_in_a;
     const uint32_t fblen        = poly->factor_base->length;
+    const uint32_t p            = curprime;
+    const uint64_t m            = poly->pinv[i];
     uint32_t* const bainv2 = poly->Bainv2 + i;
-
-    unsigned long int bmodp;
-    uint64_t gamma;
 
     if (ainv == 0) {
         PRINTF_STDERR("\n");
@@ -328,61 +345,41 @@ static ecode_t init_prime(siqs_poly_t* const poly, const uint32_t i,
         PRINT_ERROR("This should not happen - Factorization aborted!\n");
         return FATAL_INTERNAL_ERROR;
     }
+    uint64_t ainv2 = 2 * (uint64_t) ainv;
+    ainv2 -= (ainv2 >= p) ? p : 0;
+    uint32_t bmodp;
+
     if (w->fit) {
-        bmodp = (unsigned long int) (w->b % curprime);
+        bmodp = mod_pre(w->b, p, m);
         for (uint32_t j = 0; j < nprimes_in_a; j++) {
-            gamma  = 2 * (w->Bl[j] % curprime);
-            gamma *= ainv;
-            gamma %= curprime;
-            bainv2[j * fblen] = (uint32_t) gamma;
+            bainv2[j * fblen] = mod_pre(mod_pre(w->Bl[j], p, m) * ainv2, p, m);
         }
     } else if (w->fit2) {
-        const uint64_t r64 = two64_mod(curprime);
-        bmodp = (unsigned long int) mod_2limbs(w->b, w->bhi, curprime, r64);
+        const uint32_t r64 = poly->r64[i];
+        bmodp = mod_2limbs(w->b, w->bhi, p, m, r64);
         for (uint32_t j = 0; j < nprimes_in_a; j++) {
-            gamma  = 2 * mod_2limbs(w->Bl[j], w->Blhi[j], curprime, r64);
-            gamma *= ainv;
-            gamma %= curprime;
-            bainv2[j * fblen] = (uint32_t) gamma;
+            const uint64_t blp = mod_2limbs(w->Bl[j], w->Blhi[j], p, m, r64);
+            bainv2[j * fblen] = mod_pre(blp * ainv2, p, m);
         }
     } else {
-        bmodp = mpz_fdiv_ui(poly->b, curprime);
+        bmodp = (uint32_t) mpz_fdiv_ui(poly->b, p);
         for (uint32_t j = 0; j < nprimes_in_a; j++) {
-            gamma  = 2 * mpz_fdiv_ui(poly->Bl->data[j], curprime);
-            gamma *= ainv;
-            gamma %= curprime;
-            bainv2[j * fblen] = (uint32_t) gamma;
+            const uint64_t blp = mpz_fdiv_ui(poly->Bl->data[j], p);
+            bainv2[j * fblen] = mod_pre(blp * ainv2, p, m);
         }
     }
     //
     // The two solutions to the g_{a,b}(x) = 0 mod p congruence.
     //
-    int64_t tmp64;
+    const uint64_t r  = poly->sqrtm_pi->data[i];
+    const uint64_t nb = p - bmodp;
+    uint64_t t1 = r + nb;
+    uint64_t t2 = (p - r) + nb;
+    t1 -= (t1 >= p) ? p : 0;
+    t2 -= (t2 >= p) ? p : 0;
 
-    tmp64  = (int64_t)(poly->sqrtm_pi->data[i]);
-    tmp64 -= (int64_t)bmodp;
-#if SAFE_MODULO
-    tmp64 %= curprime;
-#endif
-    tmp64 *= ainv;
-    tmp64 %= curprime;
-    if (tmp64 < 0) {
-        tmp64 += curprime;
-    }
-    poly->sol1->data[i] = (int32_t) tmp64;
-
-    tmp64  = 0;
-    tmp64 -= (int64_t)(poly->sqrtm_pi->data[i]);
-    tmp64 -= (int64_t)bmodp;
-#if SAFE_MODULO
-    tmp64 %= curprime;
-#endif
-    tmp64 *= ainv;
-    tmp64 %= curprime;
-    if (tmp64 < 0) {
-        tmp64 += curprime;
-    }
-    poly->sol2->data[i] = (int32_t) tmp64;
+    poly->sol1->data[i] = (int32_t) mod_pre(t1 * ainv, p, m);
+    poly->sol2->data[i] = (int32_t) mod_pre(t2 * ainv, p, m);
 
     return SUCCESS;
 }
@@ -528,26 +525,31 @@ full_poly_init(siqs_poly_t* const poly)
         uint32_t p[INVERSE_LANES];
         uint32_t inv_lanes[INVERSE_LANES];
         for (uint32_t k = 0; k < INVERSE_LANES; k++) {
-            p[k]     = (i + k < fb_length) ? fb[i + k] : 2;
+            if (i + k >= fb_length) {
+                p[k]     = 2;
+                amodp[k] = 1;
+                continue;
+            }
+            const uint64_t m = poly->pinv[i + k];
+            p[k] = fb[i + k];
             if (w.fit) {
-                amodp[k] = (uint32_t) (w.a % p[k]);
+                amodp[k] = mod_pre(w.a, p[k], m);
             } else if (w.fit2) {
-                amodp[k] = (uint32_t) mod_2limbs(w.a, w.ahi, p[k],
-                                                 two64_mod(p[k]));
+                amodp[k] = mod_2limbs(w.a, w.ahi, p[k], m, poly->r64[i + k]);
             } else {
                 amodp[k] = (uint32_t) mpz_fdiv_ui(a, p[k]);
+            }
+            //
+            // With q2 the roots are those of 2.a.x + b: invert 2.a.
+            //
+            if (poly->q2 && (p[k] != 2)) {
+                const uint64_t a2 = 2 * (uint64_t) amodp[k];
+                amodp[k] = (uint32_t) ((a2 >= p[k]) ? a2 - p[k] : a2);
             }
         }
         inverse_mod_lanes(amodp, p, inv_lanes);
         for (uint32_t k = 0; (k < INVERSE_LANES) && (i + k < fb_length); k++) {
             ainv[i + k] = (amodp[k] == 0) ? 0 : inv_lanes[k];
-            //
-            // With q2 the roots are those of 2.a.x + b: inv(2.a) = inv(a).(p+1)/2.
-            //
-            if (poly->q2 && (p[k] != 2)) {
-                ainv[i + k] = (uint32_t) (((uint64_t) ainv[i + k]
-                                           * ((p[k] + 1) / 2)) % p[k]);
-            }
         }
     }
     const uint32_t* fbptr = &(fb[0]);

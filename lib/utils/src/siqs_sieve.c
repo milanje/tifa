@@ -462,37 +462,25 @@ ecode_t reset_poly_sols(siqs_sieve_t* const sieve)
 {
     //
     // Sieving on the positive side is done. Now computes the first hits
-    // on the negative side.
+    // on the negative side: for its first chunk, sieve[0] is the value at
+    // position -1, hence the "- 1".
     //
     START_EXTRA_TIMER(init_poly);
 
-    siqs_poly_t* const poly = sieve->poly;
+    const siqs_poly_t* const poly = sieve->poly;
 
-    uint32_t* fb    = poly->factor_base->data;
+    const uint32_t* const restrict fb  = poly->factor_base->data;
+    const int32_t*  const restrict ps1 = poly->sol1->data;
+    const int32_t*  const restrict ps2 = poly->sol2->data;
+    int32_t* const restrict sol1 = sieve->sol1->data;
+    int32_t* const restrict sol2 = sieve->sol2->data;
 
-    int32_t* sol1 = sieve->sol1->data;
-    int32_t* sol2 = sieve->sol2->data;
+    const uint32_t n = sieve->nprimes_no_buckets;
 
-    uint32_t  curprime = 0;
-    uint32_t* fbptr    = &(fb[0]);
-
-    uint32_t cpsize = sieve->nprimes_no_buckets * sizeof(int32_t);
-
-    memcpy(sol1, poly->sol1->data, cpsize);
-    memcpy(sol2, poly->sol2->data, cpsize);
-
-    for (uint32_t i = 0; i < sieve->nprimes_no_buckets; i++) {
-        curprime = *fbptr;
-        //
-        // Remember that for the first chunk on the negative side, sieve[0]
-        // is actually the sieve value at position -1. Hence the "- 1" below...
-        //
-        sol1[i]  = curprime - sol1[i] - 1;
-        sol2[i]  = curprime - sol2[i] - 1;
-
-        fbptr++;
+    for (uint32_t i = 0; i < n; i++) {
+        sol1[i] = (int32_t) fb[i] - ps1[i] - 1;
+        sol2[i] = (int32_t) fb[i] - ps2[i] - 1;
     }
-
     STOP_EXTRA_TIMER(init_poly);
 
     return SUCCESS;

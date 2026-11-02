@@ -145,6 +145,12 @@ struct struct_siqs_poly_t {
      * Number of "full" polynomial initializations performed
      */
   uint32_t nfullpolyinit;
+    /**
+     * For each prime \b{pi} of the factor base, (2^64 - 1) / \b{pi}
+     * and 2^64 mod \b{pi}: residues modulo \b{pi} then need no division.
+     */
+  uint64_t* pinv;
+  uint32_t* r64;
 };
 
    /**
