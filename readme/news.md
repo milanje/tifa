@@ -1,5 +1,22 @@
 # TIFA news
 
+## 2 November 2026 &mdash; ECM: the plans of the levels built once (0.4.2)
+
+`ecm()` built the plan of each level it reached (the product of the prime
+powers up to B1 for stage 1, the pairs of primes up to B2 for stage 2) at
+each call, then freed it. The plans of the levels for factors of up to 60
+bits, with their default bounds, are now built the first time a call needs
+them and shared by all the calls that follow, in every thread; other bounds
+still get their own. Time of the new version over that of the previous one,
+one thread:
+
+| `ecm()`, n bits / p bits | 70/20 | 80/22 | 90/25 | 100/30 | 120/35 | 128/40 | 160/40 | 200/50 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.93 | 0.94 | 0.95 | 0.96 | 0.97 | 0.98 | 0.99 | 0.99 |
+| AMD EPYC 7763 (GitHub runner) | 0.87 | 0.88 | 0.90 | 0.93 | 0.94 | 0.97 | 0.98 | 0.99 |
+
+These plans take about 300 KB, kept until the program ends. No ABI change.
+
 ## 2 November 2026 &mdash; `tifa_factor()`: the first ECM level from 74 bits (0.4.2)
 
 Before SIQS, `tifa_factor()` runs ECM level by level, each level whole, as
