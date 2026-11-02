@@ -1,5 +1,27 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: the bucket sieve from 1.5 chunks (0.4.3)
+
+Above 190 bits, where the sieve spans several chunks on each side, the
+largest primes of the factor base go through buckets: each polynomial
+writes their hits to the bins of the chunks they fall in, and each chunk
+then reads its bin. They started at the 2400th prime, about 45000 to
+47000, whatever the chunk size: 0.7 chunk on the M5 (64 KiB chunks), 1.4
+chunks on x86-64 (32 KiB). Primes below 1.5 chunks are cheaper to sieve
+directly, chunk by chunk, than to write and read back; above it, buckets
+win, by up to 38% on x86-64 against no buckets at all. They now start at
+the first prime above 1.5 chunks. Time of the new version over that of the
+previous one, `siqs()` on balanced semiprimes, one thread, the geometric
+mean over 12 numbers per size on the M5 and 8 on x86-64:
+
+| `siqs()`, bits | 190 | 195 | 200 | 205 | 210 | 215 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 1.00 | 0.95 | 0.92 | 0.93 | 0.93 | 0.94 | 0.95 |
+| AMD EPYC 7763 (GitHub runner) | | 1.00 | 1.01 | | 1.00 | | 1.01 |
+
+At 190 bits and below, one chunk covers each side and no bucket is used.
+No ABI change.
+
 ## 2 November 2026 &mdash; SIQS: the parameters from 160 to 220 bits retuned (0.4.3)
 
 From 160 to 190 bits, SIQS sieved one 64 KiB chunk on each side, the
