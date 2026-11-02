@@ -126,13 +126,10 @@ static double siqs_cost(const double bits) {
                + t * log(siqs_costs[i].cost));
 }
 //------------------------------------------------------------------------------
-bool ecm_schedule_split(mpz_t g, const mpz_t n,
-                        const ecm_schedule_t* const schedule,
-                        const double min_bits, const double target_bits,
-                        const double budget) {
-    if (mont_pm1(g, n, 2, schedule->pm1_plan) == 1) {
-        return true;
-    }
+static bool run_levels(mpz_t g, const mpz_t n,
+                       const ecm_schedule_t* const schedule,
+                       const double min_bits, const double target_bits,
+                       const double budget, const bool whole_first_level) {
     const double limit = budget * siqs_cost((double) mpz_sizeinbase(n, 2));
     const double lfac  = limb_factor[mpz_size(n)];
     double   spent = 0;
@@ -146,8 +143,10 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
         if (hi - 5 >= target_bits) {
             break;
         }
+        const bool first = whole_first_level && (spent == 0)
+                           && (levels[i].cost * lfac <= limit);
         spent += levels[i].ncurves * levels[i].cost * lfac;
-        if (spent > limit) {
+        if ((spent > limit) && !first) {
             break;
         }
         for (uint32_t j = 0; j < levels[i].ncurves; j++) {
@@ -157,6 +156,26 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
         }
     }
     return false;
+}
+//------------------------------------------------------------------------------
+bool ecm_schedule_split(mpz_t g, const mpz_t n,
+                        const ecm_schedule_t* const schedule,
+                        const double min_bits, const double target_bits,
+                        const double budget) {
+    if (mont_pm1(g, n, 2, schedule->pm1_plan) == 1) {
+        return true;
+    }
+    return run_levels(g, n, schedule, min_bits, target_bits, budget, false);
+}
+//------------------------------------------------------------------------------
+bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
+                          const ecm_schedule_t* const schedule,
+                          const double budget) {
+    if (mont_pm1(g, n, 2, schedule->pm1_plan) == 1) {
+        return true;
+    }
+    return run_levels(g, n, schedule, 0, (double) mpz_sizeinbase(n, 2) / 2,
+                      budget, true);
 }
 
 #endif

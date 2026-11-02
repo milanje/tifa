@@ -79,6 +79,22 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
                         const ecm_schedule_t* schedule, double min_bits,
                         double target_bits, double budget);
 
+   /**
+    * \brief Searches \c n for a factor of at most half its size before SIQS.
+    *
+    * As \c ecm_schedule_split, except that the first level runs whole as
+    * soon as one of its curves fits in the budget. With a budget of 0.2, the
+    * level does not fit from 74 to 83 bits, but at 80 bits its two curves
+    * find two thirds of the 22-bit factors that p-1 misses, for a quarter of
+    * the SIQS run.
+    *
+    * \param[out] g A proper factor of \c n, if one is found.
+    * \param[in]  n The odd composite to search (see \c mont_ecm_handles).
+    * \return true if a proper factor was found.
+    */
+bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
+                          const ecm_schedule_t* schedule, double budget);
+
 #endif
 
 #ifdef __cplusplus

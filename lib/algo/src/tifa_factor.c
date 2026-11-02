@@ -165,8 +165,7 @@ static ecode_t run_ecm_prepass(mpz_array_t* const factors,
     ecode_t ecode = NO_FACTOR_FOUND;
     mpz_t g;
     mpz_init(g);
-    if (ecm_schedule_split(g, n, ecm_schedule, 0,
-                           (double) mpz_sizeinbase(n, 2) / 2, budget)) {
+    if (ecm_schedule_prepass(g, n, ecm_schedule, budget)) {
         mpz_array_t* found = alloc_mpz_array(4);
         append_mpz_to_array(found, g);
         mpz_divexact(g, n, g);
