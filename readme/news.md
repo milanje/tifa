@@ -1,5 +1,23 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: the scan with SSE2 on x86-64 (0.4.4)
+
+After each chunk is sieved, the scan looks for the bytes whose top bit is
+set, the candidates, and resets the others to the threshold. On ARM it
+took 64 bytes at a time with NEON; elsewhere 8 at a time, in 64-bit words.
+On x86-64 it now takes 64 at a time with SSE2 too, four movemasks giving
+the top bits of the 64 bytes. Time of the new version over that of the
+previous one, `siqs()` on balanced semiprimes, one thread, the default
+build, the geometric mean over 8 numbers per size:
+
+| `siqs()`, bits | 80 | 100 | 120 | 140 | 160 | 180 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| AMD EPYC 7763 (Zen 3) | 0.93 | 0.90 | 0.94 | 0.93 | 0.95 | 0.96 | 0.96 | 0.97 |
+| AMD EPYC 9V74 (Zen 4) | 0.91 | 0.90 | 0.92 | 0.92 | 0.95 | 0.96 | 0.95 | 0.97 |
+| AMD EPYC 9V45 (Zen 5) | 0.93 | 0.90 | 0.93 | 0.92 | 0.94 | 0.96 | 0.94 | 0.96 |
+
+The M5 keeps its NEON scan. No ABI change.
+
 ## 2 November 2026 &mdash; version 0.4.3
 
 Version 0.4.3 gathers the work below since 0.4.2, all in SIQS: the
