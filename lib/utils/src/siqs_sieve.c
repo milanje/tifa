@@ -804,6 +804,12 @@ static inline uint64_t top_bits(const uint8x16_t a, const uint8x16_t b,
 #else
     #define SCAN_WITH_NEON 0
 #endif
+#if !SCAN_WITH_NEON && defined(__SSE2__)
+    #define SCAN_WITH_SSE2 1
+    #include <emmintrin.h>
+#else
+    #define SCAN_WITH_SSE2 0
+#endif
 //
 // Appends sign.(sieve_begin + i) to the survivors for the positions i of
 // [*scan_begin, iend] whose sieve byte has its top bit set, until there are
@@ -847,6 +853,36 @@ static inline void scan_chunk(unsigned char* const data,
         vst1q_u8(data + i + 16, t);
         vst1q_u8(data + i + 32, t);
         vst1q_u8(data + i + 48, t);
+    }
+#elif SCAN_WITH_SSE2
+    const __m128i t = _mm_set1_epi8((char) threshold);
+    for (; i + 64 <= iend + 1; i += 64) {
+        const __m128i a = _mm_loadu_si128((const __m128i*) (data + i));
+        const __m128i b = _mm_loadu_si128((const __m128i*) (data + i + 16));
+        const __m128i c = _mm_loadu_si128((const __m128i*) (data + i + 32));
+        const __m128i d = _mm_loadu_si128((const __m128i*) (data + i + 48));
+        if (_mm_movemask_epi8(_mm_or_si128(_mm_or_si128(a, b),
+                                           _mm_or_si128(c, d))) != 0) {
+            uint64_t mask =  (uint64_t) (uint32_t) _mm_movemask_epi8(a)
+                          | ((uint64_t) (uint32_t) _mm_movemask_epi8(b) << 16)
+                          | ((uint64_t) (uint32_t) _mm_movemask_epi8(c) << 32)
+                          | ((uint64_t) (uint32_t) _mm_movemask_epi8(d) << 48);
+            while (mask != 0) {
+                const uint32_t j = i + (uint32_t) __builtin_ctzll(mask);
+                *out = sign * (sieve_begin + (int32_t) j);
+                out++;
+                if (out == stop) {
+                    TIFA_MEMSET((data + i), threshold, (j + 1 - i));
+                    i = j + 1;
+                    goto STOP;
+                }
+                mask &= mask - 1;
+            }
+        }
+        _mm_storeu_si128((__m128i*) (data + i),      t);
+        _mm_storeu_si128((__m128i*) (data + i + 16), t);
+        _mm_storeu_si128((__m128i*) (data + i + 32), t);
+        _mm_storeu_si128((__m128i*) (data + i + 48), t);
     }
 #else
     const uint64_t tops = UINT64_C(0x8080808080808080);
