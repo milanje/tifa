@@ -1,5 +1,30 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: the polynomial switch without divisions (0.4.4)
+
+For each new 'a', SIQS computes, for every prime p of the base, b and the
+B_l modulo p, then the 2.B_l/a and the two roots modulo p: four 64-bit
+divisions per prime of 'a' for the 2.B_l/a alone. These are now Barrett
+reductions, from (2^64 - 1)/p and 2^64 mod p computed once per prime; the
+halving of the Q2 polynomials is folded into the inverse, of 2a. The first
+hits on the negative side, p - 1 - root, are computed in one pass, which GCC
+now vectorizes. The polynomial switch went from about 12% to 5% to 7% of an
+x86-64 run at 160 and 180 bits. Time of the new version over that of the
+previous one, `siqs()` on balanced semiprimes, one thread, the default
+build, the geometric mean over 8 numbers per size (12 on the M5 below 220
+bits):
+
+| `siqs()`, bits | 100 | 120 | 140 | 160 | 180 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.97 | 0.99 | 0.99 | 0.96 | 0.96 | 0.99 | 0.99 |
+| AMD EPYC 7763 (Zen 3) | 0.96 | 0.99 | 0.97 | 0.96 | 0.95 | 0.99 | 0.98 |
+| Intel Xeon 8370C | 0.96 | 0.98 | 0.96 | 0.95 | 0.95 | 0.99 | 0.98 |
+| Intel Xeon 8573C | 0.95 | 0.98 | 0.95 | 0.93 | 0.94 | 0.98 | 0.98 |
+
+Writing the sieve's copy of the roots in the same pass as their shift, to
+save a copy, was 0.5% to 1% slower on the M5 and was left out. No ABI
+change.
+
 ## 2 November 2026 &mdash; SIQS: the scan with SSE2 on x86-64 (0.4.4)
 
 After each chunk is sieved, the scan looks for the bytes whose top bit is
