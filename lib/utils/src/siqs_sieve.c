@@ -193,7 +193,16 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
 
     sieve->log_primes = log_primes;
 
-    sieve->log2_chunk_size   = log2_sieve_chunk_size();
+    sieve->log2_chunk_size = log2_sieve_chunk_size();
+    //
+    // A sieve wider than 64 KiB on each side takes chunks of 64 KiB even past
+    // a smaller L1: fewer passes of the factor base over the chunks outweigh
+    // the misses (0.81 to 0.92 of the time from 195 to 220 bits on Zen 3, 4
+    // and 5, with L1s of 32 and 48 KiB).
+    //
+    if ((half_width > (1U << 16)) && (sieve->log2_chunk_size < 16)) {
+        sieve->log2_chunk_size = 16;
+    }
     const uint32_t chunk_max = 1U << sieve->log2_chunk_size;
 
     if (half_width <= chunk_max) {
