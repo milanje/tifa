@@ -21,6 +21,14 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
+Version 0.4.2 (November 2026) makes `tifa_factor()` search 74- to 83-bit
+numbers with ECM before SIQS again: those with a factor of 20 to 26 bits take
+0.50 to 0.86 of 0.4.1's time on an Apple M5 Pro and on x86-64 (an EPYC 9V74,
+Zen 4), while balanced semiprimes of these sizes take 1.17 to 1.28. `ecm()`
+keeps the plans of its levels from one call to the next: 2% to 6% faster from
+70 to 120 bits on the M5, 4% to 10% on x86-64. The ABI is unchanged
+(`libtifa.so.0.4`).
+
 Version 0.4.1 (November 2026) makes SQUFOF 4 to 8 times faster on an Apple
 M5 Pro (2.5 to 4 times on x86-64, an EPYC 7763, Zen 3) and p+1 12% to 32%
 faster; `tifa_factor()` is 5% to 19% faster on random composites from 100 to

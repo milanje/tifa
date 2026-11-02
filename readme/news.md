@@ -1,5 +1,38 @@
 # TIFA news
 
+## 2 November 2026 &mdash; version 0.4.2
+
+Version 0.4.2 gathers the work below since 0.4.1: `tifa_factor()` runs the
+first ECM level before SIQS again from 74 to 83 bits, and `ecm()` builds the
+plans of its levels once. The ABI is unchanged: the shared library is still
+`libtifa.so.0.4`. Against 0.4.1 (time of 0.4.2 over that of 0.4.1, one
+thread, `factor-bench` of 0.4.2 built against each library), on an Apple M5
+Pro and on GitHub's x86-64 runner (an EPYC 9V74, Zen 4):
+
+| `tifa_factor()`, n bits / bits of its smaller factor | 74/20 | 76/20 | 80/22 | 80/26 | 82/24 | 84/24 | 100/22 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.56 | 0.54 | 0.56 | 0.86 | 0.73 | 1.00 | 1.00 |
+| EPYC 9V74 | 0.51 | 0.50 | 0.52 | 0.86 | 0.71 | 1.00 | 1.00 |
+
+| `tifa_factor()`, balanced semiprimes, bits | 72 | 74 | 76 | 80 | 82 | 84 | 90 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 1.02 | 1.28 | 1.28 | 1.20 | 1.17 | 1.00 | 0.99 |
+| EPYC 9V74 | 1.00 | 1.25 | 1.23 | 1.18 | 1.17 | 1.00 | 1.00 |
+
+| `tifa_factor()`, random composites, bits | 76 | 80 | 84 | 100 |
+|---|---:|---:|---:|---:|
+| M5 Pro | 0.98 | 1.00 | 0.97 | 1.00 |
+| EPYC 9V74 | 0.99 | 0.99 | 0.97 | 0.99 |
+
+| `ecm()`, n bits / p bits | 70/20 | 80/22 | 90/25 | 100/30 | 120/35 | 128/40 | 160/40 | 200/50 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.94 | 0.94 | 0.96 | 0.97 | 0.98 | 0.99 | 0.99 | 1.00 |
+| EPYC 9V74 | 0.90 | 0.91 | 0.92 | 0.95 | 0.96 | 0.97 | 0.98 | 1.00 |
+
+Balanced semiprimes of 74 to 82 bits pay for the ECM search; from 76 bits
+they still take 0.96 to 0.99 of their time with 0.4.0 on the M5, 1.24 at 74
+bits. `TIFA_FACTOR_BALANCED` skips that search.
+
 ## 2 November 2026 &mdash; ECM: the plans of the levels built once (0.4.2)
 
 `ecm()` built the plan of each level it reached (the product of the prime
