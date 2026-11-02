@@ -132,6 +132,12 @@ struct struct_siqs_poly_t {
      */  
   uint32_t  nprimes_in_a;
     /**
+     * Whether \b{n} = 1 mod 8, so that the polynomial is only taken at even
+     * arguments 2x: 'b' is odd, every u = 2ax + b is then odd and every
+     * u^2 - n a multiple of 8, and 'a' targets half the usual size.
+     */
+  bool      q2;
+    /**
      * Indexes (in the factor base) of the (prime) factors of \tt{a}
      */
   uint32_t* idx_of_a;
@@ -155,6 +161,12 @@ typedef struct struct_siqs_poly_t siqs_poly_t;
     * \return The number of primes whose product approximates the target.
     */
 uint32_t determine_nprimes(uint32_t bitsize);
+
+   /**
+    * \brief Whether the polynomials for \c n are only taken at even arguments
+    * (see \c q2 in siqs_poly_t).
+    */
+bool siqs_use_q2(const mpz_t n);
 
    /**
     * \brief Allocates and returns a new <tt>siqs_poly_t</tt>.

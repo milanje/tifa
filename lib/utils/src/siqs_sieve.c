@@ -238,6 +238,9 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
     mpz_sqrt(target_a, target_a);
 
     mpz_fdiv_q_ui(target_a, target_a, half_width);
+    if (siqs_use_q2(n)) {
+        mpz_fdiv_q_2exp(target_a, target_a, 1);
+    }
 
     sieve->poly = alloc_siqs_poly(target_a, n, factor_base, sqrtm_pi,
                                   extra_primes_in_a);

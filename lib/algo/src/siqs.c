@@ -1278,6 +1278,10 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
 
     const uint32_t x_length = context->xpool->length;
     int32_t* const x_data = context->xpool->data;
+    //
+    // The polynomials of q2 (see siqs_poly_t) are taken at 2x.
+    //
+    const int32_t xmul = context->sieve->poly->q2 ? 2 : 1;
 
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
     //
@@ -1291,7 +1295,7 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
         const __int128 bi = mpz_get_i128(b);
         const __int128 ci = mpz_get_i128(c);
         for (uint32_t i = cand_redgx->length; i < x_length; i++) {
-            const __int128 xi = x_data[i];
+            const __int128 xi = (__int128) x_data[i] * xmul;
             const __int128 u  = ai * xi + bi;
             mpz_set_i128(cand_u_data[i], u);
             mpz_set_i128(cand_redgx_data[i], (u + bi) * xi + ci);
@@ -1308,7 +1312,7 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
 
     for (uint32_t i = cand_redgx->length; i < x_length; i++) {
 
-        int32_t xval = x_data[i];
+        const int64_t xval = (int64_t) x_data[i] * xmul;
 
         if (xval < 0) {
             mpz_mul_ui(rgx, a, (long unsigned int)(-xval));

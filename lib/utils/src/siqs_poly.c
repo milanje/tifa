@@ -58,6 +58,10 @@ static void choose_a(siqs_poly_t* const poly);
 ecode_t  full_poly_init(siqs_poly_t* const poly);
 ecode_t  fast_poly_init(siqs_poly_t* const poly);
 //-----------------------------------------------------------------------------
+bool siqs_use_q2(const mpz_t n) {
+    return (mpz_fdiv_ui(n, 8) == 1);
+}
+//-----------------------------------------------------------------------------
 siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
                              mpz_t n,
                              uint32_array_t* const factor_base,
@@ -79,6 +83,7 @@ siqs_poly_t* alloc_siqs_poly(mpz_t target_a,
                        );
         
     mpz_init_set(poly->n, n);
+    poly->q2 = siqs_use_q2(n);
     mpz_init(poly->a);
     mpz_init(poly->b);
     mpz_init(poly->c);
@@ -458,7 +463,9 @@ full_poly_init(siqs_poly_t* const poly)
         mpz_add(b, b, Bl->data[l]);        
     }
     Bl->length = Bl->alloced;
-    
+    if (poly->q2 && mpz_even_p(b)) {
+        mpz_add(b, b, a);
+    }
     mpz_mul(c, b, b);
     mpz_sub(c, c, poly->n);
     mpz_divexact(c, c, a);
@@ -534,6 +541,13 @@ full_poly_init(siqs_poly_t* const poly)
         inverse_mod_lanes(amodp, p, inv_lanes);
         for (uint32_t k = 0; (k < INVERSE_LANES) && (i + k < fb_length); k++) {
             ainv[i + k] = (amodp[k] == 0) ? 0 : inv_lanes[k];
+            //
+            // With q2 the roots are those of 2.a.x + b: inv(2.a) = inv(a).(p+1)/2.
+            //
+            if (poly->q2 && (p[k] != 2)) {
+                ainv[i + k] = (uint32_t) (((uint64_t) ainv[i + k]
+                                           * ((p[k] + 1) / 2)) % p[k]);
+            }
         }
     }
     const uint32_t* fbptr = &(fb[0]);
