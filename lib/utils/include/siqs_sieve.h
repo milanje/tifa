@@ -66,9 +66,13 @@ extern "C" {
 //
 #define NPRIMES_TO_SKIP        20
 //
-// Smallest prime index for which a bucket sieve is performed
+// Primes above BUCKETS_HALF_CHUNKS / 2 sieve chunks are sieved through buckets.
+// From 195 to 220 bits, 1.5 chunks measured best on an Apple M5 (64 KiB
+// chunks: 0.93 to 0.95 of the time with the 2400th prime as bound) and on
+// x86-64 (32 KiB chunks, where the 2400th prime was about there); one chunk
+// or two, and above all no buckets, were slower on x86-64.
 //
-#define BUCKETS_SMALLEST_PRIME 2400
+#define BUCKETS_HALF_CHUNKS 3
 
 #if (NPRIMES_TO_SKIP == 0)
     #error "NPRIMES_TO_SKIP must be at least 1: 2 is never sieved"

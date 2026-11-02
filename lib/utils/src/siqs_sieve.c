@@ -253,12 +253,18 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
     sieve->nprimes_no_buckets = fblen;
     sieve->use_buckets = false;
 
+    const uint32_t bucket_bound = BUCKETS_HALF_CHUNKS * (sieve->chunk_size / 2);
+    uint32_t first_bucket_prime = 0;
+    while (   (first_bucket_prime < fblen)
+           && (factor_base->data[first_bucket_prime] <= bucket_bound)) {
+        first_bucket_prime++;
+    }
     if (    (lastp > sieve->chunk_size)
-         && (((int32_t)fblen - BUCKETS_SMALLEST_PRIME) > 200)
+         && (((int32_t)fblen - (int32_t)first_bucket_prime) > 200)
          && (sieve->nchunks != 1)) {
 
         sieve->use_buckets = true;
-        sieve->nprimes_no_buckets = BUCKETS_SMALLEST_PRIME;
+        sieve->nprimes_no_buckets = first_bucket_prime;
     }
 
     uint32_t sizecp = sieve->nprimes_no_buckets * sizeof(int32_t);
@@ -280,7 +286,7 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         // _TO_DO_: The number of primes used for bucket sieving could be
         //          fine-tuned
         //
-        sieve->buckets_first_prime = BUCKETS_SMALLEST_PRIME;
+        sieve->buckets_first_prime = first_bucket_prime;
         sieve->buckets_positive    = alloc_buckets(2048, sieve->nchunks);
         sieve->buckets_negative    = alloc_buckets(2048, sieve->nchunks);
 
