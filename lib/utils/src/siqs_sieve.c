@@ -177,7 +177,7 @@ static uint32_t log2_sieve_chunk_size(void)
 // Bytes past the end of the sieve array, for sieve_primes.
 //
 #define SIEVE_SLACK 64
-#if defined(__SSE2__)
+#if defined(__SSE2__) && !defined(TIFA_NO_SIEVE_GROUPS)
 #include <emmintrin.h>
 #define SIEVE_WITH_GROUPS 1
 //
@@ -187,6 +187,7 @@ static uint32_t log2_sieve_chunk_size(void)
 // eight, SIQS took 0.66 to 0.84 of the time from 160 to 220 bits (EPYC 7763,
 // 9V74 and 9V45), 3% to 8% less than with sieve_primes alone. NEON groups were
 // slower on an M5, whose sieve_primes takes about a cycle per hit.
+// TIFA_NO_SIEVE_GROUPS leaves them out.
 //
 #define SIEVE_GROUPS_MIN_PRIME 8192
 #else
