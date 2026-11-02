@@ -1,5 +1,26 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: 64 KiB chunks for the wider sieves (0.4.3)
+
+SIQS sieves in chunks of the largest power of two that fits in the L1
+cache: 64 KiB on the M5, but 32 KiB on most x86-64 cores, and on Zen 5
+whose L1 holds 48 KiB. Above 190 bits the sieve spans several chunks on
+each side, and every chunk takes a pass of the factor base. It now takes
+chunks of 64 KiB whenever it spans more than 64 KiB on each side, even
+past a smaller L1: half the passes outweigh the misses. Time of the new
+version over that of the previous one, `siqs()` on balanced semiprimes,
+one thread, the geometric mean over 8 numbers per size on each of six
+GitHub runners (two of each):
+
+| `siqs()`, bits | 190 | 195 | 200 | 205 | 210 | 215 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| AMD EPYC 7763 (Zen 3, 32 KiB L1) | 1.00 | 0.88 | 0.88 | 0.88 | 0.89 | 0.89 | 0.90 |
+| AMD EPYC 9V74 (Zen 4, 32 KiB L1) | 1.00 | 0.87 | 0.89 | 0.91 | 0.91 | 0.92 | 0.92 |
+| AMD EPYC 9V45 (Zen 5, 48 KiB L1) | 0.99 | 0.81 | 0.84 | 0.88 | 0.87 | 0.88 | 0.89 |
+
+The M5 already sieved 64 KiB chunks and is unchanged; 128 KiB chunks were
+slower there from 210 bits. No ABI change.
+
 ## 2 November 2026 &mdash; SIQS: Q2 polynomials when kn = 1 mod 8 (0.4.3)
 
 SIQS sieves g(x) = (ax + b)^2 - kn, divided by 'a'. When kn = 1 mod 8 (for
