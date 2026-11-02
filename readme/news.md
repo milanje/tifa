@@ -1,5 +1,35 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: the sieve on x86-64 (0.4.3)
+
+TIFA's SIQS was 1.2 to 1.3 times slower than yafu's on the same x86-64
+core, and the M5 sieved about five times as fast per hit as x86-64 (0.21
+against about 1 ns on Zen 3 and 4), in the same C on both. Two reasons:
+
+- GCC compiled the branch-free last hit of each root in a chunk (the
+  position chosen by a conditional expression) as branches, taken or not
+  at random for each prime; clang makes them conditional moves. The
+  choice is now made with masks.
+- On x86-64, the primes from 8192 are sieved eight at a time: SSE2 compares
+  their roots with the end of the chunk and moves them on, and only the
+  hits stay scalar. They hit a chunk a few times each, and the bookkeeping
+  of their roots had cost more than their hits. NEON groups were slower on
+  the M5, which needs about a cycle per hit already; AVX2 groups of sixteen
+  were no faster than SSE2 on x86-64.
+
+Time of the new version over that of the previous one, `siqs()` on
+balanced semiprimes, one thread, the default build (GCC, x86-64 baseline),
+the geometric mean over 8 numbers per size (16, repeated, below 140 bits):
+
+| `siqs()`, bits | 80 | 100 | 120 | 140 | 160 | 180 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| AMD EPYC 7763 (Zen 3) | 0.98 | 0.91 | 0.95 | 0.91 | 0.82 | 0.78 | 0.79 | 0.84 |
+| AMD EPYC 9V74 (Zen 4) | 1.01 | 0.85 | 0.92 | 0.87 | 0.80 | 0.76 | 0.77 | 0.81 |
+| AMD EPYC 9V45 (Zen 5) | | 0.76 | 0.92 | 0.84 | 0.74 | 0.68 | 0.68 | 0.74 |
+| Apple M5 Pro | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.98 |
+
+No ABI change; `-DTIFA_NO_SIEVE_GROUPS` leaves the SSE2 groups out.
+
 ## 2 November 2026 &mdash; SIQS: 64 KiB chunks for the wider sieves (0.4.3)
 
 SIQS sieves in chunks of the largest power of two that fits in the L1
