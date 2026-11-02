@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <math.h>
+#include <pthread.h>
 
 #include "tifa_config.h"
 #include "first_primes.h"
@@ -176,12 +177,14 @@ struct struct_ecm_context_t {
 #if TIFA_HAVE_MONT_ECM
     //
     // Fixed-limb Montgomery curves for n of at most MONT_ECM_MAX_LIMBS limbs,
-    // with their plan for the bounds (mplan_b1, mplan_b2).
+    // with their plan for the bounds (mplan_b1, mplan_b2): a shared one (see
+    // shared_plan), or own_plan.
     //
-    bool             use_mont;
-    mont_ecm_plan_t* mplan;
-    uint32_t         mplan_b1;
-    uint32_t         mplan_b2;
+    bool                   use_mont;
+    const mont_ecm_plan_t* mplan;
+    mont_ecm_plan_t*       own_plan;
+    uint32_t               mplan_b1;
+    uint32_t               mplan_b2;
 #endif
 };
 //------------------------------------------------------------------------------
@@ -235,6 +238,34 @@ static const ecm_level_t ecm_levels[] = {
 // about two bytes per unit of b2.
 //
 #define MAX_B2 (1U << 26)
+#if TIFA_HAVE_MONT_ECM
+//
+// The plans of the levels for factors of up to SHARED_PLAN_FBITS bits, with
+// their default bounds, built on first use and shared by all the calls:
+// building them at each call took 1% to 3% of ecm() from 90 to 128 bits.
+//
+#define SHARED_PLAN_FBITS 60
+
+static mont_ecm_plan_t* shared_plans[NLEVELS];
+static pthread_mutex_t  shared_plans_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static const mont_ecm_plan_t* shared_plan(const uint32_t b1,
+                                          const uint32_t b2) {
+    for (uint32_t i = 0;
+         (i < NLEVELS) && (ecm_levels[i].fbits <= SHARED_PLAN_FBITS); i++) {
+        if ((ecm_levels[i].b1 == b1) && (ECM_B2_RATIO * b1 == b2)) {
+            pthread_mutex_lock(&shared_plans_lock);
+            if (shared_plans[i] == NULL) {
+                shared_plans[i] = alloc_mont_ecm_plan(b1, b2);
+            }
+            const mont_ecm_plan_t* const plan = shared_plans[i];
+            pthread_mutex_unlock(&shared_plans_lock);
+            return plan;
+        }
+    }
+    return NULL;
+}
+#endif
 
 //------------------------------------------------------------------------------
 //                    PROTOTYPES OF NON PUBLIC FUNCTION(S)
@@ -448,8 +479,13 @@ static ecode_t mont_curve(factoring_machine_t* const machine) {
     if (   (context->mplan == NULL)
         || (context->mplan_b1 != params->b1)
         || (context->mplan_b2 != params->b2)) {
-        free_mont_ecm_plan(context->mplan);
-        context->mplan    = alloc_mont_ecm_plan(params->b1, params->b2);
+        free_mont_ecm_plan(context->own_plan);
+        context->own_plan = NULL;
+        context->mplan    = shared_plan(params->b1, params->b2);
+        if (context->mplan == NULL) {
+            context->own_plan = alloc_mont_ecm_plan(params->b1, params->b2);
+            context->mplan    = context->own_plan;
+        }
         context->mplan_b1 = params->b1;
         context->mplan_b2 = params->b2;
     }
@@ -548,6 +584,7 @@ static ecode_t init_ecm_context(factoring_machine_t* const machine) {
 #if TIFA_HAVE_MONT_ECM
     context->use_mont = mont_ecm_handles(context->n);
     context->mplan    = NULL;
+    context->own_plan = NULL;
     context->mplan_b1 = 0;
     context->mplan_b2 = 0;
 #endif
@@ -591,7 +628,7 @@ static ecode_t clear_ecm_context(factoring_machine_t* const machine) {
 
     clear_precomputations(context);
 #if TIFA_HAVE_MONT_ECM
-    free_mont_ecm_plan(context->mplan);
+    free_mont_ecm_plan(context->own_plan);
 #endif
     free(context);
 
