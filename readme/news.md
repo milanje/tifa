@@ -1,5 +1,39 @@
 # TIFA news
 
+## 2 November 2026 &mdash; version 0.4.3
+
+Version 0.4.3 gathers the work below since 0.4.2, all in SIQS: the
+parameters from 160 to 220 bits retuned, the bucket sieve from 1.5 chunks,
+Q2 polynomials when kn = 1 mod 8, 64 KiB chunks for the wider sieves, and
+the sieve on x86-64 (the last hits chosen by masks, SSE2 groups of eight
+primes). The ABI is unchanged: the shared library is still `libtifa.so.0.4`.
+Against 0.4.2 (time of 0.4.3 over that of 0.4.2, one thread, the default
+build, `factor-bench` and `siqs-bench` of 0.4.3 built against each library;
+`siqs()` the geometric mean over 8 numbers, each timed with both versions),
+on an Apple M5 Pro and on GitHub's x86-64 runners (EPYC 7763, Zen 3, and
+9V74, Zen 4):
+
+| `tifa_factor()`, balanced semiprimes, bits | 80 | 100 | 120 | 140 | 160 | 180 |
+|---|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.94 | 0.93 | 0.95 | 0.92 | 0.90 | 0.89 |
+| EPYC 7763 | 0.91 | 0.88 | 0.91 | 0.88 | 0.80 | 0.72 |
+| EPYC 9V74 | 0.89 | 0.83 | 0.88 | 0.85 | 0.76 | 0.70 |
+
+| `tifa_factor()`, random composites, bits | 100 | 120 | 140 | 160 |
+|---|---:|---:|---:|---:|
+| M5 Pro | 0.95 | 0.94 | 0.93 | 0.90 |
+| EPYC 7763 | 0.89 | 0.89 | 0.88 | 0.82 |
+| EPYC 9V74 | 0.87 | 0.84 | 0.86 | 0.79 |
+
+| `siqs()`, balanced semiprimes, bits | 200 | 220 |
+|---|---:|---:|
+| M5 Pro | 0.85 | 0.79 |
+| EPYC 7763 | 0.65 | 0.64 |
+| EPYC 9V74 | 0.64 | 0.66 |
+
+On an EPYC 9V74 runner, TIFA's SIQS now takes 0.79 to 0.94 of the time of
+yafu 3.1.9's AVX2 build from 180 to 220 bits, on the same numbers.
+
 ## 2 November 2026 &mdash; SIQS: the sieve on x86-64 (0.4.3)
 
 TIFA's SIQS was 1.2 to 1.3 times slower than yafu's on the same x86-64
