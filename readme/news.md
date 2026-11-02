@@ -1,5 +1,32 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: the parameters from 160 to 220 bits retuned (0.4.3)
+
+From 160 to 190 bits, SIQS sieved one 64 KiB chunk on each side, the
+widest that fits; from 200 bits several, with widths extrapolated above 200
+bits. Measured again on the M5 one axis at a time (factor base, half
+width, threshold), then checked one number at a time against the previous
+table: at 160 and 170 bits half a chunk (32768) is faster, at 180 bits
+39322 with a factor base of 2520 instead of 2100, and from 200 to 220 bits
+three chunks (196608) instead of 270000 to 375000, with a threshold one or
+two higher at 200 and 210 bits. From 190 to 195 bits the parameters do not
+change: what the new rows gave there by interpolation was 3% slower at 195
+bits on x86-64.
+x86-64 sieves 32 KiB chunks, so the half widths of 160 to 190 bits were
+already capped there.
+
+Time of the new version over that of the previous one, `siqs()` on
+balanced semiprimes, one thread, the geometric mean over 16 numbers per
+size on the M5 and 8 on x86-64 (the same numbers for both versions):
+
+| `siqs()`, bits | 160 | 170 | 180 | 190 | 200 | 205 | 210 | 215 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.97 | 0.99 | 0.97 | 1.00 | 0.98 | 0.92 | 0.88 | 0.93 | 0.90 |
+| AMD EPYC 7763 (GitHub runner) | 1.01 | 1.01 | 0.99 | 1.00 | 1.00 | 0.93 | 0.92 | 0.95 | 0.95 |
+
+`tifa_factor()` follows on balanced semiprimes (0.95 at 160 bits on the
+M5, 0.97 at 180). No ABI change.
+
 ## 2 November 2026 &mdash; version 0.4.2
 
 Version 0.4.2 gathers the work below since 0.4.1: `tifa_factor()` runs the
