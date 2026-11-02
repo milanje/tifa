@@ -1,5 +1,35 @@
 # TIFA news
 
+## 2 November 2026 &mdash; SIQS: Q2 polynomials when kn = 1 mod 8 (0.4.3)
+
+SIQS sieves g(x) = (ax + b)^2 - kn, divided by 'a'. When kn = 1 mod 8 (for
+two numbers in three from 100 bits with the multiplier chosen, and for all
+below), the values at the x where u = ax + b is odd are multiples of 8, and
+the others are odd. The polynomials are now only taken at even arguments
+2x, with 'b' odd (Contini's Q2 polynomials, also in yafu): every u is odd
+and every value a multiple of 8, 'a' targets half the usual size, and the
+values are smaller. Only the roots (those of 2ax + b) and the candidates
+change: the relations still hold u and (u^2 - kn)/a. Giving kn = 1 mod 8 a
+larger weight in the choice of the multiplier, or moving the sieve
+threshold by one or two, gave no clear gain on top.
+
+Time of the new version over that of the previous one, one thread, the
+geometric mean over 16 numbers per size for `siqs()` on balanced
+semiprimes (the same numbers for both versions; `tifa_factor()` on
+`factor-bench`'s numbers):
+
+| `siqs()`, bits | 80 | 100 | 120 | 140 | 160 | 180 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.90 | 0.91 | 0.96 | 0.94 | 0.93 | 0.94 | 0.93 | 0.92 |
+| Intel Xeon Platinum 8573C (GitHub runner) | 0.98 | 0.95 | 0.96 | 0.95 | 0.93 | 0.93 | 0.93 | 0.92 |
+
+| `tifa_factor()`, random composites, bits | 80 | 100 | 120 | 140 | 160 |
+|---|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.97 | 0.94 | 0.94 | 0.93 | 0.91 |
+
+Balanced semiprimes with `tifa_factor()`: 0.93 at 100 bits, 0.93 at 140,
+0.94 at 160 (M5). No ABI change.
+
 ## 2 November 2026 &mdash; SIQS: the bucket sieve from 1.5 chunks (0.4.3)
 
 Above 190 bits, where the sieve spans several chunks on each side, the
