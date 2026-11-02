@@ -1,6 +1,6 @@
 # TIFA news
 
-## 2 November 2026 &mdash; SIQS: the polynomial switch without divisions (0.4.4)
+## 3 November 2026 &mdash; SIQS: the polynomial switch without divisions (0.4.4)
 
 For each new 'a', SIQS computes, for every prime p of the base, b and the
 B_l modulo p, then the 2.B_l/a and the two roots modulo p: four 64-bit
