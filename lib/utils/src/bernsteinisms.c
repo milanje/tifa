@@ -638,7 +638,9 @@ static inline void pow2e_z_mod_odd_lanes(uint64_t* const x,
 //
 // As pow2e_z_mod_odd_lanes, for odd yo[l] of two limbs below 2^127, with
 // 2^128: z is folded from its low limb by Montgomery reductions (c = z/2^64^nz
-// mod yo, below 2.yo), then squared as by pow2e_mod_odd_2.
+// mod yo, below 2.yo), then squared as by pow2e_mod_odd_2. Since q.y0 + a0 is
+// a multiple of 2^64, its high limb is that of q.y0 plus (a0 != 0): a multiply
+// fewer per limb.
 //
 static inline void pow2e_z_mod_odd_2_lanes(uint64_t (* const x)[2],
                                            const mp_limb_t* const z,
@@ -662,12 +664,12 @@ static inline void pow2e_z_mod_odd_2_lanes(uint64_t (* const x)[2],
         for (int l = 0; l < SMOOTH_LANES; l++) {
             const unsigned __int128 a = (((unsigned __int128) c1[l] << 64)
                                          | c0[l]) + s;
-            const uint64_t q = (uint64_t) a * ninv[l];
-            const unsigned __int128 p0 = (unsigned __int128) q * yo[l][0]
-                                       + (uint64_t) a;
+            const uint64_t a0 = (uint64_t) a;
+            const uint64_t q  = a0 * ninv[l];
+            const uint64_t h0 = (uint64_t) (((unsigned __int128) q * yo[l][0])
+                                            >> 64) + (a0 != 0);
             const unsigned __int128 p1 = (unsigned __int128) q * yo[l][1]
-                                       + (uint64_t) (a >> 64)
-                                       + (uint64_t) (p0 >> 64);
+                                       + (uint64_t) (a >> 64) + h0;
             c0[l] = (uint64_t) p1;
             c1[l] = (uint64_t) (p1 >> 64);
         }
