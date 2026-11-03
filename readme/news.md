@@ -1,5 +1,31 @@
 # TIFA news
 
+## 3 November 2026 &mdash; SIQS: the bucket fill with AVX-512 (0.4.6)
+
+From about 205 bits, the largest primes of the factor base go through
+buckets, filled once per polynomial: 19% to 20% of a run at 220 bits on
+x86-64, where each root of these primes hits a side one to four times, one
+word stored at a time. Where the processor has AVX-512 (F, BW and VL,
+checked at run time), sixteen primes are taken at a time: the hits of
+sixteen roots go to each bin by one compression of their words, stored
+whole, the bins having 16 words of slack. Time of the new version over that
+of the previous one, `siqs()` on balanced semiprimes, one thread, the
+default build, the geometric mean over 10 numbers per size (20 on the EPYC
+9V74, two runners; 36 on the EPYC 7763, three):
+
+| `siqs()`, bits | 205 | 210 | 215 | 220 | 225 | 230 |
+|---|---:|---:|---:|---:|---:|---:|
+| AMD EPYC 9V45 (Zen 5) | 0.95 | 0.93 | 0.88 | 0.85 | 0.90 | 0.93 |
+| AMD EPYC 9V74 (Zen 4) | 0.96 | 0.93 | 0.90 | 0.86 | 0.96 | 0.98 |
+| Intel Xeon 6975P-C | 0.96 | 0.92 | 0.89 | 0.84 | 0.93 | 0.95 |
+| AMD EPYC 7763 (Zen 3, no AVX-512) | 0.99 | 0.99 | 0.99 | 0.98 | | |
+
+Above 220 bits, with 14 chunks per side or more, each vector of hits is
+compressed once per bin, and the gain shrinks. Without AVX-512 the fill
+keeps its code; below 205 bits, and on an Apple M5, nothing changes. On
+each AVX-512 runner, the bins of one polynomial in 32 (10119 of 323797,
+from 200 to 232 bits) matched those of a reference. No ABI change.
+
 ## 3 November 2026 &mdash; version 0.4.5
 
 Version 0.4.5 gathers the work below since 0.4.4: a cheaper candidate

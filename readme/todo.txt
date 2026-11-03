@@ -41,12 +41,13 @@ Here are some short term objectives:
     bits, the candidate pre-check and the candidates' values 6%, the batch
     smoothness test 7% to 9% and the trial division of the relations 3% to
     4%; the linear algebra 2% at 220 bits (FILTERED_GAUSS_ELIM).
-      - The bucket fill on x86-64 is the largest share the M5 does not
-        have: yafu updates the roots of the largest primes and fills their
-        buckets in one SIMD loop, which might pay at 220 bits. Bins of
-        their own for the second roots, faster in a microbenchmark whose
-        bins stayed in cache, were 1% to 3% slower in SIQS: measure such
-        kernels with the caches flushed between runs.
+      - The bucket fill with AVX-512 (0.4.6) compresses each vector of
+        hits once per bin: from 225 bits, with 14 chunks per side or more,
+        looping over the bins its lanes hit might keep more of its gain.
+        Without AVX-512 the fill stays scalar. Bins of their own for the
+        second roots, faster in a microbenchmark whose bins stayed in
+        cache, were 1% to 3% slower in SIQS: measure such kernels with the
+        caches flushed between runs.
       - The candidates the pre-check drops have their values u = a.x + b
         computed for nothing, and the trial division of the relations could
         start from the small primes the pre-check found: 1% to 2% at 180

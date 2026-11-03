@@ -195,6 +195,11 @@ static uint32_t log2_sieve_chunk_size(void)
 #else
 #define SIEVE_WITH_GROUPS 0
 #endif
+//
+// Where the processor has AVX-512, fill_buckets takes sixteen primes at a
+// time: SIQS took 0.84 to 0.87 of the time at 220 bits (EPYC 9V45 and 9V74,
+// Xeon 6975P-C). TIFA_NO_AVX512 leaves it out.
+//
 #if defined(__x86_64__) && defined(__GNUC__) && !defined(TIFA_NO_AVX512)
 #include <immintrin.h>
 #define FILL_WITH_AVX512 1
