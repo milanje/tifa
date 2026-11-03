@@ -61,10 +61,13 @@ extern "C" {
 
 //
 // Do not sieve with the NPRIMES_TO_SKIP smallest primes of the factor base
-// (fewer for small factor bases, see fill_sieve_chunk), or only with those up
+// (fewer for small factor bases, NPRIMES_TO_SKIP_LARGE from
+// SKIP_LARGE_MIN_BASE primes, see fill_sieve_chunk), or only with those up
 // to the smallest prime of 'a' if it is among them
 //
 #define NPRIMES_TO_SKIP        20
+#define NPRIMES_TO_SKIP_LARGE  40
+#define SKIP_LARGE_MIN_BASE    1800
 //
 // Primes above BUCKETS_HALF_CHUNKS / 2 sieve chunks are sieved through buckets.
 // From 195 to 220 bits, 1.5 chunks measured best on an Apple M5 (64 KiB
@@ -155,6 +158,11 @@ struct struct_siqs_sieve_t {
       * bucket-sieved prime)
       */
     uint32_t   nprimes_no_buckets;
+     /**
+      * Index of the first prime sieved with for the current polynomial (see
+      * first_sieved_prime)
+      */
+    uint32_t   first_sieved;
      /**
       * Index of the first prime sieved by groups on x86-64 (see
       * sieve_primes_groups)

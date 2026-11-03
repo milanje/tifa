@@ -130,6 +130,13 @@
 #define PRECHECK_MARGIN_BITS    8
 #define PRECHECK_THRESHOLD_DROP 2
 //
+// With SKIP_LARGE_MIN_BASE primes or more, the sieve skips NPRIMES_TO_SKIP_LARGE
+// of them (see siqs_sieve.h): the threshold is SKIP_LARGE_THRESHOLD_DROP lower
+// for the logs they no longer add, 0.95 to 0.99 of the time from 170 to 220
+// bits on an Apple M5.
+//
+#define SKIP_LARGE_THRESHOLD_DROP 4
+//
 // Largest number of primes added to 'a': each one doubles the polynomials
 // per 'a', and 2 already tested worse than none at every size.
 //
@@ -605,6 +612,9 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
         params->threshold -= (mpz_sizeinbase(n, 2) >= 200)
                            ? 2 * PRECHECK_THRESHOLD_DROP
                            : PRECHECK_THRESHOLD_DROP;
+    }
+    if (params->nprimes_in_base >= SKIP_LARGE_MIN_BASE) {
+        params->threshold -= SKIP_LARGE_THRESHOLD_DROP;
     }
 
     //

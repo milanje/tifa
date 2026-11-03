@@ -297,6 +297,8 @@ siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
         sieve->nprimes_no_buckets = first_bucket_prime;
     }
 
+    sieve->first_sieved = first_sieved_prime(sieve);
+
 #if SIEVE_WITH_GROUPS
     sieve->first_group_prime = 0;
     while (   (sieve->first_group_prime < fblen)
@@ -503,6 +505,7 @@ void switch_polynomial(siqs_sieve_t* const sieve)
     int32_t* sol2 = sieve->sol2->data;
 
     update_polynomial(poly);
+    sieve->first_sieved = first_sieved_prime(sieve);
 
     uint32_t cpsize = sieve->nprimes_no_buckets * sizeof(int32_t);
 
@@ -676,11 +679,16 @@ static inline void sieve_primes_groups(unsigned char* const sieve_data,
 // bases: 10 below 150 primes (up to about 85 bits) and 14 below 450 (up to
 // about 130 bits), rather than 20. Their hits cost less than the false
 // candidates the missing logs let through, the thresholds raised by one
-// where it was measured best.
+// where it was measured best. From 1800 primes (about 168 bits), 40: the
+// candidate pre-check counts them exactly and drops the false candidates
+// cheaply, and the threshold is 4 lower (see set_siqs_params_to_default).
 //
 static inline uint32_t nprimes_to_skip(const uint32_t fblength) {
     if (fblength < 150) {
         return 10;
+    }
+    if (fblength >= SKIP_LARGE_MIN_BASE) {
+        return NPRIMES_TO_SKIP_LARGE;
     }
     return (fblength < 450) ? 14 : NPRIMES_TO_SKIP;
 }
@@ -746,7 +754,7 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
     //
     const uint32_t* const avoid = poly->idx_of_a;
 
-    uint32_t from = first_sieved_prime(sieve);
+    uint32_t from = sieve->first_sieved;
 
     for (uint32_t k = 0; k <= nprimes_in_a; k++) {
         const uint32_t to = (k < nprimes_in_a)
