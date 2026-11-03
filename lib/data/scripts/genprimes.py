@@ -23,11 +23,12 @@ The header (PREFIX.h) declares the uint32_t array first_primes of the
 NFIRST_PRIMES smallest primes, LARGEST_PRIME and the uint32_array_t
 wrapper first_primes_array; the source (PREFIX.c) defines them. TIFA's
 lib/data/include/first_primes.h and lib/data/src/first_primes.c are
-written, byte for byte, by:
+written by
 
-    python3 genprimes.py --out first_primes --date 2011-10-11
+    python3 genprimes.py --out first_primes
 
-then moved to lib/data/include/ and lib/data/src/.
+then moved to lib/data/include/ and lib/data/src/; with --date and the
+time in their comments, byte for byte.
 """
 import argparse
 import datetime
@@ -167,9 +168,10 @@ def main():
                         help="output file prefix: PREFIX.h and PREFIX.c")
     parser.add_argument("--nprimes", type=int, default=65536,
                         help="number of primes (default: 65536)")
-    parser.add_argument("--date", type=datetime.date.fromisoformat,
-                        default=datetime.date.today(), metavar="YYYY-MM-DD",
-                        help="date in the files' comments (default: today)")
+    parser.add_argument("--date", type=datetime.datetime.fromisoformat,
+                        default=None, metavar="'YYYY-MM-DD[ HH:MM:SS]'",
+                        help="generation time in the files' comments "
+                             "(default: now)")
     parser.add_argument("--force", action="store_true",
                         help="overwrite the output files if they exist")
     args = parser.parse_args()
@@ -183,14 +185,17 @@ def main():
             sys.exit(f"Error: output file {path} already exists "
                      "(--force overwrites it)")
 
+    when = args.date or datetime.datetime.now().replace(microsecond=0)
+    with_time = (args.date is None) or (when.time() != datetime.time())
     primes = smallest_primes(args.nprimes)
     fields = {
         "license":   LICENSE,
         "name_prog": os.path.basename(sys.argv[0]),
         "name_inc":  os.path.basename(output_inc),
         "name_src":  os.path.basename(output_src),
-        "date":      args.date.strftime("%a %b %d %Y"),
-        "version":   args.date.isoformat(),
+        "date":      when.strftime("%a %b %d %H:%M:%S %Y" if with_time
+                                   else "%a %b %d %Y"),
+        "version":   when.date().isoformat(),
         "nprimes":   args.nprimes,
         "largest":   primes[-1],
         "rows":      ",\n".join(f"\t{p}" for p in primes),
