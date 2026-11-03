@@ -27,6 +27,17 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+Version 0.4.5 (November 2026) makes SIQS 0.94 to 0.98 of the time of 0.4.4
+from 140 to 220 bits on an Apple M5 Pro, and 0.96 to 0.99 on x86-64 (EPYC
+7763 and 9V74, Xeon 8370C): the candidate pre-check finds the small primes
+of each candidate with doubles and a mask, rather than 128-bit reductions,
+random branches and GMP calls, and a new linear-algebra method,
+`FILTERED_GAUSS_ELIM`, filters the matrix before the elimination (0.29 to
+0.46 of the time of
+`SMART_GAUSS_ELIM` from 180 to 220 bits). The table of primes is generated
+by a Python 3 script: TIFA no longer has any Perl. The ABI is unchanged
+(`libtifa.so.0.4`).
+
 Version 0.4.4 (November 2026) makes SIQS 1.25 to 1.35 times faster at 200
 and 220 bits, on an Apple M5 Pro as on x86-64 (EPYC 7763 and Xeon 8370C):
 the candidates with no chance of a relation are dropped before the batch

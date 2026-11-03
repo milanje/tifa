@@ -1,5 +1,35 @@
 # TIFA news
 
+## 3 November 2026 &mdash; version 0.4.5
+
+Version 0.4.5 gathers the work below since 0.4.4: a cheaper candidate
+pre-check in SIQS, a new linear-algebra method, `FILTERED_GAUSS_ELIM`, used
+by `siqs()` from 3000 primes in the base, and the table of primes generated
+by a Python 3 script rather than Perl. The ABI is unchanged: the shared
+library is still `libtifa.so.0.4`. Against 0.4.4 (time of 0.4.5 over that
+of 0.4.4, one thread, the default build, `factor-bench` and `siqs-bench` of
+each version; `siqs()` the geometric mean over 8 numbers, 16 on the EPYC
+7763 (two runners) and 12 on the M5, each timed with both versions), on an
+Apple M5 Pro and on GitHub's x86-64 runners (EPYC 7763, Zen 3, EPYC 9V74,
+Zen 4, and Xeon Platinum 8370C):
+
+| `siqs()`, balanced semiprimes, bits | 140 | 160 | 180 | 190 | 200 | 210 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.95 | 0.98 | 0.96 | 0.96 | 0.97 | 0.95 | 0.94 |
+| EPYC 7763 | 0.97 | 0.98 | 0.98 | 0.97 | 0.97 | 0.97 | 0.97 |
+| EPYC 9V74 | 0.98 | 0.99 | 0.98 | 0.98 | 0.97 | 0.98 | 0.98 |
+| Xeon 8370C | 0.99 | 0.99 | 0.99 | 1.00 | 0.99 | 0.96 | 0.96 |
+
+| `tifa_factor()`, balanced semiprimes, bits | 120 | 140 | 160 | 180 |
+|---|---:|---:|---:|---:|
+| M5 Pro | 0.99 | 0.94 | 0.98 | 0.97 |
+| EPYC 7763 | 1.00 | 0.96 | 0.98 | 0.99 |
+| EPYC 9V74 | 0.99 | 0.96 | 0.99 | 1.01 |
+| Xeon 8370C | 1.01 | 0.99 | 0.99 | 0.99 |
+
+Below 140 bits nothing changes, and `tifa_factor()` on random composites
+from 100 to 160 bits stays within 2% of 0.4.4.
+
 ## 3 November 2026 &mdash; genprimes.py rather than genprimes.pl (0.4.5)
 
 The table of the 65536 smallest primes (`lib/data/include/first_primes.h`
