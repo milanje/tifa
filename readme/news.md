@@ -14,8 +14,7 @@ times the largest prime of the factor base leave before the batch test, and
 the sieve threshold is 2 lower (4 from 200 bits) for the partial relations
 the cheaper candidates bring. Time of the new version over that of the
 previous one, `siqs()` on balanced semiprimes, one thread, the default
-build, the geometric mean over 8 to 16 numbers per size (12 to 16 on the
-M5, 8 to 16 on each of up to five runners of a kind):
+build, the geometric mean over 8 to 16 numbers per size:
 
 | `siqs()`, bits | 140 | 150 | 160 | 180 | 200 | 220 |
 |---|---:|---:|---:|---:|---:|---:|
