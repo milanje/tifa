@@ -21,6 +21,15 @@ been migrated to [CMake](https://cmake.org).
 
 ## What's new
 
+Version 0.4.4 (November 2026) makes SIQS 1.25 to 1.35 times faster at 200
+and 220 bits, on an Apple M5 Pro as on x86-64 (EPYC 7763 and Xeon 8370C):
+the candidates with no chance of a relation are dropped before the batch
+smoothness test, 40 small primes are left out of the sieve, the polynomial
+switch takes no divisions, and on x86-64 the scan uses SSE2 and the bucket
+fill no longer the branches GCC made. `tifa_factor()` is 2% to 18% faster on
+balanced semiprimes from 80 to 180 bits. The ABI is unchanged
+(`libtifa.so.0.4`).
+
 Version 0.4.3 (November 2026) makes SIQS 1.5 to 1.6 times faster at 200
 and 220 bits on x86-64 (EPYC 7763 and 9V74) and up to 1.3 times on an Apple
 M5 Pro: GCC no longer turns the sieve's branch-free code into branches, the

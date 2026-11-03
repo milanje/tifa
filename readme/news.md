@@ -1,5 +1,37 @@
 # TIFA news
 
+## 3 November 2026 &mdash; version 0.4.4
+
+Version 0.4.4 gathers the work below since 0.4.3, all in SIQS: the scan
+with SSE2 on x86-64, the polynomial switch without divisions, the hopeless
+candidates dropped before the batch test (and the sieve threshold lowered
+for them), the batch test's lanes and blocked remainder tree, 40 small
+primes left out of the sieve, and the bucket fill on x86-64. The ABI is
+unchanged: the shared library is still `libtifa.so.0.4`. Against 0.4.3
+(time of 0.4.4 over that of 0.4.3, one thread, the default build,
+`factor-bench` and `siqs-bench` of each version; `siqs()` the geometric mean
+over 8 numbers, 12 on the M5, each timed with both versions), on an Apple M5
+Pro and on GitHub's x86-64 runners (EPYC 7763, Zen 3, and Xeon Platinum
+8370C):
+
+| `tifa_factor()`, balanced semiprimes, bits | 80 | 100 | 120 | 140 | 160 | 180 |
+|---|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.98 | 0.97 | 0.98 | 0.94 | 0.90 | 0.83 |
+| EPYC 7763 | 0.93 | 0.92 | 0.93 | 0.89 | 0.85 | 0.82 |
+| Xeon 8370C | 0.93 | 0.91 | 0.95 | 0.88 | 0.86 | 0.82 |
+
+| `tifa_factor()`, random composites, bits | 100 | 120 | 140 | 160 |
+|---|---:|---:|---:|---:|
+| M5 Pro | 0.98 | 0.99 | 0.98 | 0.93 |
+| EPYC 7763 | 0.94 | 0.93 | 0.93 | 0.91 |
+| Xeon 8370C | 0.94 | 0.93 | 0.93 | 0.91 |
+
+| `siqs()`, balanced semiprimes, bits | 100 | 120 | 140 | 160 | 180 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| M5 Pro | 0.97 | 0.97 | 0.93 | 0.87 | 0.81 | 0.80 | 0.79 |
+| EPYC 7763 | 0.89 | 0.92 | 0.88 | 0.84 | 0.78 | 0.75 | 0.74 |
+| Xeon 8370C | 0.89 | 0.92 | 0.88 | 0.84 | 0.79 | 0.75 | 0.75 |
+
 ## 3 November 2026 &mdash; SIQS: the bucket fill on x86-64 (0.4.4)
 
 From about 205 bits, the largest primes of the factor base go through
