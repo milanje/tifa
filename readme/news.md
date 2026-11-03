@@ -1,5 +1,32 @@
 # TIFA news
 
+## 3 November 2026 &mdash; linear algebra: FILTERED_GAUSS_ELIM (0.4.5)
+
+A new method of `linalg_method_t`, `FILTERED_GAUSS_ELIM`, filters the
+matrix before Parkinson and Wunderlich's elimination: the rows in no
+dependency go first (those with a column of their own, until none is
+left), then the copies of other rows (a relation found twice gives a
+trivial dependency, which would take the place of the others), then the
+heaviest rows beyond the excess of the matrix; the columns left are
+packed by decreasing weight, and the elimination takes as the pivot of
+each column the lightest of its rows, counting their ones on the columns
+still to process (with POPCNT where the processor has it on x86-64). It
+finds at least `nrows - ncols` dependencies, not necessarily all of them.
+On the SIQS matrices of 180 to 220 bits it takes 0.29 to 0.46 of the time
+of `SMART_GAUSS_ELIM`, and `siqs()` uses it from 3000 primes in the base
+(about 188 bits). Time of the new version over that of the previous one,
+`siqs()` on balanced semiprimes, one thread, the default build, the
+geometric mean over 10 to 12 numbers per size:
+
+| `siqs()`, bits | 190 | 200 | 210 | 215 | 220 |
+|---|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.99 | 0.99 | 0.97 | | 0.95 |
+| AMD EPYC 9V45 (Zen 5) | 0.99 | 1.00 | 0.97 | 0.97 | 0.98 |
+| AMD EPYC 7763 (Zen 3) | 0.98 | 0.99 | 0.97 | 0.97 | 0.98 |
+
+Below 190 bits nothing changes. The ABI is unchanged; `methods.h` has one
+more method.
+
 ## 3 November 2026 &mdash; SIQS: a cheaper candidate pre-check (0.4.5)
 
 Since the sieve leaves out 40 small primes, nearly every candidate went
