@@ -446,17 +446,14 @@ static void kill_duplicates(filter_t* const f) {
 }
 
 //
-// The indexes i in [0, n) by decreasing weights[i] (then by increasing i),
-// into order.
+// The n indexes of order by decreasing weights (then by increasing index).
 //
-static void sort_heaviest_first(uint32_t* const order,
-                                const uint32_t* const indexes,
-                                const uint32_t n,
+static void sort_heaviest_first(uint32_t* const order, const uint32_t n,
                                 const uint32_t* const weights) {
     uint64_t* const keys = tifa_malloc((n + 1) * sizeof(uint64_t));
     for (uint32_t k = 0; k < n; k++) {
-        keys[k] = ((uint64_t) (UINT32_MAX - weights[indexes[k]]) << 32)
-                | indexes[k];
+        keys[k] = ((uint64_t) (UINT32_MAX - weights[order[k]]) << 32)
+                | order[k];
     }
     qsort(keys, n, sizeof(uint64_t), compare_u64);
     for (uint32_t k = 0; k < n; k++) {
@@ -533,7 +530,7 @@ void filtered_gaussian_elim(uint32_array_list_t* relations,
         for (uint32_t r = 0; r < nrows; r++) {
             order[r] = r;
         }
-        sort_heaviest_first(order, order, nrows, rowweight);
+        sort_heaviest_first(order, nrows, rowweight);
         for (uint32_t k = 0; (k < nrows) && (f.nalive > f.nactive + excess);
              k++) {
             if (!dead[order[k]]) {
@@ -554,7 +551,7 @@ void filtered_gaussian_elim(uint32_array_list_t* relations,
             order[ncols_left++] = c;
         }
     }
-    sort_heaviest_first(order, order, ncols_left, colweight);
+    sort_heaviest_first(order, ncols_left, colweight);
     for (uint32_t k = 0; k < ncols_left; k++) {
         cmap[order[k]] = k;
     }
