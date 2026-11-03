@@ -1,5 +1,24 @@
 # TIFA news
 
+## 3 November 2026 &mdash; SIQS: the batch smoothness test (0.4.4)
+
+The batch test reduces z, the product of the factor base, modulo each
+candidate directly, eight candidates at a time, rather than down
+Bernstein's remainder tree: with z of 600 to 2300 limbs and candidates of
+two, GMP's fast multiplications don't pay for the tree's divisions, and
+the direct reduction runs at about two cycles per limb and candidate on an
+Apple M5, the rate of its multipliers. Two changes: a multiply fewer per
+limb in the two-limb fold (13% off it on the M5, 7% to 10% on x86-64),
+and, from 2000 limbs of z (800 on x86-64, where GMP's division is faster
+than the fold by more), blocks of 256 candidates that reduce z modulo
+their product, then down a remainder tree to leaves of 32 whose lanes fold
+only the leaf's remainder (0.5 to 0.8 of the time on x86-64 from 1150 to
+2340 limbs). Candidates from 2^127 take their remainder from their leaf,
+instead of the whole batch going through GMP's trees. The batch is 5% to
+9% of a run since the candidate pre-check, so the gains are small:
+`siqs()` takes 0.99 of the time on the M5 from 120 to 200 bits, 0.98 on
+x86-64 at 200 and 210 bits, the same elsewhere within 1%. No ABI change.
+
 ## 3 November 2026 &mdash; SIQS: hopeless candidates dropped before the batch test (0.4.4)
 
 From 180 bits, three in four of the candidates the sieve let through kept,
