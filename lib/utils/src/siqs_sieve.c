@@ -195,6 +195,12 @@ static uint32_t log2_sieve_chunk_size(void)
 #else
 #define SIEVE_WITH_GROUPS 0
 #endif
+#if defined(__x86_64__) && defined(__GNUC__) && !defined(TIFA_NO_AVX512)
+#include <immintrin.h>
+#define FILL_WITH_AVX512 1
+#else
+#define FILL_WITH_AVX512 0
+#endif
 //-----------------------------------------------------------------------------
 siqs_sieve_t* alloc_siqs_sieve(mpz_t n,
                                uint32_array_t* const factor_base,
@@ -1008,13 +1014,14 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
 //-----------------------------------------------------------------------------
 static void size_buckets(siqs_sieve_t* const sieve) {
     //
-    // Makes room in every bin for the most hits of a polynomial: no bin grows
-    // while fill_buckets fills them.
+    // Makes room in every bin for the most hits of a polynomial, and 16 words
+    // more for the whole vectors of fill_buckets_avx512: no bin grows while
+    // fill_buckets fills them.
     //
     const uint32_t* const fb    = sieve->poly->factor_base->data;
     const uint32_t        fblen = sieve->poly->factor_base->length;
 
-    uint32_t bound = 1;
+    uint32_t bound = 1 + 16;
     for (uint32_t i = sieve->nprimes_no_buckets; i < fblen; i++) {
         bound += 2 * ((sieve->chunk_size - 1) / fb[i] + 1);
     }
@@ -1058,6 +1065,79 @@ static inline void fill_root(uint32_t** const c, uint32_t spos,
     *(c[b]) = ((spos & maskc) << 8) | lp;
     c[b] += in & 1;
 }
+
+#if FILL_WITH_AVX512
+#define AVX512_TARGET "avx512f,avx512bw,avx512vl,popcnt"
+//
+// The hits of sixteen roots at pos on one side, those of the lanes in in: to
+// each bin, the words of its hits compressed to the front of a vector, stored
+// whole, and its write position moved by their number.
+//
+__attribute__((target(AVX512_TARGET), always_inline))
+static inline void fill_roots_avx512(uint32_t** const c, __m512i pos,
+                                     const __m512i p, const __m512i lp,
+                                     __mmask16 in, const __m512i hw,
+                                     const __m512i log2c, const __m512i maskc,
+                                     const uint32_t nbins) {
+    in = _mm512_mask_cmplt_epu32_mask(in, pos, hw);
+    while (in != 0) {
+        const __m512i bin  = _mm512_srlv_epi32(pos, log2c);
+        const __m512i word = _mm512_or_si512(
+            _mm512_slli_epi32(_mm512_and_si512(pos, maskc), 8), lp
+        );
+        for (uint32_t b = 0; b < nbins; b++) {
+            const __mmask16 k = _mm512_mask_cmpeq_epi32_mask(
+                in, bin, _mm512_set1_epi32((int) b)
+            );
+            _mm512_storeu_si512(c[b], _mm512_maskz_compress_epi32(k, word));
+            c[b] += _mm_popcnt_u32(k);
+        }
+        pos = _mm512_add_epi32(pos, p);
+        in  = _mm512_mask_cmplt_epu32_mask(in, pos, hw);
+    }
+}
+
+__attribute__((target(AVX512_TARGET)))
+static void fill_buckets_avx512(uint32_t** const curp, uint32_t** const curn,
+                                const uint32_t* const fb,
+                                const unsigned char* const log_fb,
+                                const int32_t* const sol1,
+                                const int32_t* const sol2,
+                                const uint32_t from, const uint32_t to,
+                                const uint32_t hw, const uint32_t log2c,
+                                const uint32_t nbins) {
+    const __m512i vhw    = _mm512_set1_epi32((int) hw);
+    const __m512i vlog2c = _mm512_set1_epi32((int) log2c);
+    const __m512i vmaskc = _mm512_set1_epi32((int) ((1U << log2c) - 1));
+    const __m512i vone   = _mm512_set1_epi32(1);
+
+    for (uint32_t i = from; i < to; i += 16) {
+        const __mmask16 live = (to - i >= 16)
+                             ? (__mmask16) 0xFFFF
+                             : (__mmask16) ((1U << (to - i)) - 1);
+        const __m512i p   = _mm512_maskz_loadu_epi32(live, fb + i);
+        const __m512i r1  = _mm512_maskz_loadu_epi32(live, sol1 + i);
+        const __m512i r2  = _mm512_maskz_loadu_epi32(live, sol2 + i);
+        const __m512i lp  = _mm512_cvtepu8_epi32(
+            _mm_maskz_loadu_epi8(live, log_fb + i)
+        );
+        const __m512i pm1 = _mm512_sub_epi32(p, vone);
+
+        fill_roots_avx512(curp, r1, p, lp, live, vhw, vlog2c, vmaskc, nbins);
+        fill_roots_avx512(curn, _mm512_sub_epi32(pm1, r1), p, lp, live, vhw,
+                          vlog2c, vmaskc, nbins);
+        fill_roots_avx512(curp, r2, p, lp, live, vhw, vlog2c, vmaskc, nbins);
+        fill_roots_avx512(curn, _mm512_sub_epi32(pm1, r2), p, lp, live, vhw,
+                          vlog2c, vmaskc, nbins);
+    }
+}
+
+static bool fill_with_avx512(void) {
+    return __builtin_cpu_supports("avx512f")
+        && __builtin_cpu_supports("avx512bw")
+        && __builtin_cpu_supports("avx512vl");
+}
+#endif
 
 void fill_buckets(siqs_sieve_t* const sieve) {
     //
@@ -1111,6 +1191,13 @@ void fill_buckets(siqs_sieve_t* const sieve) {
     curn[nbins] = &scratch[1];
 
     uint32_t i = sieve->nprimes_no_buckets;
+#if FILL_WITH_AVX512
+    if (fill_with_avx512()) {
+        fill_buckets_avx512(curp, curn, fb, log_fb->data, sol1, sol2, i,
+                            fb_length, hw, log2c, nbins);
+        i = fb_length;
+    }
+#endif
     while (i < fb_length) {
         const uint32_t m    = hw / fb[i];
         const uint32_t pmax = (m != 0) ? hw / m : UINT32_MAX;
