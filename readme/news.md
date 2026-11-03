@@ -1,5 +1,28 @@
 # TIFA news
 
+## 3 November 2026 &mdash; SIQS: 40 small primes left out of the sieve (0.4.4)
+
+The sieve left out the 20 smallest primes of the factor base, the others
+up to about 400 costing twice as much per hit as the larger ones (13% to
+25% of the sieve for 9% of its hits on an Apple M5). Since the candidate
+pre-check counts the primes the sieve leaves out exactly, and drops the
+false candidates their missing logs let through for little, it now leaves
+out 40 from 1800 primes in the base (about 168 bits), with the threshold
+4 lower. Time of the new version over that of the previous one, `siqs()`
+on balanced semiprimes, one thread, the default build, the geometric mean
+over 10 to 12 numbers per size:
+
+| `siqs()`, bits | 170 | 180 | 190 | 200 | 210 | 220 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.99 | 0.98 | 0.95 | 0.95 | 0.95 | 0.96 |
+| AMD EPYC 7763 (Zen 3) | 0.99 | 0.99 | 0.99 | 0.94 | 0.96 | 0.96 |
+| AMD EPYC 9V74 (Zen 4) | 0.99 | 0.99 | 0.97 | 0.92 | 0.96 | 0.96 |
+| AMD EPYC 9V45 (Zen 5) | 1.01 | 1.00 | 0.99 | 0.95 | 0.97 | 0.99 |
+
+Below 170 bits nothing changes (within 1%; the first prime sieved with is
+now chosen once per polynomial, out of the sieve's loops, whose alignment
+the choice otherwise moved, for 3% at 150 bits on the M5). No ABI change.
+
 ## 3 November 2026 &mdash; SIQS: the batch smoothness test (0.4.4)
 
 The batch test reduces z, the product of the factor base, modulo each
