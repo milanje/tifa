@@ -6,16 +6,22 @@
 
 `TIFA` (_Tools for Integer FActorization_) is a small C library that implements
 utilities and algorithms to perform integer factorizations, with an emphasis on
-small to medium-size composites, say from 40 to 200 bits. It can be used on its
+small to medium-size composites, say from 40 to 220 bits. It can be used on its
 own, or inside a larger program such as a number field sieve, to factor its
 cofactors one per thread.
 
 This library was written around 2010 when I was working at
 [LIX](https://www.lix.polytechnique.fr), the Computer Science Laboratory
 of [Ecole Polytechnique](https://www.polytechnique.edu/en). The source code was
-uploaded "as is" to [GitHub](https://github.com) in April 2020. It was
-originally built with [SCons](https://scons.org); the build system has since
-been migrated to [CMake](https://cmake.org).
+uploaded "as is" to [GitHub](https://github.com) in April 2020. It has been
+completely revamped in the fall of 2026, for correctness, thread safety and
+above all speed: its build system moved from [SCons](https://scons.org) to
+[CMake](https://cmake.org), and on the same balanced semiprimes, its SIQS is
+3 to 5 times as fast as the 2020 code on an Apple M5 Pro and 2.3 to 3 times
+on x86-64 (an AMD EPYC 7763) from 100 to 220 bits, `tifa_factor()` 2.2 to
+3.3 times from 100 to 180 bits. On x86-64, its SIQS takes 0.6 to 0.75 of the
+time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
+220 bits, and about as long as its AVX-512 build.
 
 <br clear="left">
 
@@ -352,10 +358,18 @@ bench/ab.sh old/bench/siqs-bench new/bench/siqs-bench 70 100 3
 ```
 
 where `old` is a build of the reference version (from a `git worktree`, say).
-The tables of news.md use 100 numbers per size up to 120 bits (3 seconds), 30
-up to 150 (6 seconds) and 8 above (12 seconds), on one thread. A build compared
-with itself stays within 1% of 1 on an idle machine, a few percent under load:
-smaller differences are noise.
+The older tables of news.md use 100 numbers per size up to 120 bits (3
+seconds), 30 up to 150 (6 seconds) and 8 above (12 seconds), on one thread. A
+build compared with itself stays within 1% of 1 on an idle machine, a few
+percent under load: smaller differences are noise.
+
+Since 0.4.3, the `siqs()` tables time each number with both builds instead,
+one after the other (`siqs-bench --seed <s> <bits> 1 <seconds>`, the order
+alternating from one number to the next), and give the geometric mean of the
+ratios over 8 to 16 numbers per size: less noisy from 160 bits, where a
+number takes long enough to time alone. Those of x86-64 come from one-off
+workflows on GitHub's runners, whose processors vary from one job to the
+next.
 
 ## Licence
 

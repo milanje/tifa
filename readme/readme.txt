@@ -22,8 +22,11 @@
 ------------------------------------------------------------------------------
 
   TIFA was written around 2010 at LIX, the Computer Science Laboratory of
-  Ecole Polytechnique, and reworked in October 2026 for speed, correctness
-  and thread safety: the file news.md in this directory has the details.
+  Ecole Polytechnique, uploaded "as is" to GitHub in April 2020, and
+  completely revamped in the fall of 2026 for speed, correctness and thread
+  safety: its SIQS is now 2.3 to 5 times as fast as the 2020 code from 100 to
+  220 bits, and tifa_factor() 2.2 to 3.3 times from 100 to 180 bits. The
+  file news.md in this directory has the details.
 
   TIFA stands for (T)ools for (I)nteger (FA)ctorization. Yes, this is a rather
   dull name but I figured it would still be better than MyCfracAndQSLibrary.
@@ -69,10 +72,9 @@
 
   The TIFA library implements utilities and algorithms to perform integer
   factorizations, with an emphasis on small to medium-sized composites, say
-  from 40 to 200 bits.
+  from 40 to 220 bits.
 
-  For the time being, the following factorization algorithms have been
-  implemented:
+  The following factorization algorithms are implemented:
 
       - CFRAC   (Continued FRACtion factorization)
       - ECM     (Elliptic Curve Method)
@@ -387,11 +389,13 @@
   Can TIFA run under OS X,Y,Z?
   ----------------------------
 
-    Maybe. But then again, maybe not. No particular effort was made to ensure
-    compatibility with non-unix systems (such as Windows) but our bet is that
-    TIFA should be pretty easy to adapt to non-unix platforms provided that
-    they are POSIX compliant. That said, we do not plan to support non-unix
-    operating systems anyway, so in that case you're pretty much on your own.
+    It is built and tested on Linux (x86-64, with GCC and Clang) and macOS
+    (arm64) on each push (.github/workflows/ci.yml). No particular effort
+    was made to ensure compatibility with non-unix systems (such as
+    Windows), but TIFA should be pretty easy to adapt to platforms that are
+    POSIX compliant.
+    That said, we do not plan to support non-unix operating systems, so in
+    that case you're pretty much on your own.
 
   Your factoring programs yield no factor!
   ----------------------------------------
@@ -410,9 +414,8 @@
   do it all over again?
   ---------------------
 
-    Unfortunately yes. The solution to this problem is obvious: save the data
-    (essentially the matrix and relations) obtained during the course of the
-    program and reload it before generating new relations. This will be solved
-    in the next release... or the one after... That said, TIFA focuses on small
-    to medium-sized numbers so factorizations should not take more than a few
-    seconds...
+    Unfortunately yes: TIFA does not save its relations, to reload them
+    before collecting more. That said, it focuses on small to medium-sized
+    numbers, whose factorizations take a few seconds at most (about two at
+    220 bits on an Apple M5 Pro, three to six on x86-64), and SIQS collects
+    more relations by itself when the ones it has do not split the number.

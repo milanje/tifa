@@ -5,20 +5,20 @@ Here are some short term objectives:
     synthetic cofactors: integers without small factors, of the sizes a
     sieve leaves.
 
-  - Tune on x86-64. The default parameters of SIQS and ECM were chosen on
-    one Apple M5 Pro, whose efficiency cores' 64 KiB L1 data cache (128 KiB
-    on its performance cores) gives 64 KiB sieve chunks. GitHub's EPYC
-    runners (Zen 4 and 5, 32 KiB chunks) confirmed the gains of 0.3.3 and
-    the half widths of one chunk, but the factor bases, thresholds and the
-    widths of several chunks from 200 bits were not tried there; a one-off
-    workflow running bench/ab.sh on a runner is how to measure them.
+  - Machine-specific parameters. The defaults of SIQS from 160 to 220 bits
+    were retuned on an Apple M5 Pro and on GitHub's x86-64 runners (0.4.3);
+    sweeping the factor base, the sieve width and the threshold on both, in
+    November 2026, found them within 2% of the best everywhere, the machines
+    disagreeing on the rest (a larger factor base at 190 bits on x86-64, a
+    smaller one at 210). Tuning files (tifa-tune) can take that last 2% to
+    3% on each machine. Above 220 bits the defaults are still extrapolated.
 
   - ECM on one to four limbs (mont_ecm.c), measured on 30 October 2026:
       - The setup of a curve takes 0.3 us (Z/2 x Z/8) to 0.6 us (Suyama),
         3% to 6% of a curve with B1 = 50 on two limbs, 1% with B1 = 800;
-        its inversion is half of that. ecm() builds the plan of each level
-        at each call, 1 to 2 us each for B1 up to 200 (about 3% at 100
-        bits), half of it in allocations.
+        its inversion is half of that. ecm() keeps the plans of its levels
+        from one call to the next (0.4.2), where building them took 1 to 2
+        us each for B1 up to 200 (about 3% at 100 bits).
       - The baby and giant steps of stage 2 are chains of dependent xadd,
         13% of ecm() at 100 bits. As two chains each (steps of 4.P and of
         2.d.P), their xadd in interleaved pairs, ecm() took 0.955 to 0.98
@@ -35,50 +35,37 @@ Here are some short term objectives:
         curves, retuned for them, where ecm() starts with the Z/2 x Z/8
         table.
 
-  - SIQS, in shares of a run on the M5 at 70, 120 and 160 bits (profiled
-    on 29 October 2026): the sieve's fill 33%, 47% and 55%, at about one
-    cycle per hit and without unpredictable branches; the smoothness test
-    of the candidates 8%, 15% and 19%; the scan 9%, 4% and 3%; the trial
-    division of the relations 10%, 5% and 2%; the Gaussian elimination 7%,
-    3% and 1.5%; each new 'a' 4.5%, 3.7% and 2.1%; the setup of a run 6%,
-    2% and 0.6%; find_factors_decomp 4.6%, 0.8% and 0.2%.
-      - For 0.4.0, the large primes' hashtable (about 10% of a 120-bit run)
-        and the sieve's reset (3% to 4%) are gone: see lp_table.h and the
-        scan.
-      - The scan reads the bytes the sieve has just written one by one:
-        testing 128 bytes at a time instead of 64, 28% faster on a sieve
-        already in cache, was 2% to 3% slower in SIQS.
-      - From 160 bits, the smoothness test's kernel is 10% to 13% of a run
-        (z of 260 to 1070 limbs). Reducing z first modulo the product of
-        64 to 256 candidates with GMP, the lanes finishing on the
-        remainders, was no faster (0.99 to 1.02 from 160 to 200 bits,
-        slower below): GMP's division costs about what the lanes' fold
-        saves. Three quarters of the candidates are not smooth; their
-        number follows the sieve threshold, which tifa_tune does not tune,
-        but 1 or 2 more or less were slower at 70, 90 and 110 bits, and
-        from 120 to 180 bits. A 128-bit binary gcd of the cofactors was
-        twice slower than GMP's.
-      - Trial division of every candidate instead of the batch test
-        (1 November 2026) keeps the same relations but was slower: 1.06 at
-        110 bits, 1.11 at 120, 1.24 at 140 and 160, 1.27 to 1.28 at 180 and
-        200. Unlike the relations, the candidates that are not smooth go
-        through the whole factor base: 470 ns per candidate at 160 bits
-        (1.6 cycles per prime, 28000 candidates per run) against 212 ns for
-        the batch test. Testing them against the roots of their polynomial
-        instead, four primes per NEON vector, took 65 to 80 ns per candidate
-        at 120 bits (batch test: 112) and 185 to 195 at 160 (212), before
-        dividing out the primes found, the small primes not sieved and
-        those of 'a' (about 30 ns): not enough to pay for testing during
-        the sieve and for an x86 path.
-      - The setup of each run: the square roots modulo the primes of the
-        base (3% at 70 bits: four at a time measured 1.5 times faster, on
-        half of the primes only), the first 'a' (3%), the multiplier (2%,
-        n modulo each prime with mpz_fdiv_ui).
-      - The trial division of the relations runs at about two cycles per
-        prime. Packing the prime powers of y into fewer Montgomery products
-        in find_factors_decomp saved 1 to 2% at 66 and 70 bits only.
-        Gauss-Jordan on the transposed matrix was slower, and removing
-        singleton columns would only remove 2 to 7% of the matrix.
+  - SIQS, in shares of a run (November 2026, after 0.4.4): the sieve's fill
+    55% to 75% from 160 to 220 bits, at about one cycle per hit on the M5;
+    the bucket fill 15% at 220 bits on the M5, 19% to 20% on x86-64; at 180
+    bits, the candidate pre-check and the candidates' values 6%, the batch
+    smoothness test 7% to 9% and the trial division of the relations 3% to
+    4%; the linear algebra 2% at 220 bits (FILTERED_GAUSS_ELIM).
+      - The bucket fill on x86-64 is the largest share the M5 does not
+        have: yafu updates the roots of the largest primes and fills their
+        buckets in one SIMD loop, which might pay at 220 bits. Bins of
+        their own for the second roots, faster in a microbenchmark whose
+        bins stayed in cache, were 1% to 3% slower in SIQS: measure such
+        kernels with the caches flushed between runs.
+      - The candidates the pre-check drops have their values u = a.x + b
+        computed for nothing, and the trial division of the relations could
+        start from the small primes the pre-check found: 1% to 2% at 180
+        bits, perhaps.
+      - The code of fill_sieve_chunk is sensitive to its layout on the M5:
+        three instructions before its loops moved them and cost 3% at 150
+        bits. Time 150 to 160 bits on the M5 after changing it.
+      - Not faster: groups of medium primes with AVX2 (no better than SSE2)
+        or NEON (slower on the M5); 128 KiB sieve chunks on the M5; testing
+        128 bytes at a time in the scan; three-limb lanes in the batch test;
+        trial division of every candidate instead of the batch test (1.06 of
+        the time at 110 bits, 1.28 at 200), or testing them against the
+        roots of their polynomial, four primes per NEON vector (not enough
+        to pay for an x86 path); a retune of the parameters (see above).
+      - Double large primes: about 80000 candidates per 200-bit run have a
+        cofactor between pmax^2 and the square of the large primes' bound,
+        each costing 1 to 5 us to split; they are for larger numbers.
+      - Threads: the collection of relations would split over several cores
+        (the library is thread-safe), for its wall-clock time.
       - From seven primes in 'a', the approximer sorts up to 18424 triples
         of primes per run (0.5 ms, 0.5% at 170 bits): pairs, which fixed six
         primes, gave slower 'a' there, but finding the best triple without

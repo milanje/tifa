@@ -19,7 +19,7 @@
  * composite integer factorization. Its goal is to provide portable and 
  * reasonably fast implementations for several algorithms, 
  * with a particular emphasis on the factorization of small to medium-sized 
- * composites, say from 40 bits to about 200 bits. 
+ * composites, say from 40 bits to about 220 bits. 
  *
  * Although it obviously won't break any record by itself, <strong>TIFA</strong>
  * may be a good companion to more ambitious factorization attempts such as a
@@ -97,7 +97,7 @@
  *
  * Apart from this Doxygen documentation, see the \c README.md file at the top
  * of the source tree, and, in the \c readme directory, \c readme.txt (building,
- * installing, source layout) and \c news.md (the October 2026 rework and its
+ * installing, source layout) and \c news.md (the 2026 rework and its
  * measurements).
  *
  */
