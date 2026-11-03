@@ -1,6 +1,6 @@
 # TIFA news
 
-## 3 November 2026 &mdash; SIQS: a cheaper candidate pre-check
+## 3 November 2026 &mdash; SIQS: a cheaper candidate pre-check (0.4.5)
 
 Since the sieve leaves out 40 small primes, nearly every candidate went
 through the whole pre-check: for each of these primes, |x| mod p by a
