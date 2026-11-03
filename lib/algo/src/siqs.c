@@ -130,6 +130,15 @@
 #define PRECHECK_MARGIN_BITS    8
 #define PRECHECK_THRESHOLD_DROP 2
 //
+// The smallest primes of the base whose constants the pre-check keeps: at
+// least those the sieve may skip.
+//
+#define PRECHECK_SMALL_PRIMES   64
+
+#if (NPRIMES_TO_SKIP_LARGE >= PRECHECK_SMALL_PRIMES)
+    #error "NPRIMES_TO_SKIP_LARGE must be below PRECHECK_SMALL_PRIMES"
+#endif
+//
 // With SKIP_LARGE_MIN_BASE primes or more, the sieve skips NPRIMES_TO_SKIP_LARGE
 // of them (see siqs_sieve.h): the threshold is SKIP_LARGE_THRESHOLD_DROP lower
 // for the logs they no longer add, 0.95 to 0.99 of the time from 170 to 220
@@ -274,6 +283,15 @@ struct struct_siqs_context_t {
     // keep all of them (see drop_hopeless_candidates).
     //
     double max_cofactor_bits;
+    //
+    // For the first primes p of the factor base: 1/p, log2(p), and p^2 with
+    // (2^64 - 1) / p^2 and 2^64 mod p^2 (see drop_hopeless_candidates).
+    //
+    double   small_inv[PRECHECK_SMALL_PRIMES];
+    double   small_log2[PRECHECK_SMALL_PRIMES];
+    uint32_t small_p2[PRECHECK_SMALL_PRIMES];
+    uint64_t small_m2[PRECHECK_SMALL_PRIMES];
+    uint32_t small_r2[PRECHECK_SMALL_PRIMES];
     //
     // The SIQS sieve
     //
@@ -784,6 +802,16 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
         ? log2((double) fb[context->factor_base->length - 1])
           + PRECHECK_MARGIN_BITS
         : 0;
+    for (uint32_t j = 0; j < MIN(context->factor_base->length,
+                                 PRECHECK_SMALL_PRIMES); j++) {
+        const uint32_t p  = fb[j];
+        const uint32_t p2 = p * p;
+        context->small_inv[j]  = 1.0 / p;
+        context->small_log2[j] = log2((double) p);
+        context->small_p2[j]   = p2;
+        context->small_m2[j]   = UINT64_MAX / p2;
+        context->small_r2[j]   = (uint32_t) ((UINT64_MAX % p2 + 1) % p2);
+    }
 
     context->ptree = prod_tree_ui(context->factor_base);
 
@@ -1430,6 +1458,21 @@ static inline double prime_power_bits(const mpz_t y, const uint32_t p) {
     return e * log2_approx(31 - lz, (double) (p << (lz + 1)) * 0x1p-32);
 }
 //
+// As prime_power_bits for the j-th prime p of the base, below
+// PRECHECK_SMALL_PRIMES: p^2 not dividing y (nearly always) is found by a
+// Barrett reduction when y has two limbs.
+//
+static inline double small_prime_power_bits(
+    const siqs_context_t* const context, const mpz_t y, const uint32_t j) {
+    if (   (mpz_size(y) <= 2)
+        && (0 != mod_2limbs(mpz_getlimbn(y, 0), mpz_getlimbn(y, 1),
+                            context->small_p2[j], context->small_m2[j],
+                            context->small_r2[j]))) {
+        return context->small_log2[j];
+    }
+    return prime_power_bits(y, context->factor_base->data[j]);
+}
+//
 // Whether the i-th prime p of the factor base divides y.
 //
 static inline bool divides(const siqs_poly_t* const poly, const uint32_t i,
@@ -1461,6 +1504,16 @@ static void drop_hopeless_candidates(siqs_context_t* const context,
     const uint32_t        npa    = poly->nprimes_in_a;
     const uint32_t        nsmall = first_sieved_prime(sieve);
     const int32_t         thres  = (int32_t) sieve->threshold;
+    const double* const   small_inv = context->small_inv;
+    //
+    // The primes of 'a' among the small ones are counted with the others.
+    //
+    uint64_t amask = 0;
+    for (uint32_t k = 0; k < npa; k++) {
+        if (idx_a[k] < nsmall) {
+            amask |= UINT64_C(1) << idx_a[k];
+        }
+    }
 
     int32_t*       const x     = context->xpool->data;
     unsigned char* const bytes = context->xbytes->data;
@@ -1482,24 +1535,31 @@ static void drop_hopeless_candidates(siqs_context_t* const context,
             goto keep;
         }
         //
-        // p divides y iff x mod p is one of its roots.
+        // p divides y iff x mod p is one of its roots: the primes that do,
+        // without branches, by bit of hits. |x| / p from 1/p in doubles is
+        // the quotient or one less.
         //
-        const uint64_t ax = (uint64_t) ((x[i] < 0) ? -(int64_t) x[i] : x[i]);
+        const uint32_t ax   = (uint32_t) ((x[i] < 0) ? -(int64_t) x[i] : x[i]);
+        const double   dx   = (double) ax;
+        const uint32_t neg  = 0U - (uint32_t) (x[i] < 0);
+        uint64_t       hits = 0;
 
-        uint32_t ka = 0;
         for (uint32_t j = 1; j < nsmall; j++) {
-            if ((ka < npa) && (idx_a[ka] == j)) {
-                ka++;
-                continue;
-            }
             const uint32_t p = fb[j];
-            uint32_t       r = mod_pre(ax, p, poly->pinv[j]);
-            if ((x[i] < 0) && (r != 0)) {
-                r = p - r;
-            }
-            if ((r == (uint32_t) sol1[j]) || (r == (uint32_t) sol2[j])) {
-                bits -= prime_power_bits(y[i], p);
-            }
+            const uint32_t q = (uint32_t) (dx * small_inv[j]);
+            uint32_t       r = ax - q * p;
+            r -= p & (0U - (uint32_t) (r >= p));
+
+            const uint32_t rn = (p - r) & (0U - (uint32_t) (r != 0));
+            const uint32_t rx = (rn & neg) | (r & ~neg);
+            hits |= (uint64_t) (  (rx == (uint32_t) sol1[j])
+                                | (rx == (uint32_t) sol2[j])) << j;
+        }
+        hits &= ~amask;
+        while (hits != 0) {
+            const uint32_t j = (uint32_t) __builtin_ctzll(hits);
+            hits &= hits - 1;
+            bits -= small_prime_power_bits(context, y[i], j);
         }
         for (uint32_t k = 0; k < npa; k++) {
             const uint32_t q = fb[idx_a[k]];
