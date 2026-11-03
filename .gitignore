@@ -20,3 +20,8 @@
 *.so
 *.dylib
 .DS_Store
+
+# Python package builds
+/dist/
+__pycache__/
+*.egg-info/

@@ -152,6 +152,9 @@ changes.
   words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
   four words, up to 256 bits (`mont_ecm.h`).
 
+- A Python package (`python/`), whose `tifa.factor(n)` is `tifa_factor()` (see
+  [Python](#python) below).
+
 All of them can run in several threads at once. SIQS keeps its largest arrays
 from one run to the next in each thread (170 KiB at most, freed when the thread
 exits).
@@ -228,6 +231,26 @@ The [2011 user's guide](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/
 [project's LIX webpage](https://www.lix.polytechnique.fr/Labo/Jerome.Milan/tifa/tifa.xhtml))
 describes the library before the 2026 rework; the Doxygen documentation
 (`cmake --build build --target doc`) describes the current one.
+
+## Python
+
+`pip install .` at the top of the tree builds the `tifa` package (CMake >=
+3.26 and GMP needed, as above; pip fetches scikit-build-core) for Python 3.10
+and later:
+
+```python
+>>> import tifa
+>>> tifa.factor(360)
+{2: 3, 3: 2, 5: 1}
+>>> tifa.factor(2**64 + 1, hint="unbalanced")
+{274177: 1, 67280421310721: 1}
+```
+
+`factor(n)` returns the prime factorization of a positive integer as
+`{prime: exponent}`, and releases the GIL, so that threads factor in parallel.
+On balanced semiprimes it takes 0.24 to 0.51 of the time of PARI/GP's
+`factorint` from 100 to 220 bits. [python/README.md](./python/README.md) has
+the rest; `python -m pytest` runs its tests.
 
 ## Cofactorization
 

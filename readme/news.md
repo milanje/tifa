@@ -1,5 +1,21 @@
 # TIFA news
 
+## 4 November 2026 &mdash; Python bindings (0.4.6)
+
+`pip install .` builds a Python package, `tifa`, whose one function,
+`factor(n)`, returns the prime factorization of a positive integer as
+`{prime: exponent}` (primes in increasing order, as SymPy's `factorint`
+does), with `tifa_factor()` underneath. `hint="balanced"` or
+`hint="unbalanced"` is `tifa_factor_with_hint()`'s hint; the GIL is
+released while a number is factored, so that threads factor in parallel (8.7
+times as fast with 12 threads on an Apple M5 Pro, 140-bit semiprimes). A
+call on a 32-bit number takes about a microsecond. Built by scikit-build-core
+from the CMake tree against Python's limited API, one wheel serves Python 3.10
+and later. On balanced semiprimes, one thread, `tifa_factor()` took 0.24 to
+0.51 of the time of PARI/GP's `factorint` (2.15.4 on Linux, 2.19.0 on macOS)
+from 100 to 220 bits, on GitHub's runners (EPYC 7763 and 9V45, Xeon 8370C and
+8573C, Apple M1). The library itself is unchanged.
+
 ## 3 November 2026 &mdash; SIQS: the bucket fill with AVX-512 (0.4.6)
 
 From about 205 bits, the largest primes of the factor base go through

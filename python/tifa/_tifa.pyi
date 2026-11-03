@@ -1,0 +1,3 @@
+LIBRARY_VERSION: str
+
+def _factor(n: int, hint: int, /) -> tuple[bool, list[tuple[int, int]]]: ...

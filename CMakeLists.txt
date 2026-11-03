@@ -88,6 +88,7 @@ set_property(CACHE TIFA_DOXYGEN_PAPER_TYPE PROPERTY
 
 option(TIFA_BUILD_TESTS "Build the test suite (CTest)" ON)
 option(TIFA_BUILD_BENCH "Build the benchmark programs of bench/ (not installed)" OFF)
+option(TIFA_BUILD_PYTHON "Build the Python extension module of python/ (pip builds it)" OFF)
 option(TIFA_WERROR "Treat compiler warnings as errors (used in CI)" OFF)
 
 # Compile the baked tuning tables (lib/algo/src/tuning_baked.c) into the library
@@ -231,6 +232,10 @@ endif()
 #------------------------------------------------------------------------------
 if(TIFA_BUILD_BENCH)
     add_subdirectory(bench)
+endif()
+
+if(TIFA_BUILD_PYTHON)
+    add_subdirectory(python)
 endif()
 
 #------------------------------------------------------------------------------
