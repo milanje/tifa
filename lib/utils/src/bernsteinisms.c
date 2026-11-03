@@ -457,12 +457,63 @@ void bern_71_rec(uint32_array_list_t* const decomp_list,
 #define SMOOTH_BLOCK       32
 #define SMOOTH_1_SQUARINGS 6
 #define SMOOTH_2_SQUARINGS 7
+//
+// From SMOOTH_TREE_MIN_LIMBS limbs of z, blocks of SMOOTH_TREE_BLOCK
+// candidates reduce z modulo their product, then down a remainder tree to
+// leaves of SMOOTH_TREE_LEAF candidates, whose lanes fold only the leaf's
+// remainder: GMP's division costs less per limb than the lanes from there,
+// earlier on x86-64 (0.5 to 0.8 of the time from 1150 to 2340 limbs) than on
+// an Apple M5 (0.8 at 2340 limbs).
+//
+#if !defined(SMOOTH_TREE_MIN_LIMBS)
+#if defined(__x86_64__)
+#define SMOOTH_TREE_MIN_LIMBS 800
+#else
+#define SMOOTH_TREE_MIN_LIMBS 2000
+#endif
+#endif
+#define SMOOTH_TREE_BLOCK  256
+#define SMOOTH_TREE_LEAF   32
+#define SMOOTH_TREE_LEAVES (SMOOTH_TREE_BLOCK / SMOOTH_TREE_LEAF)
 
 typedef struct {
     uint32_t first;
     uint32_t end;
-    uint64_t x[SMOOTH_BLOCK][2];
+    bool     tree;
+    uint64_t x[SMOOTH_TREE_BLOCK][2];
+    //
+    // With tree, the products of the tree (node i has children 2i and 2i+1,
+    // the leaves from SMOOTH_TREE_LEAVES) and the remainders of z modulo
+    // them.
+    //
+    mpz_t    prod[2 * SMOOTH_TREE_LEAVES];
+    mpz_t    rem[2 * SMOOTH_TREE_LEAVES];
 } smooth_block_t;
+
+static void init_smooth_block(smooth_block_t* const block, const mpz_t z) {
+    block->first = 0;
+    block->end   = 0;
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+    block->tree  = (mpz_size(z) >= SMOOTH_TREE_MIN_LIMBS);
+#else
+    block->tree  = false;
+#endif
+    if (block->tree) {
+        for (uint32_t i = 0; i < 2 * SMOOTH_TREE_LEAVES; i++) {
+            mpz_init(block->prod[i]);
+            mpz_init(block->rem[i]);
+        }
+    }
+}
+
+static void clear_smooth_block(smooth_block_t* const block) {
+    if (block->tree) {
+        for (uint32_t i = 0; i < 2 * SMOOTH_TREE_LEAVES; i++) {
+            mpz_clear(block->prod[i]);
+            mpz_clear(block->rem[i]);
+        }
+    }
+}
 
 static inline bool in_smooth_lanes(const mpz_t y) {
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
@@ -478,6 +529,11 @@ static bool rem_tree_needed(const mpz_array_t* const cand_yi, const mpz_t z) {
     if (mpz_size(z) <= BERN_SIQS_DIRECT_MAX_LIMBS) {
         return false;
     }
+#if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
+    if (mpz_size(z) >= SMOOTH_TREE_MIN_LIMBS) {
+        return false;
+    }
+#endif
     for (uint32_t k = 0; k < cand_yi->length; k++) {
         if (!in_smooth_lanes(cand_yi->data[k])) {
             return true;
@@ -708,14 +764,14 @@ static inline unsigned __int128 odd_part_2(const mpz_t y) {
 }
 
 //
-// block->x[k - first] for the candidates y[k] in the lanes, k in [first, end),
-// grouped by the limbs of their odd parts.
+// block->x[k - block->first] for the candidates y[k] in the lanes, k in [from,
+// to), grouped by the limbs of their odd parts, from zl of nz limbs (z or a
+// remainder of z modulo a multiple of their product).
 //
-static void fill_smooth_block(smooth_block_t* const block,
-                              const mpz_t* const y, const uint32_t first,
-                              const uint32_t end, const mpz_t z) {
-    const mp_limb_t* const zl = mpz_limbs_read(z);
-    const mp_size_t        nz = mpz_size(z);
+static void fold_lanes(smooth_block_t* const block, const mpz_t* const y,
+                       const uint32_t from, const uint32_t to,
+                       const mp_limb_t* const zl, const mp_size_t nz) {
+    const uint32_t first = block->first;
 
     uint64_t yo1[SMOOTH_LANES];
     uint64_t x1[SMOOTH_LANES];
@@ -727,7 +783,7 @@ static void fill_smooth_block(smooth_block_t* const block,
     uint32_t idx2[SMOOTH_LANES];
     uint32_t n2 = 0;
 
-    for (uint32_t k = first; k < end; k++) {
+    for (uint32_t k = from; k < to; k++) {
         if (!in_smooth_lanes(y[k])) {
             continue;
         }
@@ -784,8 +840,49 @@ static void fill_smooth_block(smooth_block_t* const block,
             block->x[idx2[l]][1] = x2[l][1];
         }
     }
+}
+//
+// The block of the candidates y[k], k in [first, end): their lanes, and with
+// block->tree the remainders of z modulo the products of their leaves.
+//
+static void fill_smooth_block(smooth_block_t* const block,
+                              const mpz_t* const y, const uint32_t first,
+                              const uint32_t end, const mpz_t z) {
     block->first = first;
     block->end   = end;
+    if (!block->tree) {
+        fold_lanes(block, y, first, end, mpz_limbs_read(z), mpz_size(z));
+        return;
+    }
+    mpz_t* const prod = block->prod;
+    mpz_t* const rem  = block->rem;
+
+    for (uint32_t j = 0; j < SMOOTH_TREE_LEAVES; j++) {
+        mpz_ptr const  leaf = prod[SMOOTH_TREE_LEAVES + j];
+        const uint32_t from = first + j * SMOOTH_TREE_LEAF;
+        const uint32_t to   = MIN(from + SMOOTH_TREE_LEAF, end);
+        mpz_set_ui(leaf, 1);
+        for (uint32_t k = from; k < to; k++) {
+            mpz_mul(leaf, leaf, y[k]);
+        }
+        mpz_abs(leaf, leaf);
+    }
+    for (uint32_t i = SMOOTH_TREE_LEAVES - 1; i >= 1; i--) {
+        mpz_mul(prod[i], prod[2 * i], prod[2 * i + 1]);
+    }
+    mpz_tdiv_r(rem[1], z, prod[1]);
+    for (uint32_t i = 2; i < 2 * SMOOTH_TREE_LEAVES; i++) {
+        mpz_tdiv_r(rem[i], rem[i / 2], prod[i]);
+    }
+    for (uint32_t j = 0; j < SMOOTH_TREE_LEAVES; j++) {
+        const uint32_t from = first + j * SMOOTH_TREE_LEAF;
+        if (from >= end) {
+            break;
+        }
+        mpz_srcptr const r = rem[SMOOTH_TREE_LEAVES + j];
+        fold_lanes(block, y, from, MIN(from + SMOOTH_TREE_LEAF, end),
+                   mpz_limbs_read(r), mpz_size(r));
+    }
 }
 #endif
 //
@@ -868,16 +965,26 @@ static bool siqs_smooth(const mpz_t y, const mpz_t z, const mpz_t rleaf,
     return false;
 }
 //
-// siqs_smooth for y[k], through block for the candidates in its lanes when
-// there is no remainder tree.
+// siqs_smooth for y[k], through block when there is no remainder tree: for
+// the candidates in its lanes, and with block->tree for all of them.
 //
 static bool siqs_smooth_at(smooth_block_t* const block, const mpz_t* const y,
                            const uint32_t k, const uint32_t ny, const mpz_t z,
                            const mpz_t rleaf, mpz_t yk, mpz_t yo, mpz_t nsp) {
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
-    if ((rleaf == NULL) && in_smooth_lanes(y[k])) {
+    const bool lanes = in_smooth_lanes(y[k]);
+    if ((rleaf == NULL) && (lanes || block->tree)) {
         if ((k < block->first) || (k >= block->end)) {
-            fill_smooth_block(block, y, k, MIN(k + SMOOTH_BLOCK, ny), z);
+            const uint32_t len = block->tree ? SMOOTH_TREE_BLOCK : SMOOTH_BLOCK;
+            fill_smooth_block(block, y, k, MIN(k + len, ny), z);
+        }
+        if (!lanes) {
+            //
+            // z mod |y|, from the remainder of its leaf.
+            //
+            const uint32_t leaf = (k - block->first) / SMOOTH_TREE_LEAF;
+            mpz_tdiv_r(yk, block->rem[SMOOTH_TREE_LEAVES + leaf], y[k]);
+            return siqs_smooth(y[k], z, yk, yk, yo, nsp);
         }
         const uint64_t* const x = block->x[k - block->first];
         if ((x[0] | x[1]) == 0) {
@@ -935,7 +1042,8 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
     mpz_init(yk);
     mpz_init(yo);
 
-    smooth_block_t block = { .first = 0, .end = 0 };
+    smooth_block_t block;
+    init_smooth_block(&block, z);
 
     for (uint32_t k = 0U; k < cand_yi->length; k++) {
         const mpz_srcptr rleaf = (rtree != NULL)
@@ -962,6 +1070,8 @@ uint32_t bern_21_rt_pairs_siqs(mpz_array_t* const xi,
     }
     mpz_clear(yk);
     mpz_clear(yo);
+
+    clear_smooth_block(&block);
 
     if (rtree != NULL) {
         free_mpz_tree(rtree);
@@ -1017,7 +1127,8 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     
     const uint32_t cand_yi_length = cand_yi->length;
 
-    smooth_block_t block = { .first = 0, .end = 0 };
+    smooth_block_t block;
+    init_smooth_block(&block, z);
 
     mpz_t* candidate_y = &(cand_yi->data[0]);
     mpz_t* candidate_x = &(cand_xi->data[0]);
@@ -1138,6 +1249,8 @@ uint32_t bern_21_rt_pairs_lp_siqs(const mpz_t n,
     mpz_clear(yo);
     mpz_clear(nsp);
     mpz_clear(nsp_inv);
+
+    clear_smooth_block(&block);
 
     if (rtree != NULL) {
         free_mpz_tree(rtree);
