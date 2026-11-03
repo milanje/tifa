@@ -2,7 +2,7 @@
 //
 // This file is part of TIFA.
 //
-// TIFA is free software; you can redistribute it and/or modify it under the 
+// TIFA is free software; you can redistribute it and/or modify it under the
 // terms of the GNU Lesser General Public License as published by the Free
 // Software Foundation; either version 2.1 of the License, or (at your option)
 // any later version.
@@ -68,8 +68,8 @@ static inline uint32_t last_col_before(const TIFA_BITSTRING_T* const r,
 //
 // The ones of the row r on the columns before c (still to process).
 //
-static inline uint32_t weight_before(const TIFA_BITSTRING_T* const r,
-                                     const uint32_t c) {
+static inline __attribute__((always_inline))
+uint32_t weight_before(const TIFA_BITSTRING_T* const r, const uint32_t c) {
     const uint32_t w   = c / BITSTRING_T_BITSIZE;
     const uint32_t pos = BITSTRING_T_BITSIZE - 1 - c % BITSTRING_T_BITSIZE;
     uint32_t       k   = 0;
@@ -86,9 +86,9 @@ static inline uint32_t weight_before(const TIFA_BITSTRING_T* const r,
 // lightest row of a column's list as its pivot when lightest is set: its ones
 // on the columns still to process are what it adds to the other rows.
 //
-static inline void pw_elim(uint32_array_list_t* relations,
-                           binary_matrix_t* const matrix,
-                           const bool lightest) {
+static inline __attribute__((always_inline))
+void pw_elim(uint32_array_list_t* relations, binary_matrix_t* const matrix,
+             const bool lightest) {
     const uint32_t nrows = matrix->nrows;
     const uint32_t ncols = matrix->ncols;
 
@@ -237,7 +237,7 @@ void gaussian_elim(uint32_array_list_t* relations,
     binary_array_t* used  = alloc_binary_array(nrows);
     uint32_array_t* pivot = alloc_uint32_array(ncols);
     used->length  = nrows;
-    
+
     //
     // Stage 1: Process the matrix
     //
@@ -272,7 +272,7 @@ void gaussian_elim(uint32_array_list_t* relations,
         set_array_bit_to_one(row, used);
     }
     pivot->length = ncols;
-    
+
     //
     // Stage 2: Find dependencies
     //
@@ -308,6 +308,33 @@ void gaussian_elim(uint32_array_list_t* relations,
 #endif
 }
 //-----------------------------------------------------------------------------
+#if TIFA_SIZEOF_BITSTRING_T <= 8
+#if defined(__x86_64__) && !defined(__POPCNT__) && defined(__GNUC__)
+//
+// The lightest pivots weigh the rows by popcounts: without POPCNT, which
+// the x86-64 baseline lacks, GCC calls a function for each word. A copy
+// compiled with it runs where the processor has it.
+//
+#define PW_ELIM_POPCNT 1
+
+__attribute__((target("popcnt")))
+static void pw_elim_lightest_popcnt(uint32_array_list_t* relations,
+                                    binary_matrix_t* const matrix) {
+    pw_elim(relations, matrix, true);
+}
+#endif
+
+static void pw_elim_lightest(uint32_array_list_t* relations,
+                             binary_matrix_t* const matrix) {
+#if defined(PW_ELIM_POPCNT)
+    if (__builtin_cpu_supports("popcnt")) {
+        pw_elim_lightest_popcnt(relations, matrix);
+        return;
+    }
+#endif
+    pw_elim(relations, matrix, true);
+}
+#endif
 #if TIFA_SIZEOF_BITSTRING_T <= 8
 //
 // The columns of the ones of a row of nwords words, one after the other:
@@ -447,9 +474,9 @@ void filtered_gaussian_elim(uint32_array_list_t* relations,
     // copies of others (see kill_duplicates), then the heaviest ones while
     // there are more rows than columns plus the excess of the matrix (nrows -
     // ncols, the dependencies wanted); the columns left are packed, the
-    // heaviest first, so that the elimination from the right meets them last. On the SIQS matrices of 180
-    // to 220 bits, with the lightest pivots (see pw_elim): 0.29 to 0.46 of
-    // gaussian_elim's time.
+    // heaviest first, so that the elimination from the right meets them last.
+    // On the SIQS matrices of 180 to 220 bits, with the lightest pivots
+    // (see pw_elim): 0.29 to 0.46 of gaussian_elim's time.
     //
     const uint32_t nrows  = matrix->nrows;
     const uint32_t ncols  = matrix->ncols;
@@ -567,7 +594,7 @@ void filtered_gaussian_elim(uint32_array_list_t* relations,
             })
         }
         const uint32_t first = relations->length;
-        pw_elim(relations, packed, true);
+        pw_elim_lightest(relations, packed);
         for (uint32_t d = first; d < relations->length; d++) {
             uint32_array_t* const rel = relations->data[d];
             for (uint32_t k = 0; k < rel->length; k++) {
