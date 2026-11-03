@@ -116,7 +116,7 @@ static void write_license(FILE* f) {
 //
 // Code-generates the baked tuning tables: reads <indir>/<algo>.tuning for every
 // known algorithm and emits a committed C source (cpath) + header (hpath) that
-// expose tifa_tuning_baked_table(). Mirrors the offline genprimes.pl model.
+// expose tifa_tuning_baked_table(). Mirrors the offline genprimes.py model.
 //
 static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
     // The output may overwrite committed tables: refuse a mistyped --in.
