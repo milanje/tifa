@@ -174,7 +174,7 @@ static void process_args(factoring_program_t* const program) {
             params->nprimes_tdiv = params->nprimes_in_base;
         }
         if ((params->filter_method > DJB_BATCH)
-                || (params->linalg_method != SMART_GAUSS_ELIM)) {
+                || (params->linalg_method > FILTERED_GAUSS_ELIM)) {
             fprintf(stderr, "ERROR: unknown filter or linalg method!\n");
             print_usage(program);
             exit(TIFA_EXIT_USAGE);

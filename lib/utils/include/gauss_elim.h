@@ -73,6 +73,23 @@ extern "C" {
 void gaussian_elim(uint32_array_list_t* relations,
                    binary_matrix_t* const matrix);
 
+   /**
+    * \brief Gaussian elimination on a filtered <tt>binary_matrix_t</tt>.
+    *
+    * As <tt>gaussian_elim</tt>, on the matrix without the rows that are in
+    * no dependency, nor its heaviest rows beyond its <tt>nrows - ncols</tt>
+    * excess, its columns packed by decreasing weight, and with the lightest
+    * pivots. It finds at least as many dependencies as the excess, but not
+    * necessarily all of them.
+    *
+    * \param[in]  matrix A pointer to the <tt>binary_matrix_t</tt> giving
+    *                    the linear system to solve.
+    * \param[out] relations A pointer to a \c uint32_array_list_t holding the
+    *                       solutions of the system, if any.
+    */
+void filtered_gaussian_elim(uint32_array_list_t* relations,
+                            binary_matrix_t* const matrix);
+
 #ifdef __cplusplus
 }
 #endif

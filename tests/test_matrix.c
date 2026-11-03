@@ -25,6 +25,7 @@
 // caught here by comparing every cell (and cleanly under -fsanitize=address).
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "tifa_test.h"
 #include "matrix.h"
@@ -109,10 +110,29 @@ static uint32_t rank_of(unsigned char* m, uint32_t nrows, uint32_t ncols) {
     return rank;
 }
 
+// Moves the rows of m (nrows x ncols, one byte per bit) that are not a copy of
+// an earlier one to its top, in order, and returns how many there are.
+static uint32_t unique_rows(unsigned char* m, uint32_t nrows, uint32_t ncols) {
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < nrows; i++) {
+        int copy = 0;
+        for (uint32_t j = 0; !copy && (j < n); j++) {
+            copy = (0 == memcmp(&m[j * ncols], &m[i * ncols], ncols));
+        }
+        if (!copy) {
+            memmove(&m[n * ncols], &m[i * ncols], ncols);
+            n++;
+        }
+    }
+    return n;
+}
+
 // Every dependency adds up to zero, and there are as many as the nullity,
 // on random matrices shaped like the SIQS and CFRAC ones (a few dense
-// columns for the sign and the smallest primes, the others sparse).
-static void test_gaussian_elim(void) {
+// columns for the sign and the smallest primes, the others sparse). The
+// filtered elimination finds as many when the matrix is not taller than wide,
+// and at least its excess (nrows - ncols) otherwise.
+static void test_gaussian_elim(const int filtered) {
     static const uint32_t shapes[][2] = {
         { 10, 4 }, { 70, 64 }, { 117, 93 }, { 230, 201 }, { 300, 130 },
         { 64, 70 }, { 129, 1 }
@@ -135,10 +155,33 @@ static void test_gaussian_elim(void) {
         }
         binary_matrix_t* orig = clone_binary_matrix(m);
         uint32_array_list_t* deps = alloc_uint32_array_list(nrows);
-        gaussian_elim(deps, m);
-
+        if (filtered) {
+            filtered_gaussian_elim(deps, m);
+        } else {
+            gaussian_elim(deps, m);
+        }
+        unsigned char* const copy = malloc((size_t) nrows * ncols);
+        memcpy(copy, dense, (size_t) nrows * ncols);
         const uint32_t nullity = nrows - rank_of(dense, nrows, ncols);
-        CHECK_EQ_UI(deps->length, nullity, "as many dependencies as the nullity");
+        if (!filtered) {
+            CHECK_EQ_UI(deps->length, nullity,
+                        "as many dependencies as the nullity");
+        } else {
+            //
+            // Without the copies of rows: all their dependencies when the
+            // matrix is not taller than wide, at least its excess otherwise.
+            //
+            const uint32_t nunique  = unique_rows(copy, nrows, ncols);
+            const uint32_t nullity1 = nunique - rank_of(copy, nunique, ncols);
+            if (nrows <= ncols) {
+                CHECK_EQ_UI(deps->length, nullity1,
+                            "as many dependencies as without the copies");
+            } else {
+                const uint32_t excess = nrows - ncols;
+                CHECK(deps->length >= ((nullity1 < excess) ? nullity1 : excess),
+                      "at least as many dependencies as the excess");
+            }
+        }
 
         unsigned char* seen_last = calloc(nrows, 1);
         for (uint32_t d = 0; d < deps->length; d++) {
@@ -163,6 +206,7 @@ static void test_gaussian_elim(void) {
             free(used);
         }
         free(seen_last);
+        free(copy);
         free_uint32_array_list(deps);
         free_binary_matrix(orig);
         free_binary_matrix(m);
@@ -171,9 +215,10 @@ static void test_gaussian_elim(void) {
 }
 
 int main(void) {
-    TIFA_TEST_BEGIN("matrix clone and gaussian elimination");
+    TIFA_TEST_BEGIN("matrix clone and gaussian eliminations");
     test_byte_matrix_clone();
     test_binary_matrix_clone();
-    test_gaussian_elim();
+    test_gaussian_elim(0);
+    test_gaussian_elim(1);
     TIFA_TEST_END();
 }

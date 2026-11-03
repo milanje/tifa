@@ -38,8 +38,6 @@ extern "C" {
     *
     * Enumeration listing the different linear system resolution method
     * implemented.
-    *
-    * For the time being, only one method is available.
     */
 enum linalg_method_enum {
        /**
@@ -48,7 +46,14 @@ enum linalg_method_enum {
         * on highly parallel computers", by D. Parkinson and M. Wunderlich
         * (Parallel Computing 1 (1984) 65-73).
         */
-    SMART_GAUSS_ELIM = 0
+    SMART_GAUSS_ELIM = 0,
+       /**
+        * The same elimination on the matrix filtered first: without the rows
+        * in no dependency and the heaviest rows beyond its excess, its columns
+        * by decreasing weight, with the lightest pivots. It finds at least
+        * <tt>nrows - ncols</tt> dependencies, not necessarily all of them.
+        */
+    FILTERED_GAUSS_ELIM = 1
 };
 
    /**
@@ -61,8 +66,9 @@ typedef enum linalg_method_enum linalg_method_t;
     * Global constant array mapping linalg methods to their string 
     * representations.
     */
-static const char* const linalg_method_to_str[1] = {
-    "smart gaussian elimination"
+static const char* const linalg_method_to_str[2] = {
+    "smart gaussian elimination",
+    "filtered gaussian elimination"
 };
 
    /**

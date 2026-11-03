@@ -208,8 +208,8 @@ void fill_matrix_from_list_decomp(
     * Solves the linear system over GF(2) given by the binary matrix
     * <tt>matrix</tt>, using the resolution method <tt>method</tt>.
     *
-    * \note For the time being, the only implemented method is
-    * <tt>SMART_GAUSS_ELIM</tt>.
+    * \note The methods are <tt>SMART_GAUSS_ELIM</tt> and
+    * <tt>FILTERED_GAUSS_ELIM</tt> (see <tt>linalg_method_t</tt>).
     *
     * \param[in,out] matrix A pointer to the binary matrix giving the system
     *                       to solve.

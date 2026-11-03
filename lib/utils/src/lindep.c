@@ -545,6 +545,9 @@ find_dependencies(binary_matrix_t* const matrix, linalg_method_t method) {
         case SMART_GAUSS_ELIM:
             gaussian_elim(relations, matrix);
             break;
+        case FILTERED_GAUSS_ELIM:
+            filtered_gaussian_elim(relations, matrix);
+            break;
         default:
             gaussian_elim(relations, matrix);
     }

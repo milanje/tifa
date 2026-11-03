@@ -139,6 +139,13 @@
     #error "NPRIMES_TO_SKIP_LARGE must be below PRECHECK_SMALL_PRIMES"
 #endif
 //
+// From FILTERED_GAUSS_MIN_BASE primes in the base (about 188 bits), the
+// matrix is filtered before the elimination (see FILTERED_GAUSS_ELIM): 0.96
+// of the time at 210 and 220 bits on an Apple M5, but up to 1.05 below 160
+// bits, where the elimination costs less than the filtering saves.
+//
+#define FILTERED_GAUSS_MIN_BASE 3000
+//
 // With SKIP_LARGE_MIN_BASE primes or more, the sieve skips NPRIMES_TO_SKIP_LARGE
 // of them (see siqs_sieve.h): the threshold is SKIP_LARGE_THRESHOLD_DROP lower
 // for the logs they no longer add, 0.95 to 0.99 of the time from 170 to 220
@@ -622,7 +629,8 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->nprimes_tdiv     = params->nprimes_in_base;
     params->nrelations       = SIQS_DFLT_NRELATIONS;
     params->extra_primes_in_a = best_params[i].extra;
-    params->linalg_method    = SIQS_DFLT_LINALG_METHOD;
+    params->linalg_method    = (params->nprimes_in_base >= FILTERED_GAUSS_MIN_BASE)
+                             ? FILTERED_GAUSS_ELIM : SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = (mpz_sizeinbase(n, 2)
                                 >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
     if (   params->use_large_primes
