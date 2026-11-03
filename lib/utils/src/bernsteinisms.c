@@ -496,6 +496,7 @@ static void init_smooth_block(smooth_block_t* const block, const mpz_t z) {
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
     block->tree  = (mpz_size(z) >= SMOOTH_TREE_MIN_LIMBS);
 #else
+    (void) z;
     block->tree  = false;
 #endif
     if (block->tree) {
