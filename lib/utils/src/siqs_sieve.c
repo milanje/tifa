@@ -1008,9 +1008,8 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
 //-----------------------------------------------------------------------------
 static void size_buckets(siqs_sieve_t* const sieve) {
     //
-    // Makes room in every bin for the most hits of a polynomial, and one more
-    // for the last hit fill_buckets writes without branching: no bin grows
-    // while it fills them.
+    // Makes room in every bin for the most hits of a polynomial: no bin grows
+    // while fill_buckets fills them.
     //
     const uint32_t* const fb    = sieve->poly->factor_base->data;
     const uint32_t        fblen = sieve->poly->factor_base->length;
@@ -1037,6 +1036,28 @@ static void size_buckets(siqs_sieve_t* const sieve) {
 // Bins whose write positions fill_buckets keeps on the stack.
 //
 #define FILL_LOCAL_BINS 64
+//
+// The hits of the root at spos on one side, whose bins' write positions are
+// c: m in a loop, then the last one, to c[nbins] (a scratch word) when it
+// falls beyond hw. Masks rather than conditions, which GCC makes branches,
+// taken or not at random.
+//
+static inline void fill_root(uint32_t** const c, uint32_t spos,
+                             const uint32_t p, const uint32_t m,
+                             const uint32_t lp, const uint32_t hw,
+                             const uint32_t log2c, const uint32_t maskc,
+                             const uint32_t nbins) {
+    for (uint32_t j = 0; j < m; j++) {
+        const uint32_t b = spos >> log2c;
+        *(c[b]) = ((spos & maskc) << 8) | lp;
+        c[b]++;
+        spos += p;
+    }
+    const uint32_t in = 0U - (uint32_t) (spos < hw);
+    const uint32_t b  = ((spos >> log2c) & in) | (nbins & ~in);
+    *(c[b]) = ((spos & maskc) << 8) | lp;
+    c[b] += in & 1;
+}
 
 void fill_buckets(siqs_sieve_t* const sieve) {
     //
@@ -1052,8 +1073,10 @@ void fill_buckets(siqs_sieve_t* const sieve) {
     //
     // As in sieve_primes, each root of a prime p hits the hw positions of a
     // side m = hw/p or m + 1 times: m in a loop whose count consecutive
-    // primes share, the last one written without branching (past the end of
-    // a bin when it falls beyond, see size_buckets).
+    // primes share, the last one written without branching. The four roots
+    // of a prime (two per side) are written one after the other, rather than
+    // in a loop GCC keeps, with its roots on the stack and a side to choose:
+    // two to three times as fast on x86-64.
     //
     const siqs_poly_t*  const poly   = sieve->poly;
     const uint32_t*     const fb     = poly->factor_base->data;
@@ -1072,17 +1095,21 @@ void fill_buckets(siqs_sieve_t* const sieve) {
     buckets_t* const bposi = sieve->buckets_positive;
     buckets_t* const bnega = sieve->buckets_negative;
 
-    uint32_t*  local[2 * FILL_LOCAL_BINS];
+    uint32_t  scratch[2];
+    uint32_t* local[2 * (FILL_LOCAL_BINS + 1)];
     uint32_t** const cur = (nbins <= FILL_LOCAL_BINS)
                          ? local
-                         : tifa_malloc(2 * nbins * sizeof(uint32_t*));
+                         : tifa_malloc(2 * (nbins + 1) * sizeof(uint32_t*));
     uint32_t** const curp = cur;
-    uint32_t** const curn = cur + nbins;
+    uint32_t** const curn = cur + (nbins + 1);
 
     for (uint32_t b = 0; b < nbins; b++) {
         curp[b] = bposi->bins[b]->data;
         curn[b] = bnega->bins[b]->data;
     }
+    curp[nbins] = &scratch[0];
+    curn[nbins] = &scratch[1];
+
     uint32_t i = sieve->nprimes_no_buckets;
     while (i < fb_length) {
         const uint32_t m    = hw / fb[i];
@@ -1091,26 +1118,13 @@ void fill_buckets(siqs_sieve_t* const sieve) {
         for (; (i < fb_length) && (fb[i] <= pmax); i++) {
             const uint32_t p  = fb[i];
             const uint32_t lp = log_fb->data[i];
+            const uint32_t r1 = (uint32_t) sol1[i];
+            const uint32_t r2 = (uint32_t) sol2[i];
 
-            const uint32_t starts[4] = {
-                (uint32_t) sol1[i], p - (uint32_t) sol1[i] - 1,
-                (uint32_t) sol2[i], p - (uint32_t) sol2[i] - 1
-            };
-            for (int s = 0; s < 4; s++) {
-                uint32_t** const c = (s & 1) ? curn : curp;
-                uint32_t spos = starts[s];
-
-                for (uint32_t j = 0; j < m; j++) {
-                    const uint32_t b = spos >> log2c;
-                    *(c[b]) = ((spos & maskc) << 8) | lp;
-                    c[b]++;
-                    spos += p;
-                }
-                const bool     in = (spos < hw);
-                const uint32_t b  = in ? (spos >> log2c) : 0;
-                *(c[b]) = ((spos & maskc) << 8) | lp;
-                c[b] += in;
-            }
+            fill_root(curp, r1, p, m, lp, hw, log2c, maskc, nbins);
+            fill_root(curn, p - r1 - 1, p, m, lp, hw, log2c, maskc, nbins);
+            fill_root(curp, r2, p, m, lp, hw, log2c, maskc, nbins);
+            fill_root(curn, p - r2 - 1, p, m, lp, hw, log2c, maskc, nbins);
         }
     }
     for (uint32_t b = 0; b < nbins; b++) {
