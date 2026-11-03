@@ -112,11 +112,13 @@ ecode_t fill_sieve_chunk(siqs_sieve_t* const sieve);
 ecode_t scan_sieve_positive(
     siqs_sieve_t* const sieve,
     int32_array_t* const survivors,
+    unsigned char* const bytes,
     const uint32_t nsurvivors
 );
 ecode_t scan_sieve_negative(
     siqs_sieve_t* const sieve,
     int32_array_t* const survivors,
+    unsigned char* const bytes,
     const uint32_t nsurvivors
 );
 ecode_t update_sieve_params(siqs_sieve_t* const sieve);
@@ -424,15 +426,16 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve)
 //
 __attribute__((aligned(64))) inline ecode_t scan_sieve(siqs_sieve_t* const sieve,
                    int32_array_t* const survivors,
+                   unsigned char* const bytes,
                    const uint32_t nsurvivors)
 {
     START_EXTRA_TIMER(scan);
 
     ecode_t ecode;
     if (sieve->next_chunkno_to_fill > 0) {
-        ecode = scan_sieve_positive(sieve, survivors, nsurvivors);
+        ecode = scan_sieve_positive(sieve, survivors, bytes, nsurvivors);
     } else {
-        ecode = scan_sieve_negative(sieve, survivors, nsurvivors);
+        ecode = scan_sieve_negative(sieve, survivors, bytes, nsurvivors);
     }
 
     STOP_EXTRA_TIMER(scan);
@@ -682,6 +685,16 @@ static inline uint32_t nprimes_to_skip(const uint32_t fblength) {
     return (fblength < 450) ? 14 : NPRIMES_TO_SKIP;
 }
 //-----------------------------------------------------------------------------
+uint32_t first_sieved_prime(const siqs_sieve_t* const sieve) {
+    const siqs_poly_t* const poly = sieve->poly;
+
+    const uint32_t imin  = poly->approximer->imin;
+    const uint32_t rimin = MAX(imin, poly->idx_of_a[0]);
+    const uint32_t skip  = nprimes_to_skip(poly->factor_base->length);
+
+    return (rimin < skip) ? rimin + 1 : skip;
+}
+//-----------------------------------------------------------------------------
 __attribute__((aligned(64))) ecode_t
 fill_sieve_chunk(siqs_sieve_t* const sieve)
 {
@@ -694,7 +707,6 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
 
     const uint32_t sieve_length = sieve->sieve->length;
 
-    const uint32_t imin = poly->approximer->imin;
     const uint32_t nprimes_in_a = poly->nprimes_in_a;
 
     const uint32_t* const fbdata = primes->data;
@@ -734,9 +746,7 @@ fill_sieve_chunk(siqs_sieve_t* const sieve)
     //
     const uint32_t* const avoid = poly->idx_of_a;
 
-    uint32_t rimin = MAX(imin, avoid[0]);
-    const uint32_t skip = nprimes_to_skip(primes->length);
-    uint32_t from  = (rimin < skip) ? rimin + 1 : skip;
+    uint32_t from = first_sieved_prime(sieve);
 
     for (uint32_t k = 0; k <= nprimes_in_a; k++) {
         const uint32_t to = (k < nprimes_in_a)
@@ -800,8 +810,9 @@ static inline uint64_t top_bits(const uint8x16_t a, const uint8x16_t b,
 #endif
 //
 // Appends sign.(sieve_begin + i) to the survivors for the positions i of
-// [*scan_begin, iend] whose sieve byte has its top bit set, until there are
-// nsurvivors of them, and leaves *scan_begin past the last position scanned.
+// [*scan_begin, iend] whose sieve byte has its top bit set, and the byte to
+// bytes, until there are nsurvivors of them, and leaves *scan_begin past the
+// last position scanned.
 // Survivors are rare: 64 bytes are tested at once with NEON, 32 otherwise.
 // The bytes scanned are reset to the threshold: those before *scan_begin
 // always are, so that a scan stopped in the middle of a block loses nothing.
@@ -810,9 +821,11 @@ static inline void scan_chunk(unsigned char* const data,
                               const uint32_t iend, const int32_t sieve_begin,
                               const int32_t sign, uint32_t* const scan_begin,
                               int32_array_t* const survivors,
+                              unsigned char* const bytes,
                               const uint32_t nsurvivors,
                               const unsigned char threshold) {
     int32_t*       out  = &(survivors->data[survivors->length]);
+    unsigned char* outb = &(bytes[survivors->length]);
     int32_t* const stop = &(survivors->data[nsurvivors]);
     uint32_t       i    = *scan_begin;
 
@@ -828,7 +841,9 @@ static inline void scan_chunk(unsigned char* const data,
             while (mask != 0) {
                 const uint32_t j = i + (uint32_t) __builtin_ctzll(mask);
                 *out = sign * (sieve_begin + (int32_t) j);
+                *outb = data[j];
                 out++;
+                outb++;
                 if (out == stop) {
                     TIFA_MEMSET((data + i), threshold, (j + 1 - i));
                     i = j + 1;
@@ -858,7 +873,9 @@ static inline void scan_chunk(unsigned char* const data,
             while (mask != 0) {
                 const uint32_t j = i + (uint32_t) __builtin_ctzll(mask);
                 *out = sign * (sieve_begin + (int32_t) j);
+                *outb = data[j];
                 out++;
+                outb++;
                 if (out == stop) {
                     TIFA_MEMSET((data + i), threshold, (j + 1 - i));
                     i = j + 1;
@@ -888,7 +905,9 @@ static inline void scan_chunk(unsigned char* const data,
             for (uint32_t j = i; j < i + 8; j++) {
                 if (data[j] & 0x80) {
                     *out = sign * (sieve_begin + (int32_t) j);
+                    *outb = data[j];
                     out++;
+                    outb++;
                     if (out == stop) {
                         TIFA_MEMSET((data + i), threshold, (j + 1 - i));
                         i = j + 1;
@@ -906,7 +925,9 @@ static inline void scan_chunk(unsigned char* const data,
         data[i] = threshold;
         if (byte & 0x80) {
             *out = sign * (sieve_begin + (int32_t) i);
+            *outb = byte;
             out++;
+            outb++;
             if (out == stop) {
                 i++;
                 break;
@@ -937,6 +958,7 @@ static inline void end_of_scan(siqs_sieve_t* const sieve, const uint32_t iend) {
 //-----------------------------------------------------------------------------
 ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
                             int32_array_t* const survivors,
+                            unsigned char* const bytes,
                             const uint32_t nsurvivors)
 {
     const int32_t  chunkno      = siqs_sieve->next_chunkno_to_fill - 1;
@@ -948,7 +970,7 @@ ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
         iend = siqs_sieve->endlast;
     }
     scan_chunk(siqs_sieve->sieve->data, iend, sieve_begin, 1,
-               &siqs_sieve->scan_begin, survivors, nsurvivors,
+               &siqs_sieve->scan_begin, survivors, bytes, nsurvivors,
                (unsigned char) siqs_sieve->threshold);
     end_of_scan(siqs_sieve, iend);
 
@@ -957,6 +979,7 @@ ecode_t scan_sieve_positive(siqs_sieve_t* const siqs_sieve,
 //-----------------------------------------------------------------------------
 ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
                             int32_array_t* const survivors,
+                            unsigned char* const bytes,
                             uint32_t nsurvivors)
 {
     const int32_t  chunkno      = siqs_sieve->next_chunkno_to_fill + 1;
@@ -968,7 +991,7 @@ ecode_t scan_sieve_negative(siqs_sieve_t* const siqs_sieve,
         iend = siqs_sieve->endlast;
     }
     scan_chunk(siqs_sieve->sieve->data, iend, sieve_begin, -1,
-               &siqs_sieve->scan_begin, survivors, nsurvivors,
+               &siqs_sieve->scan_begin, survivors, bytes, nsurvivors,
                (unsigned char) siqs_sieve->threshold);
     end_of_scan(siqs_sieve, iend);
 

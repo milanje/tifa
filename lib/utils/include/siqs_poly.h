@@ -153,6 +153,31 @@ struct struct_siqs_poly_t {
   uint32_t* r64;
 };
 
+//
+// x mod p from m = (2^64 - 1) / p: floor(x.m / 2^64) is the quotient or one
+// less (Barrett). A 64-bit division costs several times as much on x86-64.
+//
+static inline uint32_t mod_pre(const uint64_t x, const uint32_t p,
+                               const uint64_t m) {
+#if defined(__SIZEOF_INT128__)
+    const uint64_t q = (uint64_t) (((unsigned __int128) x * m) >> 64);
+    const uint64_t r = x - q * p;
+    return (uint32_t) ((r >= p) ? r - p : r);
+#else
+    (void) m;
+    return (uint32_t) (x % p);
+#endif
+}
+//
+// (hi.2^64 + lo) mod p, given r64 = 2^64 mod p.
+//
+static inline uint32_t mod_2limbs(const uint64_t lo, const uint64_t hi,
+                                  const uint32_t p, const uint64_t m,
+                                  const uint32_t r64) {
+    return mod_pre((uint64_t) mod_pre(hi, p, m) * r64 + mod_pre(lo, p, m),
+                   p, m);
+}
+
    /**
     * \typedef siqs_poly_t
     * \brief Equivalent to \tt{struct_siqs_poly_t}.

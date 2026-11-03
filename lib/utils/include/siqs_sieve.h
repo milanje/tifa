@@ -250,11 +250,14 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve);
     * \brief Scans a chunk of an <tt>siqs_sieve_t</tt>.
     * 
     * Scans the last filled chunk of \tt{sieve}, appending the positions that
-    * may be smooth to \tt{survivors}. Once it holds \tt{nsurvivors} of them,
+    * may be smooth to \tt{survivors}, and their sieve bytes to \tt{bytes} at
+    * the same indexes. Once \tt{survivors} holds \tt{nsurvivors} positions,
     * the scan stops, to resume at the same place on the next call.
     *
     * \param sieve      the \tt{siqs_sieve_t} to scan.
     * \param survivors  the positions that may be smooth.
+    * \param bytes      the sieve bytes of the survivors: the threshold less
+    *                   the logs added at their positions, modulo 256.
     * \param nsurvivors the number of positions after which to stop.
     *
     * \return An exit code.
@@ -262,8 +265,21 @@ ecode_t fill_sieve(siqs_sieve_t* const sieve);
 ecode_t scan_sieve(
     siqs_sieve_t* const sieve,
     int32_array_t* const survivors,
+    unsigned char* const bytes,
     uint32_t nsurvivors
 );
+
+   /**
+    * \brief Index of the first prime of the factor base the sieve adds.
+    *
+    * The primes before it, as those of the current coefficient \c a, do not
+    * add their logs to the sieve.
+    *
+    * \param sieve the \tt{siqs_sieve_t}.
+    *
+    * \return The index of the first prime sieved with.
+    */
+uint32_t first_sieved_prime(const siqs_sieve_t* const sieve);
 
    /**
     * \brief The size of a chunk of the sieve, in bytes.

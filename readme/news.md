@@ -1,5 +1,34 @@
 # TIFA news
 
+## 3 November 2026 &mdash; SIQS: hopeless candidates dropped before the batch test (0.4.4)
+
+From 180 bits, three in four of the candidates the sieve let through kept,
+once divided by the primes of the factor base, a cofactor beyond any large
+prime: they went through the batch smoothness test for nothing. A
+candidate's cofactor is now estimated from its size, the logs the sieve
+added (its sieve byte), and the exact contributions of the primes the sieve
+leaves out: 2, the smallest primes, and the primes q of 'a', which divide
+g(x)/a again for one x in q (they made the estimate's tail of up to 10
+bits). From 140 bits, the candidates whose cofactor is estimated above 2^8
+times the largest prime of the factor base leave before the batch test, and
+the sieve threshold is 2 lower (4 from 200 bits) for the partial relations
+the cheaper candidates bring. Time of the new version over that of the
+previous one, `siqs()` on balanced semiprimes, one thread, the default
+build, the geometric mean over 8 to 16 numbers per size (12 to 16 on the
+M5, 8 to 16 on each of up to five runners of a kind):
+
+| `siqs()`, bits | 140 | 150 | 160 | 180 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.95 | 0.93 | 0.92 | 0.87 | 0.87 | 0.86 |
+| AMD EPYC 9V45 (Zen 5) | 0.99 | 0.97 | 0.92 | 0.87 | 0.86 | 0.89 |
+| Intel Xeon 6973P-C | 0.97 | 0.96 | 0.95 | 0.88 | 0.86 | 0.89 |
+
+On an EPYC 7763 (Zen 3) and a 9V74 (Zen 4): 0.97, 0.96 and 0.92, and 0.97,
+0.94 and 0.91 at 140, 150 and 160 bits. Below 140 bits nothing changes
+(within 1%). On the M5, `tifa_factor()` takes 0.96, 0.94 and 0.89 of the
+time on balanced semiprimes of 140, 160 and 180 bits, 0.99, 0.97 and 0.91 on
+random composites. No ABI change.
+
 ## 3 November 2026 &mdash; SIQS: the polynomial switch without divisions (0.4.4)
 
 For each new 'a', SIQS computes, for every prime p of the base, b and the

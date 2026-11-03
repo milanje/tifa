@@ -25,6 +25,8 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <limits.h>
+#include <math.h>
 #include <pthread.h>
 
 #include "tifa_config.h"
@@ -115,6 +117,18 @@
 // candidate once the logs subtracted from it set the top bit.
 //
 #define MAX_THRESHOLD 127
+//
+// From PRECHECK_MIN_BITS, the candidates whose cofactor over the factor base
+// is estimated above 2^PRECHECK_MARGIN_BITS times its largest prime leave
+// before the batch smoothness test (see drop_hopeless_candidates), and the
+// sieve threshold is lowered by PRECHECK_THRESHOLD_DROP (twice that from 200
+// bits) for the partial relations the cheaper candidates bring. Measured best
+// from 140 to 220 bits on an Apple M5 and x86-64 (below, the check costs more
+// than it saves).
+//
+#define PRECHECK_MIN_BITS       140
+#define PRECHECK_MARGIN_BITS    8
+#define PRECHECK_THRESHOLD_DROP 2
 //
 // Largest number of primes added to 'a': each one doubles the polynomials
 // per 'a', and 2 already tested worse than none at every size.
@@ -244,6 +258,15 @@ struct struct_siqs_context_t {
     // the xi such that g_{a,b}(xi) _may_ be smooth.
     //
     int32_array_t *xpool;
+    //
+    // The sieve byte of each xi of xpool.
+    //
+    byte_array_t *xbytes;
+    //
+    // Largest cofactor, in bits, a candidate is estimated to keep, or 0 to
+    // keep all of them (see drop_hopeless_candidates).
+    //
+    double max_cofactor_bits;
     //
     // The SIQS sieve
     //
@@ -417,6 +440,8 @@ static void init_factor_base_data(siqs_context_t* const context,
                                   const int8_t* const legendre_known,
                                   const uint32_t nknown);
 static void compute_reduced_polynomial_values(siqs_context_t* const context);
+static void drop_hopeless_candidates(siqs_context_t* const context,
+                                     const uint32_t first);
 static ecode_t collect_relations(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
 static void add_primes_of_a(siqs_context_t* const context,
@@ -575,6 +600,12 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->linalg_method    = SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = (mpz_sizeinbase(n, 2)
                                 >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
+    if (   params->use_large_primes
+        && (mpz_sizeinbase(n, 2) >= PRECHECK_MIN_BITS)) {
+        params->threshold -= (mpz_sizeinbase(n, 2) >= 200)
+                           ? 2 * PRECHECK_THRESHOLD_DROP
+                           : PRECHECK_THRESHOLD_DROP;
+    }
 
     //
     // Override the tabulated/interpolated defaults with machine-tuned values if
@@ -736,6 +767,14 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     //
     init_factor_base_data(context, nmodp_known, legendre_known, nknown);
 
+    const uint32_t* const fb = context->factor_base->data;
+    context->max_cofactor_bits =
+        (   params->use_large_primes
+         && (mpz_sizeinbase(context->n, 2) >= PRECHECK_MIN_BITS))
+        ? log2((double) fb[context->factor_base->length - 1])
+          + PRECHECK_MARGIN_BITS
+        : 0;
+
     context->ptree = prod_tree_ui(context->factor_base);
 
     //
@@ -760,7 +799,8 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     //
     context->to_collect = 1 << (e + 1);
 
-    context->xpool = alloc_int32_array(context->to_collect);
+    context->xpool  = alloc_int32_array(context->to_collect);
+    context->xbytes = alloc_byte_array(context->to_collect);
 
     context->cand_redgx    = take_array(POOL_CAND_REDGX, context->to_collect,
                                         false);
@@ -844,6 +884,7 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
         free_uint32_array(context->sqrtm_pi);
 
         free_int32_array(context->xpool);
+        free_byte_array(context->xbytes);
 
         free_byte_array(context->log_factor_base);
 
@@ -934,6 +975,7 @@ static bool want_more_relations(siqs_context_t* const context) {
     const uint32_t nrows = context->matrix_nrows;
     if (context->xpool->alloced < nrows) {
         resize_int32_array(context->xpool, nrows);
+        resize_byte_array(context->xbytes, nrows);
         resize_uint32_array(context->cand_a_idx, nrows);
     }
     if (context->cand_redgx->alloced < nrows) {
@@ -1343,6 +1385,136 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context) {
     mpz_clear(rgx);
 }
 //-----------------------------------------------------------------------------
+//
+// log2(m.2^e) for m in [1, 2) given t = m - 1, within 0.01: log2(1 + t) is
+// about t.(1.3466 - 0.3466.t).
+//
+static inline double log2_approx(const int32_t e, const double t) {
+    return (double) e + t * (1.3466 - 0.3466 * t);
+}
+
+static inline double log2_mpz(const mpz_t y) {
+    const size_t   n   = mpz_size(y);
+    const uint64_t hi  = mpz_getlimbn(y, n - 1);
+    const int      lz  = __builtin_clzll(hi);
+    const uint64_t lo  = (n > 1) ? mpz_getlimbn(y, n - 2) : 0;
+    const uint64_t top = (lz == 0) ? hi : ((hi << lz) | (lo >> (64 - lz)));
+
+    return log2_approx((int32_t) (64 * n) - lz - 1,
+                       (double) (top << 1) * 0x1p-64);
+}
+//
+// e.log2(p) for p^e the largest power of p dividing y, given that p does.
+//
+static inline double prime_power_bits(const mpz_t y, const uint32_t p) {
+    uint32_t      e  = 1;
+    unsigned long pk = (unsigned long) p * p;
+    while (mpz_divisible_ui_p(y, pk)) {
+        e++;
+        if (pk > ULONG_MAX / p) {
+            break;
+        }
+        pk *= p;
+    }
+    const int lz = __builtin_clz(p);
+    return e * log2_approx(31 - lz, (double) (p << (lz + 1)) * 0x1p-32);
+}
+//
+// Whether the i-th prime p of the factor base divides y.
+//
+static inline bool divides(const siqs_poly_t* const poly, const uint32_t i,
+                           const uint32_t p, const mpz_t y) {
+    if (mpz_size(y) > 2) {
+        return mpz_divisible_ui_p(y, p);
+    }
+    return 0 == mod_2limbs(mpz_getlimbn(y, 0), mpz_getlimbn(y, 1), p,
+                           poly->pinv[i], poly->r64[i]);
+}
+//-----------------------------------------------------------------------------
+static void drop_hopeless_candidates(siqs_context_t* const context,
+                                     const uint32_t first) {
+    //
+    // The cofactor of a candidate y = g(x)/a over the factor base is about y
+    // over the primes whose logs the sieve added, and over those it does not
+    // sieve with: 2, the smallest primes and the primes q of 'a' (which divide
+    // y again for one x mod q). Those are divided out exactly. The candidates
+    // whose cofactor is then estimated above max_cofactor_bits (most of them
+    // from 180 bits) leave before the batch smoothness test.
+    //
+    const siqs_sieve_t* const sieve = context->sieve;
+    const siqs_poly_t*  const poly  = sieve->poly;
+
+    const uint32_t* const fb     = context->factor_base->data;
+    const int32_t*  const sol1   = poly->sol1->data;
+    const int32_t*  const sol2   = poly->sol2->data;
+    const uint32_t* const idx_a  = poly->idx_of_a;
+    const uint32_t        npa    = poly->nprimes_in_a;
+    const uint32_t        nsmall = first_sieved_prime(sieve);
+    const int32_t         thres  = (int32_t) sieve->threshold;
+
+    int32_t*       const x     = context->xpool->data;
+    unsigned char* const bytes = context->xbytes->data;
+    mpz_t*         const y     = context->cand_redgx->data;
+    mpz_t*         const u     = context->cand_u->data;
+    uint32_t*      const a_idx = context->cand_a_idx->data;
+
+    const uint32_t length = context->xpool->length;
+    uint32_t       kept   = first;
+
+    for (uint32_t i = first; i < length; i++) {
+        if (mpz_sgn(y[i]) == 0) {
+            continue;
+        }
+        double bits = log2_mpz(y[i])
+                    - (thres - (int32_t) (signed char) bytes[i])
+                    - (double) mpz_scan1(y[i], 0);
+        if (bits <= context->max_cofactor_bits) {
+            goto keep;
+        }
+        //
+        // p divides y iff x mod p is one of its roots.
+        //
+        const uint64_t ax = (uint64_t) ((x[i] < 0) ? -(int64_t) x[i] : x[i]);
+
+        uint32_t ka = 0;
+        for (uint32_t j = 1; j < nsmall; j++) {
+            if ((ka < npa) && (idx_a[ka] == j)) {
+                ka++;
+                continue;
+            }
+            const uint32_t p = fb[j];
+            uint32_t       r = mod_pre(ax, p, poly->pinv[j]);
+            if ((x[i] < 0) && (r != 0)) {
+                r = p - r;
+            }
+            if ((r == (uint32_t) sol1[j]) || (r == (uint32_t) sol2[j])) {
+                bits -= prime_power_bits(y[i], p);
+            }
+        }
+        for (uint32_t k = 0; k < npa; k++) {
+            const uint32_t q = fb[idx_a[k]];
+            if (divides(poly, idx_a[k], q, y[i])) {
+                bits -= prime_power_bits(y[i], q);
+            }
+        }
+        if (bits > context->max_cofactor_bits) {
+            continue;
+        }
+      keep:
+        if (kept != i) {
+            x[kept]     = x[i];
+            a_idx[kept] = a_idx[i];
+            mpz_swap(y[kept], y[i]);
+            mpz_swap(u[kept], u[i]);
+        }
+        kept++;
+    }
+    context->xpool->length      = kept;
+    context->cand_redgx->length = kept;
+    context->cand_u->length     = kept;
+    context->cand_a_idx->length = kept;
+}
+//-----------------------------------------------------------------------------
 static void add_primes_of_a(siqs_context_t* const context,
                             byte_matrix_t* const decomp_matrix,
                             const uint32_t first_row) {
@@ -1397,14 +1569,17 @@ static ecode_t collect_relations(siqs_context_t* const context) {
             const uint32_t ncands = context->xpool->length;
 
             fill_sieve(context->sieve);
-            scan_sieve(context->sieve, context->xpool, context->to_collect);
-
-            compute_reduced_polynomial_values(context);
+            scan_sieve(context->sieve, context->xpool, context->xbytes->data,
+                       context->to_collect);
 
             idle_fills = (context->xpool->length == ncands) ? idle_fills + 1 : 0;
             if (idle_fills == MAX_IDLE_FILLS) {
                 context->stalled = true;
                 return GIVING_UP;
+            }
+            compute_reduced_polynomial_values(context);
+            if (context->max_cofactor_bits != 0) {
+                drop_hopeless_candidates(context, ncands);
             }
         }
         const uint32_t nrels = context->smooth_redgx->length;
