@@ -1,5 +1,27 @@
 # TIFA news
 
+## 3 November 2026 &mdash; SIQS: a cheaper candidate pre-check
+
+Since the sieve leaves out 40 small primes, nearly every candidate went
+through the whole pre-check: for each of these primes, |x| mod p by a
+128-bit Barrett reduction, a branch taken at random on whether x hit one
+of its roots, and a GMP call to try p^2. |x| mod p now comes from 1/p in
+doubles, the primes whose roots x hits are the bits of a mask, and p^2 is
+tried by a Barrett reduction from constants kept per small prime: the
+pre-check took 74 ns per candidate at 180 bits on an Apple M5, 10% of the
+run. Time of the new version over that of the previous one, `siqs()` on
+balanced semiprimes, one thread, the default build, the geometric mean over
+10 to 12 numbers per size:
+
+| `siqs()`, bits | 140 | 150 | 160 | 170 | 180 | 190 | 200 | 220 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.95 | 0.96 | 0.97 | 0.96 | 0.96 | 0.97 | 0.98 | 0.99 |
+| AMD EPYC 9V74 (Zen 4) | 0.98 | 0.99 | 0.99 | 0.98 | 0.97 | 0.99 | 0.99 | 1.00 |
+| AMD EPYC 7763 (Zen 3) | 0.97 | 0.99 | 0.98 | 0.97 | 1.00 | 0.99 | 0.98 | 1.00 |
+
+Below 140 bits, where there is no pre-check, nothing changes. No ABI
+change.
+
 ## 3 November 2026 &mdash; version 0.4.4
 
 Version 0.4.4 gathers the work below since 0.4.3, all in SIQS: the scan
