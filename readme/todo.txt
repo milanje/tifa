@@ -61,7 +61,12 @@ Here are some short term objectives:
         trial division of every candidate instead of the batch test (1.06 of
         the time at 110 bits, 1.28 at 200), or testing them against the
         roots of their polynomial, four primes per NEON vector (not enough
-        to pay for an x86 path); a retune of the parameters (see above).
+        to pay for an x86 path); a retune of the parameters (see above);
+        with the AVX-512 fill, buckets from 8192 to 32768 rather than 1.5
+        chunks (49152), whose profile made them look cheaper per hit than
+        the SSE2 groups: 1.00 to 1.03 of the time from 180 to 220 bits on
+        two EPYC 9V74, 0.97 to 0.99 at 200 to 220 on an EPYC 9V45 (within
+        2% of the noise there).
       - Double large primes: about 80000 candidates per 200-bit run have a
         cofactor between pmax^2 and the square of the large primes' bound,
         each costing 1 to 5 us to split; they are for larger numbers.
