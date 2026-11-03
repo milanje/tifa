@@ -1,5 +1,28 @@
 # TIFA news
 
+## 3 November 2026 &mdash; SIQS: the bucket fill on x86-64 (0.4.4)
+
+From about 205 bits, the largest primes of the factor base go through
+buckets, filled once per polynomial: 20% to 25% of a run at 220 bits on
+x86-64, against 14% on an Apple M5, for the same work. GCC kept the loop
+over the four roots of each prime (two per side), its roots on the stack and
+a side to choose, and made the branch-free choice of the last hit, in the
+interval or not, a branch taken at random; the last hits beyond the interval
+also all read the write position of bin 0, and waited for its last store.
+The four roots are now written one after the other, and a last hit beyond
+the interval goes to a scratch word chosen by masks. Time of the new version
+over that of the previous one, `siqs()` on balanced semiprimes, one thread,
+the default build, the geometric mean over 10 to 12 numbers per size:
+
+| `siqs()`, bits | 205 | 210 | 215 | 220 |
+|---|---:|---:|---:|---:|
+| AMD EPYC 9V45 (Zen 5) | 0.96 | 0.91 | 0.86 | 0.84 |
+| AMD EPYC 9V74 (Zen 4) | 0.98 | 0.92 | 0.90 | 0.88 |
+| Intel Xeon 6975P-C | 0.95 | 0.89 | 0.86 | 0.85 |
+| Apple M5 Pro | | 0.99 | 1.00 | 0.99 |
+
+Below 205 bits nothing changes (within 1%). No ABI change.
+
 ## 3 November 2026 &mdash; SIQS: 40 small primes left out of the sieve (0.4.4)
 
 The sieve left out the 20 smallest primes of the factor base, the others
