@@ -55,8 +55,19 @@ static int is_square(const u128 x) {
 }
 
 int main(int argc, char** argv) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <P> <A>\n", argv[0]);
+        return 1;
+    }
     const int P = atoi(argv[1]);
     const int A = atoi(argv[2]);
+    //
+    // Beyond, the products of four values of x overflow 128 bits.
+    //
+    if ((P < 1) || (P > 20000)) {
+        fprintf(stderr, "P must be from 1 to 20000\n");
+        return 1;
+    }
 
     for (int p = -P; p <= P; p++) {
         for (int q = 1; q <= P; q++) {

@@ -164,7 +164,13 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
     for (unsigned int i = 0; i < TUNE_NALGOS; i++) {
         const tune_algo_desc_t* desc = &TUNE_ALGOS[i];
         char path[1024];
-        snprintf(path, sizeof(path), "%s/%s.tuning", indir, desc->name);
+        const int length = snprintf(path, sizeof(path), "%s/%s.tuning", indir,
+                                    desc->name);
+        if ((length < 0) || ((size_t) length >= sizeof(path))) {
+            fprintf(stderr, "tifa-tune: path too long in '%s'\n", indir);
+            fclose(c);
+            return 1;
+        }
 
         tuning_table_t* t = NULL;
         if (tifa_tuning_load_file(path, desc->ncols, &t) != 0) {
@@ -236,7 +242,11 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
 //
 static int make_dirs(const char* path) {
     char tmp[1024];
-    snprintf(tmp, sizeof(tmp), "%s", path);
+    const int length = snprintf(tmp, sizeof(tmp), "%s", path);
+    if ((length < 0) || ((size_t) length >= sizeof(tmp))) {
+        fprintf(stderr, "tifa-tune: path too long: '%s'\n", path);
+        return 1;
+    }
 
     size_t len = strlen(tmp);
     if (len == 0) {
@@ -335,7 +345,12 @@ static void usage(FILE* out, const char* prog) {
 static int write_tuning_file(const options_t* opt, const tune_algo_desc_t* desc,
                              const tuning_row_t* rows, uint32_t nrows) {
     char path[1024];
-    snprintf(path, sizeof(path), "%s/%s.tuning", opt->outdir, desc->name);
+    const int length = snprintf(path, sizeof(path), "%s/%s.tuning",
+                                opt->outdir, desc->name);
+    if ((length < 0) || ((size_t) length >= sizeof(path))) {
+        fprintf(stderr, "tifa-tune: path too long in '%s'\n", opt->outdir);
+        return 1;
+    }
 
     FILE* f = fopen(path, "w");
     if (f == NULL) {
