@@ -27,6 +27,15 @@ now fixed:
   Only regular files are read now, of at most 4096 lines, with no null
   character; a directory too long for the path buffer no longer names
   another file; and setuid and setgid programs ignore `TIFA_TUNING_DIR`.
+- The coprime base of the factors found recursed once per power of a
+  prime, a stack overflow in a thread for 1009^10001 * 1013, now a loop;
+  `process_found_factors()` divided by a factor 0 and looped forever on -3
+  (it now drops 0, 1 and n, takes absolute values and refuses
+  non-divisors); the binary searches of sorted arrays read past their end
+  when the range given did; `split_u64()` took 32 s on a prime, `fermat()`
+  45 s on 3, `rho()` with more accumulated than allowed iterations 258 s, and
+  SIQS with the smallest factor base, above 140 bits, or a pool of more than
+  255 primes for its coefficients, never ended. All return at once now.
 - `tifa.factor()` raised `RuntimeError` when `tifa_factor()` gave up, rather
   than `FactorizationError`.
 - `tifa-tune` truncated paths too long for its buffers silently.
