@@ -29,34 +29,54 @@
  * another, in Python. Nothing here is used by \c tifa_factor, whose speed
  * is the same with or without it.
  *
- * A certificate is a list of steps. Each step proves a prime p from primes
- * q_1, ..., q_k of p - 1, each below 2^64 or proven by an earlier step,
- * and integers a_1, ..., a_k. Let F be the part of p - 1 made of the q_i
- * (the product of the largest powers of the q_i dividing p - 1). If, for
- * each i,
+ * A certificate is a list of steps, each proving a prime p from primes of
+ * p - 1 and of p + 1, each below 2^64 or proven by an earlier step.
+ *
+ * The primes q_1, ..., q_k of p - 1 come with integers a_1, ..., a_k. Let
+ * F1 be the part of p - 1 made of the q_i (the product of the largest
+ * powers of the q_i dividing p - 1). If, for each i,
  *
  *     a_i^(p - 1) = 1 (mod p) and gcd(a_i^((p - 1) / q_i) - 1, p) = 1,
  *
- * every prime factor of p is 1 mod F (Pocklington, 1914), and p is prime if
+ * every prime factor of p is 1 mod F1 (Pocklington, 1914).
  *
- *   - (F + 1)^2 > p, or
- *   - F^3 > p and c1^2 - 4 c2 is not a square, where
- *     p = c2 F^2 + c1 F + 1 and 0 <= c1 < F (Brillhart, Lehmer and
+ * The primes r_1, ..., r_l of p + 1 come with an integer D and integers
+ * P_1, ..., P_l. Let F2 be the part of p + 1 made of the r_j, Q_j =
+ * (P_j^2 - D) / 4 and U(j) the Lucas sequence of parameters P_j and Q_j
+ * (U_0 = 0, U_1 = 1, U_(m+1) = P_j U_m - Q_j U_(m-1)). If gcd(p, D) = 1
+ * and, for each j, P_j^2 - D is a multiple of 4, gcd(p, Q_j) = 1 and
+ *
+ *     p divides U(j)_(p + 1) and gcd(U(j)_((p + 1) / r_j), p) = 1,
+ *
+ * every prime factor s of p is (D / s) mod F2, that is 1 or -1 (Morrison,
+ * 1975: the rank of apparition of s divides s - (D / s)).
+ *
+ * Then p is prime if
+ *
+ *   - (F1 + 1)^2 > p, or
+ *   - F1^3 > p and c1^2 - 4 c2 is not a square, where
+ *     p = c2 F1^2 + c1 F1 + 1 and 0 <= c1 < F1 (Brillhart, Lehmer and
  *     Selfridge, 1975; Theorem 4.1.5 of Crandall and Pomerance's "Prime
- *     Numbers: A Computational Perspective").
+ *     Numbers: A Computational Perspective"), or
+ *   - G^2 > p, G being the lcm of F1 and F2, and c = p mod G is 1, or at
+ *     least p, or does not divide p: a prime factor of p below its square
+ *     root would be 1 mod G, impossible, or c, the residue that is 1 mod F1
+ *     and -1 mod F2.
  *
  * The last step proves the integer certified. Primes below 2^64 need no
  * step: they are strong probable primes to the bases 2, 3, 5, ..., 37 (the
  * first 12 primes), which no composite below 2^64 is (Sorenson and Webster,
  * 2017, "Strong pseudoprimes to twelve prime bases").
  *
- * To prove p, \c tifa_prove_prime factors p - 1 with \c tifa_factor, keeps
- * its smallest prime factors until F^3 > p, and proves those above 2^64 in
- * the same way. The time it takes is mostly that of factoring p - 1: on an
- * Apple M5 Pro, 0.4 ms on average for random primes of 128 bits, 15 ms at
- * 192 bits and 0.2 s at 224 bits, but up to 3 s when p - 1 has two large
- * prime factors, which SIQS has to split; about 2 s at 256 bits.
- * There is no time limit. A check takes less than 0.1 ms.
+ * To prove p, \c tifa_prove_prime searches p - 1 for factors by trial
+ * division and ECM, then p + 1 if they are not enough, and, if still not,
+ * factors the smallest composite left by SIQS. It keeps the smallest primes
+ * found until one of the conditions above holds (from p - 1 alone if it
+ * can), and proves those above 2^64 in the same way. There is no time
+ * limit. On an Apple M5 Pro, a proof took 0.5 ms on average for random
+ * primes of 128 bits, 1.4 ms at 160 bits, 5.5 ms at 192 bits, 53 ms at 224
+ * bits (1.1 s at most, when both p - 1 and p + 1 needed SIQS) and 66 ms at
+ * 256 bits; a check takes less than 0.5 ms.
  */
 
 #if !defined(_TIFA_PRIME_CERT_H_)
@@ -114,11 +134,23 @@ struct struct_prime_cert_step_t {
         /**
          * The primes q_i of p - 1, in increasing order.
          */
-    mpz_array_t* primes;
+    mpz_array_t* pm1_primes;
         /**
          * The a_i, one for each q_i.
          */
-    uint32_array_t* witnesses;
+    uint32_array_t* pm1_witnesses;
+        /**
+         * D, or 0 if no prime of p + 1 is used.
+         */
+    int32_t pp1_d;
+        /**
+         * The primes r_j of p + 1, in increasing order.
+         */
+    mpz_array_t* pp1_primes;
+        /**
+         * The P_j, one for each r_j.
+         */
+    uint32_array_t* pp1_witnesses;
 };
    /**
     * \typedef prime_cert_step_t

@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import math
 import operator
-from typing import Iterable, Literal, Optional, Sequence, SupportsIndex
+from typing import Any, Iterable, Literal, Optional, SupportsIndex, Union
 
 from ._tifa import LIBRARY_VERSION, _factor, _prime_certificate
 
@@ -48,7 +48,9 @@ __version__ = LIBRARY_VERSION
 
 Hint = Literal["balanced", "unbalanced"]
 
-Certificate = list[tuple[int, list[tuple[int, int]]]]
+Pairs = list[tuple[int, int]]
+Step = Union[tuple[int, Pairs], tuple[int, Pairs, int, Pairs]]
+Certificate = list[Step]
 
 _HINTS = {None: 0, "balanced": 1, "unbalanced": 2}
 
@@ -97,8 +99,9 @@ def factor(
     The primes are told from composites by a Baillie-PSW test, which no
     composite is known to pass. With ``proof=True``, those above 2^64 are
     also proven prime, as by ``prime_certificate``; below 2^64, the test is
-    a proof already. This takes more time: up to a few times that of
-    factoring ``n`` if it is a large prime, little otherwise.
+    a proof already. This takes 2% to 25% more time on random numbers of 100
+    to 200 bits, but 40 ms on average for a prime of 224 bits, which
+    ``factor`` alone answers in 0.1 ms.
 
     The GIL is released while ``n`` is factored, so that threads factor in
     parallel::
@@ -141,10 +144,13 @@ def factor(
 def prime_certificate(p: SupportsIndex) -> Certificate:
     """Prove that ``p`` is prime, and return the proof.
 
-    The certificate is a list of steps ``(prime, [(q, a), ...])``, each
-    proving a prime from primes ``q`` of ``prime - 1`` (below 2^64, or
-    proven by an earlier step) and integers ``a``; the last step proves
-    ``p``. A prime below 2^64 needs no step:
+    The certificate is a list of steps, the last one proving ``p``. A step
+    ``(prime, [(q, a), ...])`` proves ``prime`` from primes ``q`` of
+    ``prime - 1`` and integers ``a``; a step
+    ``(prime, [(q, a), ...], D, [(r, P), ...])`` also uses primes ``r`` of
+    ``prime + 1``, with Lucas sequences of discriminant ``D`` and parameters
+    ``P``. Each ``q`` and ``r`` is below 2^64 or proven by an earlier step.
+    A prime below 2^64 needs no step:
 
     >>> prime_certificate(97)
     []
@@ -152,9 +158,9 @@ def prime_certificate(p: SupportsIndex) -> Certificate:
     True
 
     ``check_certificate`` checks it, in Python only (see its documentation
-    for the theorems used). Up to about 220 bits, a proof takes a fraction
-    of a second; beyond, it can take much longer, as ``p - 1`` has to be
-    partly factored.
+    for the theorems used). Up to 256 bits, a proof takes a fraction of a
+    second on average, as parts of ``p - 1`` and ``p + 1`` have to be
+    factored; beyond, it can take much longer.
 
     Raises ``TypeError`` if ``p`` is not an integer, ``ValueError`` if it is
     not prime, and ``RuntimeError`` in the rare event that it could not be
@@ -169,27 +175,37 @@ def prime_certificate(p: SupportsIndex) -> Certificate:
     return steps
 
 
-def check_certificate(
-    p: SupportsIndex, certificate: Iterable[tuple[int, Sequence[tuple[int, int]]]]
-) -> bool:
+def check_certificate(p: SupportsIndex, certificate: Iterable[Any]) -> bool:
     """Return whether ``certificate`` proves that ``p`` is prime.
 
-    This is plain Python, which does not use TIFA's C code. Each step
-    ``(prime, [(q_1, a_1), ...])`` holds if every ``q_i`` is below 2^64 and
-    prime, or proven by an earlier step, if ``q_i`` divides ``prime - 1``,
-    and if
-
-        a_i^(prime - 1) = 1 (mod prime) and gcd(a_i^((prime - 1) / q_i) - 1,
-        prime) = 1:
-
-    then every prime factor of ``prime`` is 1 mod F, the part of
-    ``prime - 1`` made of the ``q_i`` (Pocklington, 1914), and ``prime`` is
-    prime if (F + 1)^2 > ``prime``, or if F^3 > ``prime`` and c1^2 - 4 c2
-    is not a square, where ``prime`` = c2 F^2 + c1 F + 1 and 0 <= c1 < F
-    (Brillhart, Lehmer and Selfridge, 1975). The last step must prove ``p``.
-    The primes below 2^64 are those that are strong probable primes to the
+    This is plain Python, which does not use TIFA's C code. In a step
+    ``(prime, [(q_1, a_1), ...], D, [(r_1, P_1), ...])`` (or
+    ``(prime, [(q_1, a_1), ...])``, with no ``r_j``), each ``q_i`` and
+    ``r_j`` must be a prime below 2^64 or proven by an earlier step; the
+    primes below 2^64 are those that are strong probable primes to the
     bases 2, 3, 5, ..., 37, the first 12 primes (Sorenson and Webster,
-    2017).
+    2017). Let F1 be the part of ``prime - 1`` made of the ``q_i``, and F2
+    that of ``prime + 1`` made of the ``r_j``. If
+
+        a_i^(prime - 1) = 1 (mod prime) and
+        gcd(a_i^((prime - 1) / q_i) - 1, prime) = 1
+
+    for each ``i``, every prime factor of ``prime`` is 1 mod F1 (Pocklington,
+    1914). If ``gcd(prime, D) = 1`` and, for each ``j``, Q_j =
+    (P_j^2 - D) / 4 is an integer prime to ``prime``, and the Lucas sequence
+    U of parameters P_j and Q_j has
+
+        U_(prime + 1) = 0 (mod prime) and
+        gcd(U_((prime + 1) / r_j), prime) = 1,
+
+    every prime factor s of ``prime`` is (D / s) = +-1 mod F2 (Morrison,
+    1975). Then ``prime`` is prime if (F1 + 1)^2 > ``prime``; or if F1^3 >
+    ``prime`` and c1^2 - 4 c2 is not a square, where ``prime`` =
+    c2 F1^2 + c1 F1 + 1 and 0 <= c1 < F1 (Brillhart, Lehmer and Selfridge,
+    1975); or if G^2 > ``prime``, G = lcm(F1, F2), and c = ``prime`` mod G
+    is 1, at least ``prime``, or no divisor of ``prime`` (a prime factor
+    below the square root would be 1 or c mod G). The last step must prove
+    ``p``.
 
     >>> check_certificate(2**89 - 1, prime_certificate(2**89 - 1))
     True
@@ -198,13 +214,7 @@ def check_certificate(
     """
     try:
         p = operator.index(p)
-        steps = [
-            (
-                operator.index(prime),
-                [(operator.index(q), operator.index(a)) for q, a in pairs],
-            )
-            for prime, pairs in certificate
-        ]
+        steps = [_parse_step(step) for step in certificate]
     except (TypeError, ValueError):
         return False
     if not steps:
@@ -212,11 +222,26 @@ def check_certificate(
     if steps[-1][0] != p:
         return False
     proven: set[int] = set()
-    for prime, pairs in steps:
-        if not _check_step(prime, pairs, proven):
+    for step in steps:
+        if not _check_step(*step, proven):
             return False
-        proven.add(prime)
+        proven.add(step[0])
     return True
+
+
+def _parse_step(step: Any) -> tuple[int, Pairs, int, Pairs]:
+    if len(step) == 2:
+        prime, minus = step
+        d, plus = 0, []
+    elif len(step) == 4:
+        prime, minus, d, plus = step
+    else:
+        raise ValueError("not a step")
+
+    def pairs(ps: Any) -> Pairs:
+        return [(operator.index(q), operator.index(a)) for q, a in ps]
+
+    return operator.index(prime), pairs(minus), operator.index(d), pairs(plus)
 
 
 def _is_small_prime(n: int) -> bool:
@@ -241,25 +266,64 @@ def _is_small_prime(n: int) -> bool:
     return True
 
 
-def _check_step(p: int, pairs: list[tuple[int, int]], proven: set[int]) -> bool:
-    if p < 3 or p % 2 == 0 or not pairs:
-        return False
-    rest = p - 1
-    for q, a in pairs:
-        if not (_is_small_prime(q) if q < _SMALL else q in proven):
-            return False
-        if rest % q != 0:
-            return False
+def _part(x: int, primes: list[int]) -> Optional[int]:
+    rest = x
+    for q in primes:
+        if q < 2 or rest % q != 0:
+            return None
         while rest % q == 0:
             rest //= q
+    return x // rest
+
+
+def _half(x: int, n: int) -> int:
+    x %= n
+    return (x if x % 2 == 0 else x + n) // 2
+
+
+def _lucas_u(k: int, p: int, q: int, d: int, n: int) -> int:
+    u, v, qk = 1, p % n, q % n
+    for bit in bin(k)[3:]:
+        u, v, qk = u * v % n, (v * v - 2 * qk) % n, qk * qk % n
+        if bit == "1":
+            u, v = _half(p * u + v, n), _half(d * u + p * v, n)
+            qk = qk * q % n
+    return u
+
+
+def _check_step(p: int, minus: Pairs, d: int, plus: Pairs, proven: set[int]) -> bool:
+    if p < 3 or p % 2 == 0 or not (minus or plus):
+        return False
+    if plus and (d == 0 or math.gcd(p, d) != 1):
+        return False
+    f1 = _part(p - 1, [q for q, _ in minus])
+    f2 = _part(p + 1, [r for r, _ in plus])
+    if f1 is None or f2 is None:
+        return False
+    for q, _ in minus + plus:
+        if not (_is_small_prime(q) if q < _SMALL else q in proven):
+            return False
+    for q, a in minus:
         x = pow(a, (p - 1) // q, p)
         if pow(x, q, p) != 1 or math.gcd(x - 1, p) != 1:
             return False
-    f = (p - 1) // rest
-    if (f + 1) ** 2 > p:
+    for r, pp in plus:
+        if (pp * pp - d) % 4 != 0:
+            return False
+        qq = (pp * pp - d) // 4
+        if math.gcd(qq, p) != 1 or _lucas_u(p + 1, pp, qq, d, p) != 0:
+            return False
+        if math.gcd(_lucas_u((p + 1) // r, pp, qq, d, p), p) != 1:
+            return False
+    if (f1 + 1) ** 2 > p:
         return True
-    if f**3 <= p:
-        return False
-    c2, c1 = divmod((p - 1) // f, f)
-    d = c1 * c1 - 4 * c2
-    return d < 0 or math.isqrt(d) ** 2 != d
+    if f1**3 > p:
+        c2, c1 = divmod((p - 1) // f1, f1)
+        disc = c1 * c1 - 4 * c2
+        if disc < 0 or math.isqrt(disc) ** 2 != disc:
+            return True
+    g = math.lcm(f1, f2)
+    if g * g > p:
+        c = p % g
+        return c == 1 or c >= p or p % c != 0
+    return False

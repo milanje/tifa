@@ -124,21 +124,21 @@ int main(void) {
     prime_cert_step_t* last = &c->steps[c->nsteps - 1];
     CHECK(tifa_check_prime_cert(c, n), "two-step certificate checked");
 
-    const uint32_t a = last->witnesses->data[0];
-    last->witnesses->data[0] = 1;
+    const uint32_t a = last->pm1_witnesses->data[0];
+    last->pm1_witnesses->data[0] = 1;
     CHECK(!tifa_check_prime_cert(c, n), "witness 1 refused");
-    last->witnesses->data[0] = 0;
+    last->pm1_witnesses->data[0] = 0;
     CHECK(!tifa_check_prime_cert(c, n), "witness 0 refused");
-    last->witnesses->data[0] = a;
+    last->pm1_witnesses->data[0] = a;
     CHECK(tifa_check_prime_cert(c, n), "witness restored");
 
-    mpz_add_ui(last->primes->data[0], last->primes->data[0], 2);
+    mpz_add_ui(last->pm1_primes->data[0], last->pm1_primes->data[0], 2);
     CHECK(!tifa_check_prime_cert(c, n), "altered prime refused");
-    mpz_sub_ui(last->primes->data[0], last->primes->data[0], 2);
+    mpz_sub_ui(last->pm1_primes->data[0], last->pm1_primes->data[0], 2);
 
-    last->witnesses->length--;
+    last->pm1_witnesses->length--;
     CHECK(!tifa_check_prime_cert(c, n), "missing witness refused");
-    last->witnesses->length++;
+    last->pm1_witnesses->length++;
 
     c->nsteps--;
     CHECK(!tifa_check_prime_cert(c, n), "missing last step refused");
@@ -155,11 +155,73 @@ int main(void) {
     // A step for 2^64 + 1 = 274177 * 67280421310721, from 2 and 3.
     mpz_set_str(n, "18446744073709551617", 10);
     mpz_set(last->p, n);
-    mpz_set_ui(last->primes->data[0], 2);
-    last->primes->length = 1;
-    last->witnesses->data[0] = 3;
-    last->witnesses->length = 1;
+    mpz_set_ui(last->pm1_primes->data[0], 2);
+    last->pm1_primes->length = 1;
+    last->pm1_witnesses->data[0] = 3;
+    last->pm1_witnesses->length = 1;
     CHECK(!tifa_check_prime_cert(c, n), "certificate of 2^64 + 1 refused");
+
+    // ---- Steps with primes of p + 1: searched among 200-bit primes.
+    found = false;
+    for (int tries = 0; !found && (tries < 400); tries++) {
+        do {
+            mpz_urandomb(n, state, 200);
+            mpz_setbit(n, 199);
+        } while (!mpz_probab_prime_p(n, 30));
+        CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "200-bit prime proven");
+        CHECK(tifa_check_prime_cert(c, n), "200-bit prime checked");
+        last  = &c->steps[c->nsteps - 1];
+        found = (last->pp1_primes->length != 0);
+    }
+    CHECK(found, "a step with primes of p + 1");
+    if (found) {
+        const uint32_t pw = last->pp1_witnesses->data[0];
+        last->pp1_witnesses->data[0] = pw + 1;
+        CHECK(!tifa_check_prime_cert(c, n), "even P refused");
+        last->pp1_witnesses->data[0] = pw;
+
+        const int32_t d = last->pp1_d;
+        last->pp1_d = 0;
+        CHECK(!tifa_check_prime_cert(c, n), "D = 0 refused");
+        last->pp1_d = d;
+        CHECK(tifa_check_prime_cert(c, n), "D restored");
+        CHECK(mpz_si_kronecker(d, n) == -1, "D is a non-residue");
+
+        mpz_add_ui(last->pp1_primes->data[0], last->pp1_primes->data[0], 2);
+        CHECK(!tifa_check_prime_cert(c, n), "altered prime of p + 1 refused");
+        mpz_sub_ui(last->pp1_primes->data[0], last->pp1_primes->data[0], 2);
+    }
+
+    // A step from p + 1 alone: 2^89 - 1, with p + 1 = 2^89. The checker
+    // accepts some D and P, and those D are non-residues mod p.
+    mpz_set_str(n, "618970019642690137449562111", 10);
+    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven");
+    CHECK_EQ_UI(c->nsteps, 1, "2^89 - 1: one step");
+    last = &c->steps[0];
+    last->pm1_primes->length    = 0;
+    last->pm1_witnesses->length = 0;
+    reset_mpz_array(last->pp1_primes);
+    reset_uint32_array(last->pp1_witnesses);
+    mpz_set_ui(m, 2);
+    append_mpz_to_array(last->pp1_primes, m);
+    append_uint32_to_array(last->pp1_witnesses, 1);
+    int accepted = 0;
+    int wrong    = 0;
+    for (int32_t a = 5; a < 60; a += 2) {
+        for (uint32_t pp = 1; pp < 40; pp += 2) {
+            last->pp1_d = ((a / 2) % 2 == 0) ? a : -a;
+            last->pp1_witnesses->data[0] = pp;
+            if (tifa_check_prime_cert(c, n)) {
+                accepted++;
+                wrong += (mpz_si_kronecker(last->pp1_d, n) != -1);
+            }
+        }
+    }
+    CHECK(accepted > 0, "2^89 - 1 from p + 1 alone");
+    CHECK_EQ_UI(wrong, 0, "only non-residues accepted");
+    mpz_set_str(n, "618970019642690137449562113", 10);
+    mpz_set(last->p, n);
+    CHECK(!tifa_check_prime_cert(c, n), "2^89 + 1 refused");
 
     // ---- Proving again replaces the certificate.
     mpz_set_str(n, "618970019642690137449562111", 10);

@@ -85,13 +85,17 @@ True
 
 Each step `(p, [(q, a), ...])` proves `p` prime from primes `q` of `p - 1`
 and integers `a` (Pocklington's theorem, and Brillhart, Lehmer and
-Selfridge's), each `q` below 2^64 or proven by an earlier step; a prime
-below 2^64 needs none. The certificate is plain data: `json.dumps` saves
-it. A proof takes 0.4 ms on average at 128 bits, 15 ms at 192 bits and
-0.2 s at 224 bits on an Apple M5 Pro, up to 3 s when `p - 1` is hard to
-factor; on random numbers of 100 to 200 bits, `factor(n, proof=True)`
-takes at most 13% more time than `factor(n)`. Without `proof=True`, nothing
-changes.
+Selfridge's); a step `(p, [(q, a), ...], D, [(r, P), ...])` also uses
+primes `r` of `p + 1`, with Lucas sequences of discriminant `D` and
+parameters `P` (Morrison's theorem). Each `q` and `r` is below 2^64 or
+proven by an earlier step; a prime below 2^64 needs no step. The
+certificate is plain data: `json.dumps` saves it.
+
+On an Apple M5 Pro, a proof takes 0.5 ms on average at 128 bits, 5.5 ms at
+192 bits, 53 ms at 224 bits and 66 ms at 256 bits (up to about a second
+when both `p - 1` and `p + 1` are hard to factor). On random numbers of 100
+to 200 bits, `factor(n, proof=True)` takes 2% to 25% more time than
+`factor(n)`. Without `proof=True`, nothing changes.
 
 ## Installing
 

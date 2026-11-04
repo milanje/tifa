@@ -154,9 +154,9 @@ changes.
   [Cofactorization](#cofactorization) below).
 - `tifa_prove_prime()` (`prime_cert.h`) proves that an integer is prime, and
   returns a certificate that `tifa_check_prime_cert()` checks, as anyone can:
-  steps from primes of p - 1 (Pocklington, and Brillhart, Lehmer and
-  Selfridge). `tifa_factor()` tells primes by a Baillie-PSW test, which
-  proves nothing above 2^64.
+  steps from primes of p - 1 and p + 1 (Pocklington, Morrison, and
+  Brillhart, Lehmer and Selfridge). `tifa_factor()` tells primes by a
+  Baillie-PSW test, which proves nothing above 2^64.
 - The algorithms themselves, each with its own header and parameters: SIQS
   (`siqs.h`), CFRAC (`cfrac.h`), ECM (`ecm.h`), Pollard's p-1 (`p_minus_1.h`),
   Williams' p+1 (`p_plus_1.h`), Pollard's rho (`rho.h`), SQUFOF (`squfof.h`),

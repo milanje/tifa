@@ -151,17 +151,17 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     return result;
 }
 
-static PyObject* step_from_cert(const prime_cert_step_t* const step) {
+static PyObject* witness_pairs(const mpz_array_t* const primes,
+                               const uint32_array_t* const witnesses) {
     PyObject* const pairs = PyList_New(0);
     if (pairs == NULL) {
         return NULL;
     }
-    for (uint32_t j = 0; j < step->primes->length; j++) {
-        PyObject* const q = pylong_from_mpz(step->primes->data[j]);
+    for (uint32_t j = 0; j < primes->length; j++) {
+        PyObject* const q = pylong_from_mpz(primes->data[j]);
         PyObject* const pair = (q == NULL)
                              ? NULL
-                             : Py_BuildValue("(NI)", q,
-                                             step->witnesses->data[j]);
+                             : Py_BuildValue("(NI)", q, witnesses->data[j]);
         if ((pair == NULL) || (PyList_Append(pairs, pair) != 0)) {
             Py_XDECREF(pair);
             Py_DECREF(pairs);
@@ -169,19 +169,31 @@ static PyObject* step_from_cert(const prime_cert_step_t* const step) {
         }
         Py_DECREF(pair);
     }
+    return pairs;
+}
+
+static PyObject* step_from_cert(const prime_cert_step_t* const step) {
     PyObject* const p = pylong_from_mpz(step->p);
-    if (p == NULL) {
-        Py_DECREF(pairs);
+    PyObject* const qs = witness_pairs(step->pm1_primes, step->pm1_witnesses);
+    PyObject* const rs = (step->pp1_d == 0)
+                       ? NULL
+                       : witness_pairs(step->pp1_primes, step->pp1_witnesses);
+    if ((p == NULL) || (qs == NULL) || ((step->pp1_d != 0) && (rs == NULL))) {
+        Py_XDECREF(p);
+        Py_XDECREF(qs);
+        Py_XDECREF(rs);
         return NULL;
     }
-    return Py_BuildValue("(NN)", p, pairs);
+    return (step->pp1_d == 0)
+         ? Py_BuildValue("(NN)", p, qs)
+         : Py_BuildValue("(NNiN)", p, qs, (int) step->pp1_d, rs);
 }
 
 PyDoc_STRVAR(prime_certificate_doc,
 "_prime_certificate(n, /)\n--\n\n"
 "Prove the int n prime with tifa_prove_prime. Return (status, steps), status\n"
 "0 (proven), 1 (not prime) or 2 (not proven), steps [(p, [(q, a), ...]), ...]\n"
-"when proven.");
+"or (p, [(q, a), ...], D, [(r, P), ...]) when proven.");
 
 static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     (void) self;

@@ -6,25 +6,42 @@
 composite is known to pass, but which proves nothing above 2^64. The new
 `tifa_prove_prime()` (`prime_cert.h`) proves that an integer is prime and
 returns a certificate that `tifa_check_prime_cert()` checks, as anyone can
-with modular exponentiations and GCDs: steps, each proving a prime p from
-primes q of p - 1 (below 2^64, or proven by an earlier step) and witnesses a
-(Pocklington's theorem, with the part F of p - 1 made of the q above
-p^(1/3), as Brillhart, Lehmer and Selfridge allow). p - 1 is factored by
-`tifa_factor()`, and its smallest primes are kept until F is large enough.
+with modular exponentiations, Lucas sequences and GCDs. Each step proves a
+prime p from primes of p - 1 and of p + 1, each below 2^64 or proven by an
+earlier step:
+
+- primes q of p - 1 with witnesses a make every prime factor of p 1 mod F1,
+  the part of p - 1 they make (Pocklington);
+- primes r of p + 1 with Lucas sequences of discriminant D, (D / p) = -1,
+  make every prime factor s of p (D / s) mod F2, that is +-1 (Morrison);
+- then p is prime if (F1 + 1)^2 > p, or F1^3 > p and a number is not a
+  square (Brillhart, Lehmer and Selfridge), or lcm(F1, F2)^2 > p and the
+  one residue left, p mod lcm(F1, F2), does not divide p.
+
 Primes below 2^64 need no step: they are strong probable primes to the first
 12 primes, which no composite below 2^64 is.
 
-On an Apple M5 Pro, a proof took 0.4 ms on average for random primes of 128
-bits, 3 ms at 160 bits, 15 ms at 192 bits and 0.2 s at 224 bits (100 primes
-per size, 60 at 224 bits). The slowest, up to 3 s at 224 bits, are those
-whose p - 1 has two large prime factors that SIQS has to split. A check takes
-less than 0.1 ms.
+p - 1 is searched for factors by trial division and ECM (a twentieth of the
+time SIQS would take), then p + 1 if they are not enough, and only then is
+the smallest composite left factored by SIQS; the smallest primes found are
+kept until p is proven, from p - 1 alone if it can. On an Apple M5 Pro,
+proofs took, on average over random primes (100 per size, 60 at 224 bits,
+40 at 256):
+
+| bits | 128 | 160 | 192 | 224 | 256 |
+|---|---:|---:|---:|---:|---:|
+| p - 1 and p + 1 | 0.5 ms | 1.4 ms | 5.5 ms | 53 ms | 66 ms |
+| p - 1 alone, by `tifa_factor()` | 0.4 ms | 3.0 ms | 15 ms | 212 ms | about 2 s |
+
+The slowest at 224 bits took 1.1 s, rather than 2.4 s with p - 1 alone:
+both p - 1 and p + 1 needed SIQS. A check takes less than 0.5 ms.
 
 In Python, `tifa.factor(n, proof=True)` also proves the prime factors above
-2^64 (at most 13% more time on random numbers of 100 to 200 bits),
+2^64 (2% to 25% more time on random numbers of 100 to 200 bits),
 `tifa.prime_certificate(p)` returns the certificate as plain data,
-`[(p, [(q, a), ...]), ...]`, and `tifa.check_certificate(p, cert)` checks it
-in plain Python, without TIFA's C code.
+`(p, [(q, a), ...])` or `(p, [(q, a), ...], D, [(r, P), ...])` steps, and
+`tifa.check_certificate(p, cert)` checks it in plain Python, without TIFA's
+C code.
 
 Nothing else changes: `tifa_factor()` does not use the new code, the
 benchmark programs have the same machine code, and the code of the shared
