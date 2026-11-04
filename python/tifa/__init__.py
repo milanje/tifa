@@ -57,6 +57,8 @@ _HINTS = {None: 0, "balanced": 1, "unbalanced": 2}
 _PROVEN, _NOT_PRIME = 0, 1
 
 _SMALL = 1 << 64
+_WITNESSES = 1 << 32
+_DISCRIMINANTS = 1 << 31
 
 
 class FactorizationError(RuntimeError):
@@ -205,7 +207,9 @@ def check_certificate(p: SupportsIndex, certificate: Iterable[Any]) -> bool:
     1975); or if G^2 > ``prime``, G = lcm(F1, F2), and c = ``prime`` mod G
     is 1, at least ``prime``, or no divisor of ``prime`` (a prime factor
     below the square root would be 1 or c mod G). The last step must prove
-    ``p``.
+    ``p``, and the others primes below ``p``, one step each. As in C, the
+    ``a_i`` and ``P_j`` are below 2^32, and D, not 0, below 2^31 in absolute
+    value.
 
     >>> check_certificate(2**89 - 1, prime_certificate(2**89 - 1))
     True
@@ -219,11 +223,11 @@ def check_certificate(p: SupportsIndex, certificate: Iterable[Any]) -> bool:
         return False
     if not steps:
         return p < _SMALL and _is_small_prime(p)
-    if steps[-1][0] != p:
+    if steps[-1][0] != p or any(step[0] >= p for step in steps[:-1]):
         return False
     proven: set[int] = set()
     for step in steps:
-        if not _check_step(*step, proven):
+        if step[0] in proven or not _check_step(*step, proven):
             return False
         proven.add(step[0])
     return True
@@ -235,13 +239,19 @@ def _parse_step(step: Any) -> tuple[int, Pairs, int, Pairs]:
         d, plus = 0, []
     elif len(step) == 4:
         prime, minus, d, plus = step
+        d = operator.index(d)
+        if d == 0 or abs(d) >= _DISCRIMINANTS:
+            raise ValueError("D out of range")
     else:
         raise ValueError("not a step")
 
     def pairs(ps: Any) -> Pairs:
-        return [(operator.index(q), operator.index(a)) for q, a in ps]
+        out = [(operator.index(q), operator.index(a)) for q, a in ps]
+        if not all(0 <= a < _WITNESSES for _, a in out):
+            raise ValueError("witness out of range")
+        return out
 
-    return operator.index(prime), pairs(minus), operator.index(d), pairs(plus)
+    return operator.index(prime), pairs(minus), d, pairs(plus)
 
 
 def _is_small_prime(n: int) -> bool:

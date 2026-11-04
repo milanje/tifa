@@ -142,8 +142,10 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
             );
         }
     } else {
-        PyErr_Format(PyExc_RuntimeError,
-                     "tifa_factor failed (exit code %d)", (int) ecode);
+        PyObject* const p = pylong_from_mpz(n);
+        if (p != NULL) {
+            result = Py_BuildValue("(O[(NI)])", Py_False, p, 1U);
+        }
     }
     free_mpz_array(factors);
     free_uint32_array(multis);

@@ -122,6 +122,40 @@ def test_p_plus_1_alone():
     assert not tifa.check_certificate(M89, [(M89, [], d, [(2, pp + 1)])])
 
 
+def test_steps_for_primes_above_p():
+    big, small = tifa.prime_certificate(M127), tifa.prime_certificate(M89)
+    assert not tifa.check_certificate(M89, big + small)
+    assert tifa.check_certificate(M127, small + big)
+    assert not tifa.check_certificate(M89, small + small)
+    assert not tifa.check_certificate(M127, small * 20000 + big)
+
+
+@pytest.mark.parametrize(
+    "cert",
+    [
+        [(5, [(0, 2)])],
+        [(5, [], 3, [(0, 1)])],
+        [(5, [(2, 2)], 3, [(0, 1)])],
+        [(5, [(1, 2)])],
+    ],
+)
+def test_primes_0_and_1(cert):
+    assert not tifa.check_certificate(5, cert)
+
+
+def test_bounds_as_in_c():
+    assert tifa.check_certificate(7, [(7, [(3, 3)])])
+    assert not tifa.check_certificate(7, [(7, [(3, 3)], 0, [])])
+    assert not tifa.check_certificate(7, [(7, [(3, 3 - 7)])])
+    assert not tifa.check_certificate(7, [(7, [(3, 3 + 7 * 2**30)])])
+    cert = tifa.prime_certificate(M89)
+    p, minus = cert[-1][0], cert[-1][1]
+    q, a = minus[-1]
+    assert not tifa.check_certificate(M89, [(p, minus[:-1] + [(q, a + M89)])])
+    assert not tifa.check_certificate(M89, [(M89, [], 2**31, [(2, 1)])])
+    assert not tifa.check_certificate(M89, [(M89, [], -(2**31), [(2, 1)])])
+
+
 def test_certificate_of_a_composite():
     n = 2**64 + 1
     assert not tifa.check_certificate(n, [(n, [(2, 3)])])

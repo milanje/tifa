@@ -1,6 +1,9 @@
 import doctest
 import math
+import os
 import random
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -144,3 +147,21 @@ def test_version():
 
 def test_docstrings():
     assert doctest.testmod(tifa).failed == 0
+
+
+def test_giving_up_raises_factorization_error(tmp_path):
+    # A tuning file with which SIQS gives up (its factor base is too small).
+    (tmp_path / "siqs.tuning").write_text("0 100 1 1 1 0 0 0\n")
+    n = (2**61 - 1) * (2**89 - 1)
+    code = (
+        "import tifa\n"
+        "try:\n"
+        f"    tifa.factor({n})\n"
+        "except tifa.FactorizationError as e:\n"
+        f"    print(e.factors == {{{n}: 1}})\n"
+    )
+    env = {**os.environ, "TIFA_TUNING_DIR": str(tmp_path)}
+    run = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True
+    )
+    assert run.stdout.strip() == "True", run.stderr
