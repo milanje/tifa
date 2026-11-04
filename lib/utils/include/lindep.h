@@ -147,10 +147,22 @@ decomp_t* alloc_decomp(uint32_t nrows, uint32_t nprimes, bool sparse);
 void free_decomp(decomp_t* decomp);
 
    /**
+    * \brief The sparse case of \c add_to_decomp.
+    */
+void append_to_decomp(decomp_t* decomp, uint32_t i, uint32_t j, uint32_t e);
+
+   /**
     * \brief Adds \c e to the exponent of the \c j-th prime in the \c i-th
     * relation, before \c sort_decomp.
     */
-void add_to_decomp(decomp_t* decomp, uint32_t i, uint32_t j, uint32_t e);
+static inline void add_to_decomp(decomp_t* const decomp, const uint32_t i,
+                                 const uint32_t j, const uint32_t e) {
+    if (decomp->dense != NULL) {
+        decomp->dense->data[i][j] += (unsigned char) e;
+    } else {
+        append_to_decomp(decomp, i, j, e);
+    }
+}
 
    /**
     * \brief Groups the exponents of a sparse \c decomp_t by relation, once

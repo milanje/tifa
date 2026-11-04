@@ -290,12 +290,8 @@ void free_decomp(decomp_t* const decomp) {
     free(decomp);
 }
 //-----------------------------------------------------------------------------
-void add_to_decomp(decomp_t* const decomp, const uint32_t i, const uint32_t j,
-                   uint32_t e) {
-    if (decomp->dense != NULL) {
-        decomp->dense->data[i][j] += (unsigned char) e;
-        return;
-    }
+void append_to_decomp(decomp_t* const decomp, const uint32_t i,
+                      const uint32_t j, uint32_t e) {
     while (e != 0) {
         const uint32_t part = MIN(e, 255);
         if (decomp->nentries == decomp->alloced) {
@@ -337,6 +333,19 @@ void sort_decomp(decomp_t* const decomp) {
     decomp->sorted  = sorted;
 }
 //-----------------------------------------------------------------------------
+//
+// add_to_decomp with the rows of a dense decomp_t loaded once.
+//
+static inline void add_exponent(unsigned char** const dense,
+                                decomp_t* const decomp, const uint32_t i,
+                                const uint32_t j, const uint32_t e) {
+    if (dense != NULL) {
+        dense[i][j] += (unsigned char) e;
+    } else {
+        append_to_decomp(decomp, i, j, e);
+    }
+}
+//-----------------------------------------------------------------------------
 void fill_trial_div_decomp(binary_matrix_t* const matrix,
                            decomp_t* const decomp,
                            mpz_array_t* const partially_factored,
@@ -344,6 +353,8 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                            const uint32_array_t* const factor_base
                           ) {
 
+    unsigned char** const dense = (decomp->dense != NULL) ? decomp->dense->data
+                                                          : NULL;
     bool flip_bit = false;
 
     uint32_t nrows        = matrix->nrows;
@@ -394,7 +405,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 } else {
                     e = remove_twos(l, &n);
                 }
-                add_to_decomp(decomp, i, 0, e);
+                add_exponent(dense, decomp, i, 0, e);
                 if (e & 1) {
                     flip_matrix_bit(nrows, 1, matrix);
                 }
@@ -416,7 +427,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                                            factor_base->length
                                        );
                     if ((l[0] <= UINT32_MAX) && (t != NOT_IN_ARRAY)) {
-                        add_to_decomp(decomp, i, t, 1);
+                        add_exponent(dense, decomp, i, t, 1);
                         flip_matrix_bit(nrows, t + 1, matrix);
                         l[0] = 1;
                     }
@@ -461,7 +472,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                             e++;
                         } while (divisible_odd(l, n, q, pinv[k], plim[k]));
                     }
-                    add_to_decomp(decomp, i, k, e);
+                    add_exponent(dense, decomp, i, k, e);
                     if (e & 1) {
                         flip_matrix_bit(nrows, k + 1, matrix);
                     }
@@ -485,7 +496,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 e++;
                 flip_bit = !flip_bit;
             }
-            add_to_decomp(decomp, i, j, e);
+            add_exponent(dense, decomp, i, j, e);
             if (flip_bit) {
                 flip_matrix_bit(nrows, j + 1, matrix);
                 flip_bit = false;

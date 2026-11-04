@@ -1317,14 +1317,17 @@ static void init_factor_base_data(siqs_context_t* const context,
     }
     //
     // Then the primes after the table, from a sieve of odd numbers by the
-    // tabulated primes (enough below their largest squared).
+    // tabulated primes (enough below their largest squared). On the heap: on
+    // the stack, its pages would be probed at each call, 1% of the time of
+    // tifa_factor at 80 bits.
     //
-    unsigned char composite[FB_SEGMENT];
+    unsigned char* const composite = (ibase != fb_alloced)
+                                   ? tifa_malloc(FB_SEGMENT) : NULL;
     uint64_t lo = first_primes[NFIRST_PRIMES - 1] + 2;
 
     while (ibase != fb_alloced) {
         const uint64_t hi = lo + 2 * (uint64_t) FB_SEGMENT;
-        memset(composite, 0, sizeof(composite));
+        memset(composite, 0, FB_SEGMENT);
         for (uint32_t j = 1; j < NFIRST_PRIMES; j++) {
             const uint64_t q = first_primes[j];
             if (q * q >= hi) {
@@ -1362,6 +1365,7 @@ static void init_factor_base_data(siqs_context_t* const context,
         }
         lo = hi;
     }
+    free(composite);
     sqrtm_pi->length        = ibase;
     factor_base->length     = ibase;
     log_factor_base->length = ibase;
