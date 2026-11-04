@@ -62,6 +62,20 @@ completely, `tifa.FactorizationError` is raised, its `factors` attribute
 holding what was found (factors that multiply to `n`, some of them not
 prime).
 
+## Installing
+
+```sh
+pip install tifa-factor
+```
+
+Wheels exist for Linux (x86-64 and arm64, glibc and musl) and macOS (arm64
+and x86-64, 11.0 and later), for Python 3.10 and later. Elsewhere, pip
+builds the package from source, which needs a C compiler, CMake 3.26 or
+later and GMP.
+
 ## Licence
 
-LGPL 2.1 or later, as TIFA.
+LGPL 2.1 or later, as TIFA. The wheels contain GMP 6.3.0
+([gmplib.org](https://gmplib.org)), under the LGPL 3 (readme/license_v3.txt),
+linked statically: `pip install --no-binary tifa-factor tifa-factor` builds
+the package against the GMP of the system instead.

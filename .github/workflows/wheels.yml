@@ -1,0 +1,72 @@
+name: Wheels
+
+# The wheels of tifa-factor (cibuildwheel, settings in pyproject.toml) and its
+# sdist, built on each tag and on demand. Publishing is on demand only, from
+# a tag (Actions > Wheels > Run workflow, choosing the tag and the index),
+# through PyPI's trusted publishing: the project's publisher names this
+# workflow and the environment, testpypi or pypi.
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to (from a tag only)"
+        type: choice
+        options: [ none, testpypi, pypi ]
+        default: none
+
+jobs:
+  wheels:
+    name: wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux x86-64 and arm64 (manylinux and musllinux), macOS arm64 and
+        # x86-64, each on its own processor.
+        os: [ ubuntu-latest, ubuntu-24.04-arm, macos-15, macos-15-intel ]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pypa/cibuildwheel@v4.3.2
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish != 'none' && startsWith(github.ref, 'refs/tags/v')
+    needs: [ wheels, sdist ]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.publish }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Check the version against the tag
+        run: |
+          ls dist
+          test -f "dist/tifa_factor-${GITHUB_REF_NAME#v}.tar.gz"
+
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
+        with:
+          repository-url: ${{ inputs.publish == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}

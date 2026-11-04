@@ -11,5 +11,9 @@ find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.SABIModule)
 
 Python_add_library(_tifa MODULE USE_SABI 3.10 WITH_SOABI _tifa.c)
 target_link_libraries(_tifa PRIVATE tifa_static)
+# A static GMP (the wheels') keeps its symbols to the module.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_link_options(_tifa PRIVATE "LINKER:--exclude-libs,ALL")
+endif()
 
 install(TARGETS _tifa LIBRARY DESTINATION tifa COMPONENT python)

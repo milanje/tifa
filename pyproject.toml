@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Fast factorization of integers of up to about 220 bits, with the TIFA library"
 readme = "python/README.md"
 license = "LGPL-2.1-or-later"
-license-files = ["readme/license_v2.1.txt"]
+license-files = ["readme/license_v2.1.txt", "readme/license_v3.txt"]
 authors = [{ name = "Jerome Milan" }]
 requires-python = ">=3.10"
 classifiers = [
@@ -45,3 +45,22 @@ regex = 'project\(Tifa\s+VERSION\s+(?P<value>[0-9.]+)'
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]
+
+# Wheels for PyPI (.github/workflows/wheels.yml): one abi3 wheel per platform,
+# built with Python 3.10 and tested with 3.10 and 3.15, with GMP built by
+# python/build_gmp.sh and linked statically (found through GMP_ROOT).
+[tool.cibuildwheel]
+build = "cp310-* cp315-*"
+archs = ["auto64"]
+before-all = "bash {project}/python/build_gmp.sh"
+test-requires = ["pytest"]
+test-command = "pytest {project}/python/tests"
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+environment = { GMP_ROOT = "/opt/gmp" }
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
+[tool.cibuildwheel.macos]
+environment = { GMP_ROOT = "$HOME/gmp", MACOSX_DEPLOYMENT_TARGET = "11.0" }
