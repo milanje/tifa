@@ -39,9 +39,7 @@
     #include <stdio.h>
 #endif
 
-#if TIFA_USE_CALLOC_MEMSET
-    #include <string.h>
-#endif
+#include <string.h>
 
 #include "first_primes.h"
 #include "gmp_utils.h"
@@ -93,10 +91,13 @@
 //
 #define MAX_ATTEMPTS        3
 //
-// Largest factor base: about half the tabulated primes have kn as a square
-// modulo them, so a quarter is always available.
+// Largest factor base: the primes after the tabulated ones are sieved.
 //
-#define MAX_NPRIMES_IN_BASE (NFIRST_PRIMES / 4)
+#define MAX_NPRIMES_IN_BASE (1U << 16)
+//
+// Odd numbers sieved at a time for the primes after the table.
+//
+#define FB_SEGMENT          (1U << 15)
 //
 // Largest sieve half width, far above any useful one, so that the sieve
 // positions and the retries stay within 32-bit integers.
@@ -1303,11 +1304,56 @@ static void init_factor_base_data(siqs_context_t* const context,
             ibase++;
         }
     }
+    //
+    // Then the primes after the table, from a sieve of odd numbers by the
+    // tabulated primes (enough below their largest squared).
+    //
+    unsigned char composite[FB_SEGMENT];
+    uint64_t lo = first_primes[NFIRST_PRIMES - 1] + 2;
+
+    while (ibase != fb_alloced) {
+        const uint64_t hi = lo + 2 * (uint64_t) FB_SEGMENT;
+        memset(composite, 0, sizeof(composite));
+        for (uint32_t j = 1; j < NFIRST_PRIMES; j++) {
+            const uint64_t q = first_primes[j];
+            if (q * q >= hi) {
+                break;
+            }
+            uint64_t m = MAX(q * q, ((lo + q - 1) / q) * q);
+            if ((m & 1) == 0) {
+                m += q;
+            }
+            for (; m < hi; m += 2 * q) {
+                composite[(m - lo) / 2] = 1;
+            }
+        }
+        for (uint32_t i = 0; (i < FB_SEGMENT) && (ibase != fb_alloced); i++) {
+            if (composite[i]) {
+                continue;
+            }
+            const uint32_t p = (uint32_t) (lo + 2 * i);
+            const uint32_t b = floor_log2(p);
+            nmodp = mpz_fdiv_ui(kn, p);
+            t = (nmodp == 0) ? 0 : sqrtm(nmodp, p);
+            if (t == NO_SQRT_MOD_P) {
+                continue;
+            }
+            *fbptr   = p;
+            *sqrtptr = t;
+            *logptr  = (nmodp == 0)
+                     ? (unsigned char) ((b + 1) / 2)
+                     : (unsigned char) (b + ((uint64_t) p * p
+                                             >= ((uint64_t) 2 << (2 * b))));
+            fbptr++;
+            sqrtptr++;
+            logptr++;
+            ibase++;
+        }
+        lo = hi;
+    }
     sqrtm_pi->length        = ibase;
     factor_base->length     = ibase;
     log_factor_base->length = ibase;
-
-    prime++;
 }
 //-----------------------------------------------------------------------------
 

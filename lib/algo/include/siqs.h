@@ -77,8 +77,8 @@ struct struct_siqs_params_t {
     uint32_t sieve_half_width;
        /**
         * Number of prime numbers composing the factor base on which to factor
-        * the residues, at most a quarter of the tabulated primes (see
-        * \c NFIRST_PRIMES), and enough to choose the coefficient \c a.
+        * the residues, at most 65536, and enough to choose the coefficient
+        * \c a.
         */
     uint32_t nprimes_in_base;
       /**
