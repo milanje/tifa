@@ -30,6 +30,7 @@
 #include "tifa_test.h"
 #include "matrix.h"
 #include "gauss_elim.h"
+#include "lindep.h"
 
 static void test_byte_matrix_clone(void) {
     const uint32_t nrows = 5;
@@ -216,6 +217,43 @@ static void test_gaussian_elim(const int filtered) {
 
 int main(void) {
     TIFA_TEST_BEGIN("matrix clone and gaussian eliminations");
+
+    // Sparse decompositions: the same exponents as dense ones, whatever the
+    // order of the additions, and exponents above 255 in several entries.
+    {
+        decomp_t* const dense  = alloc_decomp(50, 300, false);
+        decomp_t* const sparse = alloc_decomp(50, 300, true);
+        unsigned int sums[50][300];
+        memset(sums, 0, sizeof(sums));
+        srand(7);
+        for (int k = 0; k < 4000; k++) {
+            const uint32_t i = (uint32_t) rand() % 50;
+            const uint32_t j = (uint32_t) rand() % 300;
+            const uint32_t e = (k % 500 == 0) ? 600 : 1 + (uint32_t) rand() % 3;
+            add_to_decomp(sparse, i, j, e);
+            if (sums[i][j] + e < 256) {
+                add_to_decomp(dense, i, j, e);
+            }
+            sums[i][j] += e;
+        }
+        sort_decomp(sparse);
+        bool same = true;
+        for (uint32_t i = 0; i < 50; i++) {
+            unsigned int row[300];
+            memset(row, 0, sizeof(row));
+            for (uint32_t k = sparse->starts[i]; k < sparse->starts[i + 1]; k++) {
+                row[sparse->sorted[k] >> 8] += sparse->sorted[k] & 0xFF;
+            }
+            for (uint32_t j = 0; j < 300; j++) {
+                same = same && (row[j] == sums[i][j])
+                       && ((sums[i][j] > 255)
+                           || (dense->dense->data[i][j] == sums[i][j]));
+            }
+        }
+        CHECK(same, "sparse decompositions: the exponents added");
+        free_decomp(dense);
+        free_decomp(sparse);
+    }
     test_byte_matrix_clone();
     test_binary_matrix_clone();
     test_gaussian_elim(0);

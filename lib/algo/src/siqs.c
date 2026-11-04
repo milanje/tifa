@@ -99,6 +99,14 @@
 //
 #define FB_SEGMENT          (1U << 15)
 //
+// Up to DENSE_DECOMP_MAX_BASE primes in the base (about 240 bits), the
+// decompositions of the relations are dense, a byte per prime: 0.94 of the
+// time of sparse ones at 80 bits, 0.97 at 100. Beyond, they keep only the
+// exponents that are not 0 (see decomp_t): a dense one would take 1.5 GB at
+// 38280 primes.
+//
+#define DENSE_DECOMP_MAX_BASE (1U << 14)
+//
 // Largest sieve half width, far above any useful one, so that the sieve
 // positions and the retries stay within 32-bit integers.
 //
@@ -478,7 +486,7 @@ static void drop_hopeless_candidates(siqs_context_t* const context,
 static ecode_t collect_relations(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
 static void add_primes_of_a(siqs_context_t* const context,
-                            byte_matrix_t* const decomp_matrix,
+                            decomp_t* const decomp,
                             const uint32_t first_row);
 static void drop_duplicate_relations(
     siqs_context_t* const context,
@@ -1090,10 +1098,12 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     primes_array.length  = params->nprimes_tdiv;
     primes_array.data    = (uint32_t*)(context->factor_base->data);
 
-    byte_matrix_t* decomp_matrix = alloc_byte_matrix(
-                                      context->matrix_nrows,
-                                      context->factor_base->length
-                                   );
+    decomp_t* const decomp = alloc_decomp(
+                                 context->matrix_nrows,
+                                 context->factor_base->length,
+                                 context->factor_base->length
+                                 > DENSE_DECOMP_MAX_BASE
+                             );
 
     //
     // Partly fill the matrix via trial divisions of the g_{a,b}/a, then add
@@ -1103,12 +1113,12 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     const uint32_t first_row = context->matrix->nrows;
     fill_trial_div_decomp(
         context->matrix,
-        decomp_matrix,
+        decomp,
         partial_gx_array,
         context->smooth_redgx,
         &primes_array
     );
-    add_primes_of_a(context, decomp_matrix, first_row);
+    add_primes_of_a(context, decomp, first_row);
 
     if (params->nprimes_tdiv < params->nprimes_in_base) {
         //
@@ -1133,7 +1143,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
         //
         fill_matrix_from_list_decomp(
             context->matrix,
-            decomp_matrix,
+            decomp,
             partial_gx_array,
             decomp_list,
             context->factor_base
@@ -1146,6 +1156,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     RESET_TIMER;
     START_TIMER;
 
+    sort_decomp(decomp);
     //
     // The matrix is now completely filled. Solve the linear system to find
     // relations of the form: A^2 = Q^2 mod n where  A^2 = prod(ui)^2 and
@@ -1167,7 +1178,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
                 machine->factors,
                 context->n,
                 context->u,
-                decomp_matrix,
+                decomp,
                 relations,
                 context->factor_base
             );
@@ -1175,7 +1186,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     STOP_TIMER;
     PRINT_TIMING;
 
-    free_byte_matrix(decomp_matrix);
+    free_decomp(decomp);
     free_uint32_array_list(relations);
     give_array(POOL_PARTIAL_GX, partial_gx_array);
 
@@ -1640,7 +1651,7 @@ static void drop_hopeless_candidates(siqs_context_t* const context,
 }
 //-----------------------------------------------------------------------------
 static void add_primes_of_a(siqs_context_t* const context,
-                            byte_matrix_t* const decomp_matrix,
+                            decomp_t* const decomp,
                             const uint32_t first_row) {
     //
     // Each prime of a relation's 'a' divides it once more: one more in its
@@ -1654,7 +1665,7 @@ static void add_primes_of_a(siqs_context_t* const context,
     for (uint32_t i = 0; i < nrels; i++) {
         const uint32_t* const q = &a_primes[a_idx[i] * npa];
         for (uint32_t k = 0; k < npa; k++) {
-            decomp_matrix->data[i][q[k]]++;
+            add_to_decomp(decomp, i, q[k], 1);
             flip_matrix_bit(first_row + i, q[k] + 1, context->matrix);
         }
     }

@@ -41,6 +41,7 @@ extern "C" {
 #endif
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "array.h"
 #include "x_array_list.h"
@@ -82,6 +83,82 @@ void fill_matrix_trial_div(
 );
    
    /**
+    * \struct struct_decomp_t lindep.h lib/utils/include/lindep.h
+    * \brief The exponents of the primes of a factor base in relations.
+    *
+    * Dense, a byte per relation and prime, or sparse, only the exponents
+    * that are not 0: with tens of thousands of primes, a dense one takes
+    * gigabytes, and its sums for the square roots most of a second each.
+    */
+struct struct_decomp_t {
+       /**
+        * Number of relations.
+        */
+    uint32_t nrows;
+       /**
+        * Number of primes.
+        */
+    uint32_t nprimes;
+       /**
+        * Dense: the exponent of the j-th prime in the i-th relation is
+        * <tt>dense->data[i][j]</tt>. NULL if sparse.
+        */
+    byte_matrix_t* dense;
+       /**
+        * Sparse, before \c sort_decomp: <tt>(i << 32) | (j << 8) | e</tt>
+        * for e (at most 255) more in the exponent of the j-th prime in the
+        * i-th relation, in any order.
+        */
+    uint64_t* entries;
+       /**
+        * Number of \c entries.
+        */
+    uint32_t nentries;
+       /**
+        * Number of \c entries allocated.
+        */
+    uint32_t alloced;
+       /**
+        * Sparse, after \c sort_decomp: the <tt>(j << 8) | e</tt> of the
+        * i-th relation are <tt>sorted[starts[i]]</tt> to
+        * <tt>sorted[starts[i + 1] - 1]</tt>.
+        */
+    uint32_t* starts;
+       /**
+        * See \c starts.
+        */
+    uint32_t* sorted;
+};
+   /**
+    * \typedef decomp_t
+    * \brief Equivalent to <tt>struct struct_decomp_t</tt>.
+    */
+typedef struct struct_decomp_t decomp_t;
+
+   /**
+    * \brief Allocates the decompositions of \c nrows relations on \c nprimes
+    * primes, all exponents 0.
+    */
+decomp_t* alloc_decomp(uint32_t nrows, uint32_t nprimes, bool sparse);
+
+   /**
+    * \brief Frees a \c decomp_t allocated by \c alloc_decomp.
+    */
+void free_decomp(decomp_t* decomp);
+
+   /**
+    * \brief Adds \c e to the exponent of the \c j-th prime in the \c i-th
+    * relation, before \c sort_decomp.
+    */
+void add_to_decomp(decomp_t* decomp, uint32_t i, uint32_t j, uint32_t e);
+
+   /**
+    * \brief Groups the exponents of a sparse \c decomp_t by relation, once
+    * all are added (nothing for a dense one).
+    */
+void sort_decomp(decomp_t* decomp);
+
+   /**
     * \brief Similar to \c fill_matrix_trial_div but also stores valuations.
     *
     * Fills the binary matrix \c matrix by trial divisions of the integers
@@ -89,11 +166,10 @@ void fill_matrix_trial_div(
     * After these trial divisions, each partially factored integer
     * from \c to_factor are stored in <tt>partially_factored</tt>.
     *
-    * Also stores in \c decomp_matrix the valuation of each integer
-    * from \c to_factor for each prime in the factor base. For example the
-    * valuation of <tt>to_factor->data[i]</tt> for the prime given by
-    * <tt>factor_base->data[j]</tt> will be stored in
-    * <tt>decomp_matrix->data[i][j]</tt>.
+    * Also adds to \c decomp the valuation of each integer from \c to_factor
+    * for each prime in the factor base, that of <tt>to_factor->data[i]</tt>
+    * for <tt>factor_base->data[j]</tt> to the exponent of the j-th prime in
+    * the i-th relation.
     *
     * \note The binary matrix is filled so that:
     *
@@ -106,7 +182,7 @@ void fill_matrix_trial_div(
     * contains a 0.
     *
     * \param[out] matrix        A pointer to the binary matrix to fill.
-    * \param[out] decomp_matrix A pointer to the byte matrix to fill.
+    * \param[out] decomp        The decompositions to add to.
     * \param[out] partially_factored A pointer to the partially factored
     *                                integers.
     * \param[in] to_factor A pointer to the array listing the integers to
@@ -116,7 +192,7 @@ void fill_matrix_trial_div(
     */
 void fill_trial_div_decomp(
           binary_matrix_t* const matrix,
-          byte_matrix_t*   const decomp_matrix,
+          decomp_t*        const decomp,
           mpz_array_t*     const partially_factored,
     const mpz_array_t*     const to_factor,
     const uint32_array_t*  const factor_base
@@ -187,7 +263,7 @@ void fill_matrix_from_list(
     * contains a 0.
     *
     * \param[out] matrix        A pointer to the binary matrix to fill.
-    * \param[out] decomp_matrix A pointer to the byte matrix to fill.
+    * \param[out] decomp        The decompositions to add to.
     * \param[in] smooth_array  A pointer to the array giving the integers
     *                           to factor.
     * \param[in] list A pointer to the factor list for each integer to factor.
@@ -196,7 +272,7 @@ void fill_matrix_from_list(
     */
 void fill_matrix_from_list_decomp(
           binary_matrix_t*     const matrix,
-          byte_matrix_t*       const decomp_matrix,
+          decomp_t*            const decomp,
     const mpz_array_t*         const smooth_array,
     const uint32_array_list_t* const list,
     const uint32_array_t*      const factor_base
@@ -283,8 +359,8 @@ ecode_t find_factors(
     * \param[in] n The integer to factor.
     * \param[in] xi_array A pointer to an array giving the avalaible
     *                     <tt>x_i</tt> values.
-    * \param[in] yi_decomp_matrix A pointer to a byte matrix giving the
-    *                             factorization of the \c y_i.
+    * \param[in] yi_decomp The factorization of the \c y_i (sorted, if
+    *                      sparse: see \c sort_decomp).
     * \param[in] dependencies A pointer to an array list giving the sets
     *                         of indexes from which a congruence relation
     *                         can be computed.
@@ -296,7 +372,7 @@ ecode_t find_factors_decomp(
           mpz_array_t*         const factors,
     const mpz_t                      n,
     const mpz_array_t*         const xi_array,
-    const byte_matrix_t*       const yi_decomp_matrix,
+    const decomp_t*            const yi_decomp,
     const uint32_array_list_t* const dependencies,
     const uint32_array_t*      const factor_base
 );

@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <string.h>
 
 #include "tifa_config.h"
 #include <gmp.h>
@@ -264,14 +265,84 @@ static void mpz_set_mont2(mpz_t z, const uint64_t v[2]) {
 }
 #endif
 //-----------------------------------------------------------------------------
+decomp_t* alloc_decomp(const uint32_t nrows, const uint32_t nprimes,
+                       const bool sparse) {
+    decomp_t* const decomp = tifa_malloc(sizeof(decomp_t));
+    decomp->nrows    = nrows;
+    decomp->nprimes  = nprimes;
+    decomp->dense    = sparse ? NULL : alloc_byte_matrix(nrows, nprimes);
+    decomp->alloced  = sparse ? 32 * nrows + 32 : 0;
+    decomp->entries  = sparse ? tifa_malloc(decomp->alloced * sizeof(uint64_t))
+                              : NULL;
+    decomp->nentries = 0;
+    decomp->starts   = NULL;
+    decomp->sorted   = NULL;
+    return decomp;
+}
+//-----------------------------------------------------------------------------
+void free_decomp(decomp_t* const decomp) {
+    if (decomp->dense != NULL) {
+        free_byte_matrix(decomp->dense);
+    }
+    free(decomp->entries);
+    free(decomp->starts);
+    free(decomp->sorted);
+    free(decomp);
+}
+//-----------------------------------------------------------------------------
+void add_to_decomp(decomp_t* const decomp, const uint32_t i, const uint32_t j,
+                   uint32_t e) {
+    if (decomp->dense != NULL) {
+        decomp->dense->data[i][j] += (unsigned char) e;
+        return;
+    }
+    while (e != 0) {
+        const uint32_t part = MIN(e, 255);
+        if (decomp->nentries == decomp->alloced) {
+            decomp->alloced *= 2;
+            decomp->entries  = tifa_realloc(
+                                   decomp->entries,
+                                   decomp->alloced * sizeof(uint64_t)
+                               );
+        }
+        decomp->entries[decomp->nentries++] =
+            ((uint64_t) i << 32) | ((uint64_t) j << 8) | part;
+        e -= part;
+    }
+}
+//-----------------------------------------------------------------------------
+void sort_decomp(decomp_t* const decomp) {
+    if ((decomp->dense != NULL) || (decomp->starts != NULL)) {
+        return;
+    }
+    uint32_t* const starts = tifa_calloc(decomp->nrows + 1, sizeof(uint32_t));
+    for (uint32_t k = 0; k < decomp->nentries; k++) {
+        starts[(decomp->entries[k] >> 32) + 1]++;
+    }
+    for (uint32_t i = 0; i < decomp->nrows; i++) {
+        starts[i + 1] += starts[i];
+    }
+    uint32_t* const next   = tifa_malloc((decomp->nrows + 1) * sizeof(uint32_t));
+    uint32_t* const sorted = tifa_malloc((decomp->nentries + 1)
+                                         * sizeof(uint32_t));
+    memcpy(next, starts, (decomp->nrows + 1) * sizeof(uint32_t));
+    for (uint32_t k = 0; k < decomp->nentries; k++) {
+        const uint64_t entry = decomp->entries[k];
+        sorted[next[entry >> 32]++] = (uint32_t) entry;
+    }
+    free(next);
+    free(decomp->entries);
+    decomp->entries = NULL;
+    decomp->starts  = starts;
+    decomp->sorted  = sorted;
+}
+//-----------------------------------------------------------------------------
 void fill_trial_div_decomp(binary_matrix_t* const matrix,
-                           byte_matrix_t* const decomp_matrix,
+                           decomp_t* const decomp,
                            mpz_array_t* const partially_factored,
                            const mpz_array_t* const to_factor,
                            const uint32_array_t* const factor_base
                           ) {
-
-    unsigned char** decomp_data = decomp_matrix->data;
 
     bool flip_bit = false;
 
@@ -323,7 +394,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 } else {
                     e = remove_twos(l, &n);
                 }
-                decomp_data[i][0] += (unsigned char) e;
+                add_to_decomp(decomp, i, 0, e);
                 if (e & 1) {
                     flip_matrix_bit(nrows, 1, matrix);
                 }
@@ -345,7 +416,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                                            factor_base->length
                                        );
                     if ((l[0] <= UINT32_MAX) && (t != NOT_IN_ARRAY)) {
-                        decomp_data[i][t]++;
+                        add_to_decomp(decomp, i, t, 1);
                         flip_matrix_bit(nrows, t + 1, matrix);
                         l[0] = 1;
                     }
@@ -390,7 +461,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                             e++;
                         } while (divisible_odd(l, n, q, pinv[k], plim[k]));
                     }
-                    decomp_data[i][k] += (unsigned char) e;
+                    add_to_decomp(decomp, i, k, e);
                     if (e & 1) {
                         flip_matrix_bit(nrows, k + 1, matrix);
                     }
@@ -408,11 +479,13 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
 #endif
         for (uint32_t j = 0; j < factor_base->length; j++) {
 
+            uint32_t e = 0;
             while (0 != mpz_divisible_ui_p(v, factor_base->data[j])) {
                 mpz_divexact_ui(v, v, factor_base->data[j]);
-                decomp_data[i][j]++;
+                e++;
                 flip_bit = !flip_bit;
             }
+            add_to_decomp(decomp, i, j, e);
             if (flip_bit) {
                 flip_matrix_bit(nrows, j + 1, matrix);
                 flip_bit = false;
@@ -477,7 +550,7 @@ void fill_matrix_from_list(binary_matrix_t* const matrix,
 }
 //-----------------------------------------------------------------------------
 void fill_matrix_from_list_decomp(binary_matrix_t* const matrix,
-                                  byte_matrix_t* const decomp_matrix,
+                                  decomp_t* const decomp,
                                   const mpz_array_t* const smooth_array,
                                   const uint32_array_list_t* const list,
                                   const uint32_array_t* const factor_base) {
@@ -485,7 +558,6 @@ void fill_matrix_from_list_decomp(binary_matrix_t* const matrix,
     mpz_init(tmp);
     uint32_t ind_p = 0;
 
-    unsigned char** decomp_data = decomp_matrix->data;
     bool flip_bit = false;
 
     for (uint32_t i = 0; i < smooth_array->length; i++) {
@@ -498,6 +570,7 @@ void fill_matrix_from_list_decomp(binary_matrix_t* const matrix,
             //
             for (uint32_t j = 0; j < list->data[i]->length; j++) {
 
+                uint32_t e = 0;
                 if (0 != mpz_divisible_ui_p(tmp, list->data[i]->data[j])) {
                     //
                     // We need the index of this prime in the factor base to
@@ -511,12 +584,15 @@ void fill_matrix_from_list_decomp(binary_matrix_t* const matrix,
                     mpz_divexact_ui(tmp, tmp, factor_base->data[ind_p]);
 
                     flip_bit = !flip_bit;
-                    decomp_data[i][ind_p]++;
+                    e++;
                 }
                 while (0 != mpz_divisible_ui_p(tmp, list->data[i]->data[j])) {
                     mpz_divexact_ui(tmp, tmp, factor_base->data[ind_p]);
                     flip_bit = !flip_bit;
-                    decomp_data[i][ind_p]++;
+                    e++;
+                }
+                if (e != 0) {
+                    add_to_decomp(decomp, i, ind_p, e);
                 }
                 if (flip_bit) {
                     flip_matrix_bit(i, ind_p+1, matrix);
@@ -644,7 +720,7 @@ ecode_t find_factors(mpz_array_t*  const factors,
 ecode_t find_factors_decomp(mpz_array_t*  const factors,
                             const mpz_t n,
                             const mpz_array_t* const xi_array,
-                            const byte_matrix_t* const yi_decomp_matrix,
+                            const decomp_t* const yi_decomp,
                             const uint32_array_list_t* const dependencies,
                             const uint32_array_t* const factor_base) {
 
@@ -660,11 +736,9 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
 
     uint32_t irow = 0;
 
-    unsigned int*  decomp = tifa_malloc(
-                                yi_decomp_matrix->ncols * sizeof(unsigned int)
-                            );
-    unsigned char** decomp_data = yi_decomp_matrix->data;
-    uint32_t*       base_data   = factor_base->data;
+    const uint32_t  nprimes   = yi_decomp->nprimes;
+    unsigned int*   decomp    = tifa_malloc(nprimes * sizeof(unsigned int));
+    uint32_t*       base_data = factor_base->data;
 
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
     //
@@ -697,7 +771,7 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
         // Compute x   = product(xi)
         // Compute gcd = gcd(x - y, n)
         //
-        for (uint32_t i = 0; i < yi_decomp_matrix->ncols; i++) {
+        for (uint32_t i = 0; i < nprimes; i++) {
             decomp[i] = 0;
         }
         for (uint32_t irel = 0;
@@ -721,8 +795,17 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
             // Get the power of each prime involved in y's decomposition on the
             // factor base
             //
-            for (uint32_t i = 0; i < yi_decomp_matrix->ncols; i++) {
-                decomp[i] += decomp_data[irow][i];
+            if (yi_decomp->dense != NULL) {
+                const unsigned char* const row = yi_decomp->dense->data[irow];
+                for (uint32_t i = 0; i < nprimes; i++) {
+                    decomp[i] += row[i];
+                }
+            } else {
+                for (uint32_t k = yi_decomp->starts[irow];
+                     k < yi_decomp->starts[irow + 1]; k++) {
+                    decomp[yi_decomp->sorted[k] >> 8] +=
+                        yi_decomp->sorted[k] & 0xFF;
+                }
             }
         }
         //
@@ -732,7 +815,7 @@ ecode_t find_factors_decomp(mpz_array_t*  const factors,
         // The exponents are small: multiply by the prime powers that fit in
         // a word, and reduce only once y outgrows n.
         //
-        for (uint32_t i = 0; i < yi_decomp_matrix->ncols; i++) {
+        for (uint32_t i = 0; i < nprimes; i++) {
             const unsigned long int p = base_data[i];
             uint32_t k = decomp[i] / 2;
             while (k > 0) {

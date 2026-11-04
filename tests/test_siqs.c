@@ -138,5 +138,34 @@ int main(void) {
         mpz_clear(n);
     }
 
+    // 34000 primes in the base: past the 65536 tabulated primes, about half
+    // of which have kn as a square modulo them, and past the dense
+    // decompositions of the relations.
+    {
+        mpz_t n;
+        mpz_t p;
+        mpz_init(n);
+        mpz_init(p);
+        mpz_ui_pow_ui(p, 2, 59);
+        mpz_nextprime(p, p);
+        mpz_ui_pow_ui(n, 2, 60);
+        mpz_nextprime(n, n);
+        mpz_mul(n, n, p);
+        siqs_params_t params;
+        set_siqs_params_to_default(n, &params);
+        params.nprimes_in_base = 34000;
+        params.nprimes_tdiv    = 34000;
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        const ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        CHECK((rc == COMPLETE_FACTORIZATION_FOUND)
+              && tifa_is_complete_factorization(n, f, m),
+              "34000 primes in the base: factored");
+        free_mpz_array(f);
+        free_uint32_array(m);
+        mpz_clear(n);
+        mpz_clear(p);
+    }
+
     TIFA_TEST_END();
 }
