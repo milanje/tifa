@@ -91,7 +91,8 @@
   primes below a bound, as the cofactorization step of a sieve asks. Below
   2^64, primality testing and factorization run in machine words.
   tifa_prove_prime() proves that an integer is prime, with a certificate
-  that tifa_check_prime_cert() (or anyone) checks.
+  that tifa_check_prime_cert() (or anyone) checks and that
+  tifa_prime_cert_to_str() writes as text.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)

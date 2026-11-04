@@ -59,35 +59,27 @@
 //-----------------------------------------------------------------------------
 void print_factors(mpz_array_t* const, uint32_array_t* const);
 //-----------------------------------------------------------------------------
-static void print_pairs(const mpz_array_t* const primes,
-                        const uint32_array_t* const witnesses) {
-    printf("[");
-    for (uint32_t i = 0; i < primes->length; i++) {
-        gmp_printf("%s[%Zd, %" PRIu32 "]", (i == 0) ? "" : ", ",
-                   primes->data[i], witnesses->data[i]);
-    }
-    printf("]");
-}
-//-----------------------------------------------------------------------------
 static bool print_certificate(const mpz_t p) {
     prime_cert_t* const cert = alloc_prime_cert();
     const prime_cert_status_t status = tifa_prove_prime(cert, p);
 
     switch (status) {
-        case PRIME_PROVEN:
-            gmp_printf("\t%Zd: [", p);
-            for (uint32_t i = 0; i < cert->nsteps; i++) {
-                const prime_cert_step_t* const step = &cert->steps[i];
-                gmp_printf("%s\n\t    [%Zd, ", (i == 0) ? "" : ",", step->p);
-                print_pairs(step->pm1_primes, step->pm1_witnesses);
-                if (step->pp1_d != 0) {
-                    printf(", %" PRId32 ", ", step->pp1_d);
-                    print_pairs(step->pp1_primes, step->pp1_witnesses);
+        case PRIME_PROVEN: {
+            const size_t length = tifa_prime_cert_to_str(NULL, 0, cert);
+            char* const text = malloc(length + 1);
+            tifa_prime_cert_to_str(text, length + 1, cert);
+            gmp_printf("\t%Zd:%s", p, (cert->nsteps == 0) ? " " : "\n\t    ");
+            for (const char* c = text; *c != '\0'; c++) {
+                if (*c == '\n') {
+                    printf("\n\t    ");
+                } else {
+                    putchar(*c);
                 }
-                printf("]");
             }
-            printf("]\n");
+            printf("\n");
+            free(text);
             break;
+        }
         case NOT_PRIME:
             gmp_printf("\t%Zd: NOT PRIME, although it passed a Baillie-PSW "
                        "test!\n", p);
@@ -101,9 +93,6 @@ static bool print_certificate(const mpz_t p) {
     return status == PRIME_PROVEN;
 }
 //-----------------------------------------------------------------------------
-//
-// In JSON, as tifa.check_certificate (Python) takes them.
-//
 static bool print_certificates(const mpz_t* const primes, uint32_t nprimes) {
     printf("Primality certificates:\n");
     printf("-----------------------\n");

@@ -77,12 +77,12 @@ add_test(NAME tifa_factor_program_prove
          COMMAND tifa_factor --prove balanced 206010655745875572166197184221848916071)
 set_tests_properties(tifa_factor_program_prove PROPERTIES
     TIMEOUT 60
-    PASS_REGULAR_EXPRESSION "Primality certificates:.*(340730379077795843: \\[\\]\n.*604614875560711445197: \\[\n\t    \\[604614875560711445197, \\[\\[2, |604614875560711445197: \\[\n\t    \\[604614875560711445197, \\[\\[2, .*340730379077795843: \\[\\]\n).*Factorization is complete, its factors proven prime")
+    PASS_REGULAR_EXPRESSION "Primality certificates:.*(340730379077795843: \\[\\]\n.*604614875560711445197:\n\t    \\[\\[604614875560711445197, \\[\\[2, |604614875560711445197:\n\t    \\[\\[604614875560711445197, \\[\\[2, .*340730379077795843: \\[\\]\n).*Factorization is complete, its factors proven prime")
 add_test(NAME tifa_factor_program_prove_prime
          COMMAND tifa_factor 170141183460469231731687303715884105727 --prove)
 set_tests_properties(tifa_factor_program_prove_prime PROPERTIES
     TIMEOUT 60
-    PASS_REGULAR_EXPRESSION "170141183460469231731687303715884105727: \\[\n\t    \\[170141183460469231731687303715884105727, \\[\\[2, .*\n170141183460469231731687303715884105727 is prime\\.")
+    PASS_REGULAR_EXPRESSION "170141183460469231731687303715884105727:\n\t    \\[\\[170141183460469231731687303715884105727, \\[\\[2, .*\n170141183460469231731687303715884105727 is prime\\.")
 # A pass regex alone ignores the exit status: fail on sanitizer reports too.
 set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
                      tifa_factor_program_square tifa_factor_program_hint

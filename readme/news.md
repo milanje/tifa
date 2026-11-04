@@ -41,9 +41,11 @@ In Python, `tifa.factor(n, proof=True)` also proves the prime factors above
 `tifa.prime_certificate(p)` returns the certificate as plain data,
 `(p, [(q, a), ...])` or `(p, [(q, a), ...], D, [(r, P), ...])` steps, and
 `tifa.check_certificate(p, cert)` checks it in plain Python, without TIFA's
-C code. `tifa-factor --prove` proves the factors it finds, or the number if
-it is prime, and prints their certificates in that format, in JSON; a
-factor not proven prime makes the factorization partial (exit status 1).
+C code. In C, `tifa_prime_cert_to_str()` writes a certificate in that
+format, in JSON, a step per line, as `snprintf` writes a string.
+`tifa-factor --prove` proves the factors it finds, or the number if it is
+prime, and prints their certificates so; a factor not proven prime makes
+the factorization partial (exit status 1).
 
 Nothing else changes: `tifa_factor()` does not use the new code, the
 benchmark programs have the same machine code, and the code of the shared

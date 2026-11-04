@@ -17,6 +17,7 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "tifa_test.h"
 #include "prime_cert.h"
@@ -50,6 +51,27 @@ static void expect_not_prime(prime_cert_t* c, const char* digits) {
     snprintf(msg, sizeof msg, "%s: certificate refused", digits);
     CHECK(!checked && (c->nsteps == 0), msg);
     mpz_clear(n);
+}
+
+// Each line of the text: "[[p, [" for the first step, " [p, [" then.
+static bool text_matches(const prime_cert_t* c) {
+    const size_t length = tifa_prime_cert_to_str(NULL, 0, c);
+    char* const text = malloc(length + 1);
+    bool ok = (tifa_prime_cert_to_str(text, length + 1, c) == length)
+           && (strlen(text) == length);
+    const char* line = text;
+    for (uint32_t i = 0; ok && (i < c->nsteps); i++) {
+        char start[200];
+        gmp_snprintf(start, sizeof start, "%s[%Zd, [", (i == 0) ? "[" : " ",
+                     c->steps[i].p);
+        const char* const end = strchr(line, '\n');
+        ok = (strncmp(line, start, strlen(start)) == 0)
+          && ((end == NULL) == (i == c->nsteps - 1));
+        line = (end == NULL) ? line : end + 1;
+    }
+    ok = ok && (strcmp(line + strlen(line) - 2, "]]") == 0);
+    free(text);
+    return ok;
 }
 
 int main(void) {
@@ -222,6 +244,62 @@ int main(void) {
     mpz_set_str(n, "618970019642690137449562113", 10);
     mpz_set(last->p, n);
     CHECK(!tifa_check_prime_cert(c, n), "2^89 + 1 refused");
+
+    // ---- Text.
+    char text[200];
+    mpz_set_ui(n, 1000003);
+    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "1000003 proven");
+    CHECK_EQ_UI(tifa_prime_cert_to_str(text, sizeof text, c), 2,
+                "text length, no step");
+    CHECK(strcmp(text, "[]") == 0, "text, no step");
+
+    mpz_set_str(n, "618970019642690137449562111", 10);
+    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven");
+    last = &c->steps[0];
+    reset_mpz_array(last->pm1_primes);
+    reset_uint32_array(last->pm1_witnesses);
+    reset_mpz_array(last->pp1_primes);
+    reset_uint32_array(last->pp1_witnesses);
+    mpz_set_ui(m, 2);
+    append_mpz_to_array(last->pm1_primes, m);
+    append_uint32_to_array(last->pm1_witnesses, 3);
+    mpz_set_ui(m, 3);
+    append_mpz_to_array(last->pm1_primes, m);
+    append_uint32_to_array(last->pm1_witnesses, 5);
+    mpz_set_ui(m, 2);
+    append_mpz_to_array(last->pp1_primes, m);
+    append_uint32_to_array(last->pp1_witnesses, 1);
+    last->pp1_d = -7;
+    const char* const expected =
+        "[[618970019642690137449562111, [[2, 3], [3, 5]], -7, [[2, 1]]]]";
+    CHECK_EQ_UI(tifa_prime_cert_to_str(text, sizeof text, c),
+                strlen(expected), "text length, one step");
+    CHECK(strcmp(text, expected) == 0, "text, one step");
+    CHECK_EQ_UI(tifa_prime_cert_to_str(NULL, 0, c), strlen(expected),
+                "text length, no room");
+    memset(text, 'x', sizeof text);
+    CHECK_EQ_UI(tifa_prime_cert_to_str(text, 10, c), strlen(expected),
+                "text length, truncated");
+    CHECK((strlen(text) == 9) && (strncmp(text, expected, 9) == 0)
+          && (text[10] == 'x'), "text truncated");
+
+    uint32_t most = 0;
+    bool with_pp1 = false;
+    bool matched  = true;
+    for (int i = 0; i < 40; i++) {
+        do {
+            mpz_urandomb(n, state, 200);
+            mpz_setbit(n, 199);
+        } while (!mpz_probab_prime_p(n, 30));
+        CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "200-bit prime proven");
+        matched = matched && text_matches(c);
+        most = (c->nsteps > most) ? c->nsteps : most;
+        for (uint32_t j = 0; j < c->nsteps; j++) {
+            with_pp1 = with_pp1 || (c->steps[j].pp1_d != 0);
+        }
+    }
+    CHECK(matched, "text of 200-bit primes, a line per step");
+    CHECK((most >= 2) && with_pp1, "texts with several steps, and p + 1");
 
     // ---- Proving again replaces the certificate.
     mpz_set_str(n, "618970019642690137449562111", 10);

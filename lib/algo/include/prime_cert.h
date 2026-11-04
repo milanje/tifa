@@ -67,6 +67,7 @@
  * step: they are strong probable primes to the bases 2, 3, 5, ..., 37 (the
  * first 12 primes), which no composite below 2^64 is (Sorenson and Webster,
  * 2017, "Strong pseudoprimes to twelve prime bases").
+ * \c tifa_prime_cert_to_str writes a certificate as text, in JSON.
  *
  * To prove p, \c tifa_prove_prime searches p - 1 for factors by trial
  * division and ECM, then p + 1 if they are not enough, and, if still not,
@@ -91,6 +92,7 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <gmp.h>
 
@@ -214,6 +216,27 @@ TIFA_API prime_cert_status_t tifa_prove_prime(prime_cert_t* cert,
     *         prime below 2^64).
     */
 TIFA_API bool tifa_check_prime_cert(const prime_cert_t* cert, const mpz_t n);
+
+   /**
+    * \brief Writes a certificate as text.
+    *
+    * The text is JSON, the format of the Python package's
+    * \c tifa.check_certificate: a list of steps, one per line, each
+    * <tt>[p, [[q_1, a_1], ...]]</tt>, or
+    * <tt>[p, [[q_1, a_1], ...], D, [[r_1, P_1], ...]]</tt> with primes of
+    * p + 1. A prime below 2^64 has <tt>[]</tt>.
+    *
+    * As \c snprintf does, it writes at most \c size characters, the
+    * terminating null one included.
+    *
+    * \param[out] str The text, which can be \c NULL if \c size is 0.
+    * \param[in]  size The size of \c str.
+    * \param[in]  cert A certificate.
+    * \return The length of the whole text, the terminating null excluded:
+    *         the text was truncated if it is \c size or more.
+    */
+TIFA_API size_t tifa_prime_cert_to_str(char* str, size_t size,
+                                       const prime_cert_t* cert);
 
 #ifdef __cplusplus
 }

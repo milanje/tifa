@@ -22,8 +22,10 @@
  * \brief Primality certificates (see prime_cert.h).
  */
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <pthread.h>
 
 #include "tifa_config.h"
@@ -800,4 +802,49 @@ prime_cert_status_t tifa_prove_prime(prime_cert_t* cert, const mpz_t n) {
         clear_prime_cert(cert);
     }
     return status;
+}
+//-----------------------------------------------------------------------------
+typedef struct {
+    char*  str;
+    size_t size;
+    size_t length;
+} text_t;
+//-----------------------------------------------------------------------------
+static void append_text(text_t* const text, const char* const format, ...) {
+    const bool room = (text->length < text->size);
+    va_list ap;
+    va_start(ap, format);
+    const int n = gmp_vsnprintf(room ? text->str + text->length : NULL,
+                                room ? text->size - text->length : 0,
+                                format, ap);
+    va_end(ap);
+    text->length += (size_t) n;
+}
+//-----------------------------------------------------------------------------
+static void append_pairs(text_t* const text, const mpz_array_t* const primes,
+                         const uint32_array_t* const witnesses) {
+    append_text(text, "[");
+    for (uint32_t i = 0; i < primes->length; i++) {
+        append_text(text, "%s[%Zd, %" PRIu32 "]", (i == 0) ? "" : ", ",
+                    primes->data[i], witnesses->data[i]);
+    }
+    append_text(text, "]");
+}
+//-----------------------------------------------------------------------------
+size_t tifa_prime_cert_to_str(char* str, size_t size,
+                              const prime_cert_t* cert) {
+    text_t text = { str, size, 0 };
+    append_text(&text, "[");
+    for (uint32_t i = 0; i < cert->nsteps; i++) {
+        const prime_cert_step_t* const step = &cert->steps[i];
+        append_text(&text, "%s[%Zd, ", (i == 0) ? "" : ",\n ", step->p);
+        append_pairs(&text, step->pm1_primes, step->pm1_witnesses);
+        if (step->pp1_d != 0) {
+            append_text(&text, ", %" PRId32 ", ", step->pp1_d);
+            append_pairs(&text, step->pp1_primes, step->pp1_witnesses);
+        }
+        append_text(&text, "]");
+    }
+    append_text(&text, "]");
+    return text.length;
 }
