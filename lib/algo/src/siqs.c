@@ -170,7 +170,7 @@
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
-#define NRANGES             36
+#define NRANGES             35
 //
 // Set to non zero to perform additional timing measurements. Has no effect
 // if __TIMING__ if set to 0.
@@ -450,9 +450,13 @@ static const u32triplet_t best_params[NRANGES] = {
     {.size_n = 255, .size_base = 28400, .hwidth = 1300000, .thres = 99},
     {.size_n = 260, .size_base = 33400, .hwidth = 1575000, .thres = 101},
     {.size_n = 265, .size_base = 39500, .hwidth = 1875000, .thres = 104},
-    {.size_n = 270, .size_base = 46750, .hwidth = 2250000, .thres = 107},
-    {.size_n = 275, .size_base = 55250, .hwidth = 2750000, .thres = 110},
-    {.size_n = 280, .size_base = 65250, .hwidth = 3250000, .thres = 113}
+    //
+    // Tuned on an Apple M5 Pro (siqs-bench, 2 balanced semiprimes, one at a
+    // time): 0.74 of the time of the extrapolated rows at 272 bits, 0.70 at
+    // 288. Above, the base would exceed MAX_NPRIMES_IN_BASE.
+    //
+    {.size_n = 272, .size_base = 50150, .hwidth =  882000, .thres =  99},
+    {.size_n = 288, .size_base = 65250, .hwidth =  812500, .thres = 107}
 };
 //------------------------------------------------------------------------------
 
