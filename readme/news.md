@@ -1,5 +1,35 @@
 # TIFA news
 
+## 4 November 2026 &mdash; Primality certificates
+
+`tifa_factor()` tells primes from composites by a Baillie-PSW test, which no
+composite is known to pass, but which proves nothing above 2^64. The new
+`tifa_prove_prime()` (`prime_cert.h`) proves that an integer is prime and
+returns a certificate that `tifa_check_prime_cert()` checks, as anyone can
+with modular exponentiations and GCDs: steps, each proving a prime p from
+primes q of p - 1 (below 2^64, or proven by an earlier step) and witnesses a
+(Pocklington's theorem, with the part F of p - 1 made of the q above
+p^(1/3), as Brillhart, Lehmer and Selfridge allow). p - 1 is factored by
+`tifa_factor()`, and its smallest primes are kept until F is large enough.
+Primes below 2^64 need no step: they are strong probable primes to the first
+12 primes, which no composite below 2^64 is.
+
+On an Apple M5 Pro, a proof took 0.4 ms on average for random primes of 128
+bits, 3 ms at 160 bits, 15 ms at 192 bits and 0.2 s at 224 bits (100 primes
+per size, 60 at 224 bits). The slowest, up to 3 s at 224 bits, are those
+whose p - 1 has two large prime factors that SIQS has to split. A check takes
+less than 0.1 ms.
+
+In Python, `tifa.factor(n, proof=True)` also proves the prime factors above
+2^64 (at most 13% more time on random numbers of 100 to 200 bits),
+`tifa.prime_certificate(p)` returns the certificate as plain data,
+`[(p, [(q, a), ...]), ...]`, and `tifa.check_certificate(p, cert)` checks it
+in plain Python, without TIFA's C code.
+
+Nothing else changes: `tifa_factor()` does not use the new code, the
+benchmark programs have the same machine code, and the code of the shared
+library before it keeps its addresses. The ABI only grows.
+
 ## 4 November 2026 &mdash; version 0.4.6
 
 Version 0.4.6 gathers the work below since 0.4.5: a Python package,

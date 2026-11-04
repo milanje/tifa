@@ -58,9 +58,40 @@ with ThreadPoolExecutor() as pool:
 
 `TypeError` if `n` is not an integer, `ValueError` if it is not positive
 or the hint is unknown. In the rare event that `n` can not be factored
-completely, `tifa.FactorizationError` is raised, its `factors` attribute
-holding what was found (factors that multiply to `n`, some of them not
-prime).
+completely (or, with `proof=True`, a factor not proven prime),
+`tifa.FactorizationError` is raised, its `factors` attribute holding what
+was found (factors that multiply to `n`, some of them not prime).
+
+## Proofs
+
+The primes are told from composites by a Baillie-PSW test, which no
+composite is known to pass, but which proves nothing above 2^64.
+`proof=True` also proves them prime:
+
+```python
+tifa.factor(n, proof=True)
+```
+
+`prime_certificate(p)` returns the proof, which anyone can check:
+`check_certificate` does, in plain Python.
+
+```python
+>>> cert = tifa.prime_certificate(2**89 - 1)
+>>> cert
+[(618970019642690137449562111, [(2, 3), (3, 3), (5, 3), (17, 3), (23, 3), (89, 2), (353, 3), (397, 3)])]
+>>> tifa.check_certificate(2**89 - 1, cert)
+True
+```
+
+Each step `(p, [(q, a), ...])` proves `p` prime from primes `q` of `p - 1`
+and integers `a` (Pocklington's theorem, and Brillhart, Lehmer and
+Selfridge's), each `q` below 2^64 or proven by an earlier step; a prime
+below 2^64 needs none. The certificate is plain data: `json.dumps` saves
+it. A proof takes 0.4 ms on average at 128 bits, 15 ms at 192 bits and
+0.2 s at 224 bits on an Apple M5 Pro, up to 3 s when `p - 1` is hard to
+factor; on random numbers of 100 to 200 bits, `factor(n, proof=True)`
+takes at most 13% more time than `factor(n)`. Without `proof=True`, nothing
+changes.
 
 ## Installing
 

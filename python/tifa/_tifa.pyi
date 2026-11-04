@@ -1,3 +1,6 @@
 LIBRARY_VERSION: str
 
 def _factor(n: int, hint: int, /) -> tuple[bool, list[tuple[int, int]]]: ...
+def _prime_certificate(
+    n: int, /
+) -> tuple[int, list[tuple[int, list[tuple[int, int]]]]]: ...

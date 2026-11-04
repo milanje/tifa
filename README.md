@@ -261,7 +261,9 @@ The `tifa` package gives Python 3.10 and later `tifa_factor()`:
 `factor(n)` returns the prime factorization of a positive integer as
 `{prime: exponent}`, and releases the GIL, so that threads factor in parallel.
 On balanced semiprimes it takes 0.24 to 0.51 of the time of PARI/GP's
-`factorint` from 100 to 220 bits.
+`factorint` from 100 to 220 bits. `factor(n, proof=True)` also proves the
+primes, and `prime_certificate(p)` returns a proof that
+`check_certificate(p, cert)` checks in plain Python.
 
 From version 0.4.6 on, `pip install tifa-factor` installs it from PyPI, with
 wheels for Linux and macOS. From this tree, at its top:

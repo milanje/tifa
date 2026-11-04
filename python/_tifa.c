@@ -19,8 +19,8 @@
 //
 
 //
-// tifa._tifa: tifa_factor_with_hint for Python. The argument checks and the
-// shape of the result are left to tifa/__init__.py.
+// tifa._tifa: tifa_factor_with_hint and tifa_prove_prime for Python. The
+// argument checks and the shape of the results are left to tifa/__init__.py.
 //
 #if !defined(Py_LIMITED_API)
 #define Py_LIMITED_API 0x030A0000
@@ -34,6 +34,7 @@
 #include "array.h"
 #include "exit_codes.h"
 #include "factoring_machine.h"
+#include "prime_cert.h"
 #include "tifa_factor.h"
 
 //
@@ -150,8 +151,75 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     return result;
 }
 
+static PyObject* step_from_cert(const prime_cert_step_t* const step) {
+    PyObject* const pairs = PyList_New(0);
+    if (pairs == NULL) {
+        return NULL;
+    }
+    for (uint32_t j = 0; j < step->primes->length; j++) {
+        PyObject* const q = pylong_from_mpz(step->primes->data[j]);
+        PyObject* const pair = (q == NULL)
+                             ? NULL
+                             : Py_BuildValue("(NI)", q,
+                                             step->witnesses->data[j]);
+        if ((pair == NULL) || (PyList_Append(pairs, pair) != 0)) {
+            Py_XDECREF(pair);
+            Py_DECREF(pairs);
+            return NULL;
+        }
+        Py_DECREF(pair);
+    }
+    PyObject* const p = pylong_from_mpz(step->p);
+    if (p == NULL) {
+        Py_DECREF(pairs);
+        return NULL;
+    }
+    return Py_BuildValue("(NN)", p, pairs);
+}
+
+PyDoc_STRVAR(prime_certificate_doc,
+"_prime_certificate(n, /)\n--\n\n"
+"Prove the int n prime with tifa_prove_prime. Return (status, steps), status\n"
+"0 (proven), 1 (not prime) or 2 (not proven), steps [(p, [(q, a), ...]), ...]\n"
+"when proven.");
+
+static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
+    (void) self;
+    PyObject* nobj;
+    if (!PyArg_ParseTuple(args, "O!:_prime_certificate", &PyLong_Type,
+                          &nobj)) {
+        return NULL;
+    }
+    mpz_t n;
+    mpz_init(n);
+    if (mpz_from_pylong(n, nobj) != 0) {
+        mpz_clear(n);
+        return NULL;
+    }
+    prime_cert_t* const cert = alloc_prime_cert();
+    prime_cert_status_t status;
+
+    Py_BEGIN_ALLOW_THREADS
+    status = tifa_prove_prime(cert, n);
+    Py_END_ALLOW_THREADS
+
+    PyObject* steps = PyList_New(0);
+    for (uint32_t i = 0; (steps != NULL) && (i < cert->nsteps); i++) {
+        PyObject* const step = step_from_cert(&cert->steps[i]);
+        if ((step == NULL) || (PyList_Append(steps, step) != 0)) {
+            Py_CLEAR(steps);
+        }
+        Py_XDECREF(step);
+    }
+    free_prime_cert(cert);
+    mpz_clear(n);
+    return (steps == NULL) ? NULL : Py_BuildValue("(iN)", (int) status, steps);
+}
+
 static PyMethodDef methods[] = {
     {"_factor", factor, METH_VARARGS, factor_doc},
+    {"_prime_certificate", prime_certificate, METH_VARARGS,
+     prime_certificate_doc},
     {NULL, NULL, 0, NULL}
 };
 
