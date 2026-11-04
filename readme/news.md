@@ -1,5 +1,40 @@
 # TIFA news
 
+## 4 November 2026 &mdash; Security fixes
+
+A review of the library for untrusted input (certificates, tuning files,
+the tools' arguments, the Python package and its release) found these,
+now fixed:
+
+- `tifa_check_prime_cert()` divided by zero, killing the process, on a
+  certificate with 0 among the primes of p - 1 or p + 1. It also checked
+  every step before refusing those for primes above n, so that a certificate
+  of 30 KB took 29 s, and searched the steps in time quadratic in their
+  number. Each prime now has at most one step, the last for n and the
+  others for primes below n, found in a sorted index. `tifa.check_certificate`
+  follows the same rules, and refuses, as the C parser does, witnesses of
+  2^32 or more and a D of 0 or of 2^31 or more in absolute value.
+- `tifa_prime_cert_from_str()` read numbers in time quadratic in their
+  length (7 s for a million digits), and `tifa_prime_cert_to_str()` read past
+  the witnesses of a step that has fewer than primes.
+- The Python wheels had the temporary directory of their build compiled in
+  as the last place to look for tuning files: on Linux, a directory in /tmp
+  that any user could create, to choose the parameters of everyone's
+  `tifa.factor()`. They now have none (only `TIFA_TUNING_DIR`), so a new
+  release is the fix for those installed.
+- The tuning files were read whatever they were: a FIFO blocked the program,
+  and /dev/zero made it spin, both with the lock of the tuning tables held.
+  Only regular files are read now, of at most 4096 lines, with no null
+  character; a directory too long for the path buffer no longer names
+  another file; and setuid and setgid programs ignore `TIFA_TUNING_DIR`.
+- `tifa.factor()` raised `RuntimeError` when `tifa_factor()` gave up, rather
+  than `FactorizationError`.
+- `tifa-tune` truncated paths too long for its buffers silently.
+- The workflows' token can no longer write to the repository, the actions
+  are pinned to commits, and the checkouts keep no credentials; publishing
+  to PyPI also waits for a maintainer's approval now, from a release tag
+  only.
+
 ## 4 November 2026 &mdash; Primality certificates
 
 `tifa_factor()` tells primes from composites by a Baillie-PSW test, which no
