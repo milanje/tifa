@@ -33,6 +33,8 @@ tifa_add_test(test_mont_pm1)
 tifa_add_test(test_cofactor)
 tifa_add_test(test_inputs)
 tifa_add_test(test_prime_cert)
+tifa_add_test(test_hostile_input)
+target_link_libraries(test_hostile_input PRIVATE Threads::Threads)
 
 # The tuning-loader test reads fixture files from the source tree; hand it their
 # location as a compile definition (no env var needed: the test unsets

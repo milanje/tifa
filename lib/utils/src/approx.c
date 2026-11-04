@@ -310,6 +310,16 @@ approximer_t* alloc_approximer(mpz_t                 target,
 
         aximer->dlog_tolerance = DESPERATE_DLOG10_TOLERANCE;
     }
+    //
+    // n_choose_k counts subsets of at most 255 primes: more were truncated
+    // to a count of 0 subsets, and a search without end.
+    //
+    if (aximer->nodd > UINT8_MAX) {
+        aximer->nodd = UINT8_MAX;
+    }
+    if (aximer->neven > UINT8_MAX) {
+        aximer->neven = UINT8_MAX;
+    }
 
     //
     // Precomputes all the combinations of 'keven' factors from the

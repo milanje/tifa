@@ -1650,14 +1650,17 @@ static ecode_t collect_relations(siqs_context_t* const context) {
             scan_sieve(context->sieve, context->xpool, context->xbytes->data,
                        context->to_collect);
 
+            compute_reduced_polynomial_values(context);
+            if (context->max_cofactor_bits != 0) {
+                drop_hopeless_candidates(context, ncands);
+            }
+            //
+            // After the drop, which can leave none of the new candidates.
+            //
             idle_fills = (context->xpool->length == ncands) ? idle_fills + 1 : 0;
             if (idle_fills == MAX_IDLE_FILLS) {
                 context->stalled = true;
                 return GIVING_UP;
-            }
-            compute_reduced_polynomial_values(context);
-            if (context->max_cofactor_bits != 0) {
-                drop_hopeless_candidates(context, ncands);
             }
         }
         const uint32_t nrels = context->smooth_redgx->length;

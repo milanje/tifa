@@ -1012,6 +1012,9 @@ static uint64_t find_factor_u64(const uint64_t n) {
 
 uint64_t split_u64(const uint64_t n) {
     uint64_t r;
+    if ((n < 4) || is_prime_u64(n)) {
+        return 0;
+    }
     if ((n & 1) == 0) {
         return 2;
     }

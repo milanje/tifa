@@ -108,94 +108,78 @@ void augment_coprime_base(mpz_t f, mpz_array_t* base) {
     //          - If gcd(y, 'f') == 'f':
     //                - add 'f' in the base
     //                - remove y from the base
-    //                - call augment_coprime_base for y/gcd(y, 'f')
+    //                - augment the base with y/gcd(y, 'f')
     //          - If gcd(y, 'f') == y:
     //                - keep y in the base
-    //                - call augment_coprime_base for 'f'/gcd(y, 'f')
+    //                - augment the base with 'f'/gcd(y, 'f')
     //          - Otherwise:
     //                - add gcd in the base
     //                - remove y from the base
-    //                - call augment_coprime_base for f/gcd(y, 'f')
-    //                - call augment_coprime_base for y/gcd(y, 'f')
+    //                - augment the base with f/gcd(y, 'f')
+    //                - augment the base with y/gcd(y, 'f')
     //
-    if (is_in_mpz_array(f, base)) {
-        return;
-    }
-    if (mpz_cmp_ui(f, 1) == 0) {
-        return;
-    }
-    if (base->length == 0) {
-        append_mpz_to_array(base, f);
-        return;
-    }
+    // The integers still to add are kept on a stack, in the order of the
+    // recursion this replaces, whose depth grew with the exponents of the
+    // prime powers (a stack overflow for 1009^10001 in a thread).
+    //
+    mpz_array_t* const pending = alloc_mpz_array(ELONGATION);
+    append_mpz_to_array(pending, f);
 
-    uint32_t size_f = mpz_sizeinbase(f, 2);
-    uint32_t len    = base->length;
-
-    bool coprime_to_all_others = true;
-
+    mpz_t g;
     mpz_t cofactor_1;
     mpz_t cofactor_2;
     mpz_t gcd;
+    mpz_init(g);
+    mpz_init(cofactor_1);
+    mpz_init(cofactor_2);
+    mpz_init(gcd);
 
-    mpz_init2(cofactor_1, size_f);
-    mpz_init2(cofactor_2, size_f);
-    mpz_init2(gcd, size_f);
+    while (pending->length != 0) {
+        pending->length--;
+        mpz_swap(g, pending->data[pending->length]);
 
-    for (uint32_t i = 0; i < len; i++) {
-
-        mpz_gcd(gcd, base->data[i], f);
-
-        if ((mpz_cmp_ui(gcd, 1) == 0) ) {
+        if (is_in_mpz_array(g, base) || (mpz_cmp_ui(g, 1) == 0)) {
             continue;
         }
-        coprime_to_all_others = false;
+        bool coprime_to_all_others = true;
+        const uint32_t len = base->length;
 
-        if ((mpz_cmp(gcd, f) == 0) ) {
-            //
-            // Keep the gcd in the base and call recursively
-            // augment_coprime_base with base->data[i]'s cofactor.
-            //
+        for (uint32_t i = 0; i < len; i++) {
+
+            mpz_gcd(gcd, base->data[i], g);
+
+            if (mpz_cmp_ui(gcd, 1) == 0) {
+                continue;
+            }
+            coprime_to_all_others = false;
+
+            if (mpz_cmp(gcd, g) == 0) {
+                mpz_divexact(cofactor_2, base->data[i], gcd);
+                mpz_set(base->data[i], gcd);
+                append_mpz_to_array(pending, cofactor_2);
+                break;
+            }
+            if (mpz_cmp(gcd, base->data[i]) == 0) {
+                mpz_divexact(cofactor_2, g, gcd);
+                append_mpz_to_array(pending, cofactor_2);
+                break;
+            }
+            mpz_divexact(cofactor_1, g, gcd);
             mpz_divexact(cofactor_2, base->data[i], gcd);
             mpz_set(base->data[i], gcd);
-            augment_coprime_base(cofactor_2, base);
+            append_mpz_to_array(pending, cofactor_2);
+            append_mpz_to_array(pending, cofactor_1);
             break;
         }
-        if ((mpz_cmp(gcd, base->data[i]) == 0) ) {
-            //
-            // Keep the gcd in the base and call recursively
-            // augment_coprime_base with f's cofactor.
-            //
-            mpz_divexact(cofactor_2, f, gcd);
-            augment_coprime_base(cofactor_2, base);
-            break;
+        if (coprime_to_all_others) {
+            append_mpz_to_array(base, g);
         }
-        //
-        // Here, we have the following inequalities:
-        //     1) gcd != 1
-        //     2) gcd != f
-        //     3) gcd != base->data[i]
-        //
-        // Now, keep gcd in the base array and call recursively
-        // augment_coprime_base for the found cofactors
-        //
-        mpz_divexact(cofactor_1, f, gcd);
-        mpz_divexact(cofactor_2, base->data[i], gcd);
-        mpz_set(base->data[i], gcd);
-        augment_coprime_base(cofactor_1, base);
-        augment_coprime_base(cofactor_2, base);
-        break;
-    }
-    if (coprime_to_all_others) {
-        //
-        // Add the integer f in the base if it is coprime with all other
-        // integers in the base.
-        //
-        append_mpz_to_array(base, f);
     }
     mpz_clear(gcd);
     mpz_clear(cofactor_1);
     mpz_clear(cofactor_2);
+    mpz_clear(g);
+    free_mpz_array(pending);
 }
 //-----------------------------------------------------------------------------
 void find_coprime_base(mpz_array_t* const base, const mpz_t n,

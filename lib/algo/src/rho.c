@@ -142,8 +142,9 @@ ecode_t rho(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     rho_params_t own_params = *params;
-    own_params.acc_niters = MAX(own_params.acc_niters, 1);
     own_params.max_niters = MIN(own_params.max_niters, MAX_MAX_NITERS);
+    own_params.acc_niters = MIN(own_params.acc_niters, own_params.max_niters);
+    own_params.acc_niters = MAX(own_params.acc_niters, 1);
 
     factoring_machine_t machine;
 
@@ -408,9 +409,9 @@ static ecode_t perform_rho_floyd(factoring_machine_t* const machine) {
     INIT_TIMER;
     START_TIMER;
 
-    uint32_t i = 1;
-    uint32_t imax = params->max_niters;
-    uint32_t jmax = params->acc_niters;
+    uint64_t i = 1;
+    uint64_t imax = params->max_niters;
+    uint64_t jmax = params->acc_niters;
 
     mpz_ptr n    = context->n;
     mpz_ptr xi   = context->tortoise;

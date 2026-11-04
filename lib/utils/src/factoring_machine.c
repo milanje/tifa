@@ -445,8 +445,7 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
 //-----------------------------------------------------------------------------
 static void replace_by_coprime_base(mpz_array_t* const factors,
                                     const mpz_t n) {
-    uint32_t     flen = factors->length;
-    mpz_array_t* base = alloc_mpz_array(flen * (flen + 1));
+    mpz_array_t* base = alloc_mpz_array(2 * factors->length + 1);
 
     find_coprime_base(base, n, factors);
     swap_mpz_array(factors, base);
@@ -572,6 +571,31 @@ ecode_t process_found_factors(mpz_array_t* const factors,
                                                  uint32_array_t* const,
                                                  const mpz_t,
                                                  factoring_mode_t)) {
+    if ((mode != SINGLE_RUN) && (mode != FIND_SOME_FACTORS)) {
+        //
+        // The coprime base needs divisors of n above 1: 0 would be divided
+        // by, and -1 never leave the base.
+        //
+        if (mpz_cmp_ui(n, 2) < 0) {
+            return NO_FACTOR_FOUND;
+        }
+        uint32_t kept = 0;
+        for (uint32_t i = 0; i < factors->length; i++) {
+            mpz_abs(factors->data[i], factors->data[i]);
+            if (   (mpz_cmp_ui(factors->data[i], 1) <= 0)
+                || (mpz_cmp(factors->data[i], n) == 0)) {
+                continue;
+            }
+            if (!mpz_divisible_p(n, factors->data[i])) {
+                return FAILURE;
+            }
+            mpz_swap(factors->data[kept++], factors->data[i]);
+        }
+        factors->length = kept;
+        if (kept == 0) {
+            return NO_FACTOR_FOUND;
+        }
+    }
     switch (mode) {
     case SINGLE_RUN:
     case FIND_SOME_FACTORS:

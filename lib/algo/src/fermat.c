@@ -290,8 +290,12 @@ ecode_t fermat(mpz_array_t* const factors, uint32_array_t* const multis,
     machine.recurse_func        = recurse;
     machine.factors             = factors;
     machine.multis              = multis;
+    machine.success             = false;
 
-    ecode = run_machine(&machine);
+    //
+    // A prime would make the search go through its 2^24 primes.
+    //
+    ecode = is_prime_mpz(n) ? NO_FACTOR_FOUND : run_machine(&machine);
 
     mpz_clear(machine.n);
 

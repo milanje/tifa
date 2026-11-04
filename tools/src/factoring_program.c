@@ -329,8 +329,7 @@ int run_program(factoring_program_t* const program) {
             // Simplify the list of found factors by computing and
             // keeping only coprime factors.
             //
-            uint32_t     blen = progfa->length;
-            mpz_array_t* base = alloc_mpz_array(blen * (blen + 1));
+            mpz_array_t* base = alloc_mpz_array(2 * progfa->length + 1);
 
             find_coprime_base(base, unfactored, progfa);
             ins_sort_mpz_array(base);

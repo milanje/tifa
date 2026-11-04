@@ -206,8 +206,13 @@ uint32_t index_in_sorted_byte_array(unsigned char to_find,
     //           -1, or rather, UINT32_MAX since min is unsigned. This is
     //           not very elegant but it works...
     //
-    uint32_t max = max_index;
+    uint32_t max = (max_index < sorted_array->length) ? max_index
+                                                      : sorted_array->length;
     uint32_t index;
+
+    if (min_index > max) {
+        return NOT_IN_ARRAY;
+    }
 
     while ((max - min) > 1) {
 
@@ -394,8 +399,13 @@ uint32_t index_in_sorted_uint32_array(uint32_t to_find,
     //           -1, or rather, UINT32_MAX since min is unsigned. This is
     //           not very elegant but it works...
     //
-    uint32_t max = max_index;
+    uint32_t max = (max_index < sorted_array->length) ? max_index
+                                                      : sorted_array->length;
     uint32_t index;
+
+    if (min_index > max) {
+        return NOT_IN_ARRAY;
+    }
 
     while ((max - min) > 1) {
 
@@ -558,8 +568,13 @@ uint32_t index_in_sorted_int32_array(int32_t to_find,
     //           -1, or rather, UINT32_MAX since min is unsigned. This is
     //           not very elegant but it works...
     //
-    uint32_t max = max_index;
+    uint32_t max = (max_index < sorted_array->length) ? max_index
+                                                      : sorted_array->length;
     uint32_t index;
+
+    if (min_index > max) {
+        return NOT_IN_ARRAY;
+    }
 
     while ((max - min) > 1) {
 
@@ -755,8 +770,13 @@ uint32_t index_in_sorted_mpz_array(const mpz_t to_find,
     //           -1, or rather, UINT32_MAX since min is unsigned. This is
     //           not very elegant but it works...
     //
-    uint32_t max = max_index;
+    uint32_t max = (max_index < sorted_array->length) ? max_index
+                                                      : sorted_array->length;
     uint32_t index;
+
+    if (min_index > max) {
+        return NOT_IN_ARRAY;
+    }
 
     while ((max - min) > 1) {
 
