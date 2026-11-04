@@ -64,14 +64,33 @@ prime).
 
 ## Installing
 
+From PyPI, from version 0.4.6 on:
+
 ```sh
 pip install tifa-factor
 ```
 
 Wheels exist for Linux (x86-64 and arm64, glibc and musl) and macOS (arm64
-and x86-64, 11.0 and later), for Python 3.10 and later. Elsewhere, pip
-builds the package from source, which needs a C compiler, CMake 3.26 or
-later and GMP.
+and x86-64, 11.0 and later), for Python 3.10 and later; GMP comes in them.
+Elsewhere, pip builds the package from source.
+
+From a checkout of [TIFA](https://github.com/milanje/tifa), at the top of
+the tree:
+
+```sh
+pip install ".[test]"    # or "pip install ." without pytest
+python -m pytest         # the tests
+```
+
+A build from source needs a C compiler, CMake 3.26 or later (pip fetches it
+if the system's is older) and GMP with its headers (`libgmp-dev` on
+Debian and Ubuntu, `gmp-devel` on Fedora, `brew install gmp` on macOS). A
+GMP installed elsewhere than in the usual places is found through
+`GMP_ROOT`, the directory holding its `include` and `lib`:
+
+```sh
+GMP_ROOT=/opt/gmp pip install .
+```
 
 ## Licence
 

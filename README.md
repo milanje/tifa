@@ -234,9 +234,7 @@ describes the library before the 2026 rework; the Doxygen documentation
 
 ## Python
 
-`pip install .` at the top of the tree builds the `tifa` package (CMake >=
-3.26 and GMP needed, as above; pip fetches scikit-build-core) for Python 3.10
-and later:
+The `tifa` package gives Python 3.10 and later `tifa_factor()`:
 
 ```python
 >>> import tifa
@@ -249,8 +247,47 @@ and later:
 `factor(n)` returns the prime factorization of a positive integer as
 `{prime: exponent}`, and releases the GIL, so that threads factor in parallel.
 On balanced semiprimes it takes 0.24 to 0.51 of the time of PARI/GP's
-`factorint` from 100 to 220 bits. [python/README.md](./python/README.md) has
-the rest; `python -m pytest` runs its tests.
+`factorint` from 100 to 220 bits.
+
+From version 0.4.6 on, `pip install tifa-factor` installs it from PyPI, with
+wheels for Linux and macOS. From this tree, at its top:
+
+```sh
+pip install ".[test]"    # builds the package (CMake >= 3.26 and GMP, as above)
+python -m pytest         # its tests
+```
+
+`GMP_ROOT=<dir> pip install .` takes GMP from `<dir>/include` and `<dir>/lib`.
+[python/README.md](./python/README.md), the package's page on PyPI, has the
+rest.
+
+### Wheels for PyPI
+
+`.github/workflows/wheels.yml` builds the wheels with
+[cibuildwheel](https://cibuildwheel.pypa.io) (its settings are in
+`pyproject.toml`) on each `v*` tag and on demand: Linux x86-64 and arm64
+(manylinux and musllinux) and macOS arm64 and x86-64, one abi3 wheel each,
+tested with Python 3.10 and 3.15, and the sdist. GMP 6.3.0 is built for them
+by `python/build_gmp.sh` (its checksum checked; on x86-64, with the code of
+each processor chosen at run time) and linked statically. The package's
+version is the library's, from `CMakeLists.txt`.
+
+The workflow publishes only on demand, by PyPI's trusted publishing (no
+token). Once, before the first upload:
+
+1. on [PyPI](https://pypi.org/manage/account/publishing/) and on
+   [TestPyPI](https://test.pypi.org/manage/account/publishing/), add a pending
+   trusted publisher for the project `tifa-factor`: owner `milanje`,
+   repository `tifa`, workflow `wheels.yml`, environment `pypi` (on PyPI) or
+   `testpypi` (on TestPyPI);
+2. in the repository's settings (Environments), create the environments
+   `pypi` and `testpypi`, with required reviewers if wanted.
+
+Then, for each release, once its tag is pushed: Actions, Wheels, Run
+workflow, choose the tag and `testpypi`; check
+`pip install -i https://test.pypi.org/simple/ tifa-factor`; then the same with
+`pypi`. The workflow publishes from a tag only, and stops when the sdist's
+version is not the tag's.
 
 ## Cofactorization
 

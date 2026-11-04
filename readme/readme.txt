@@ -130,6 +130,9 @@
   to configure and build the TIFA library. (Earlier releases used SCons; the
   build system has since been migrated to CMake.)
 
+  The Python package (see section 5) needs Python 3.10 or higher, and CMake
+  3.26 or higher to be built from source.
+
 ------------------------------------------------------------------------------
 5. How to install?
 ------------------------------------------------------------------------------
@@ -192,6 +195,20 @@
 
      cc app.c $(pkg-config --cflags --libs tifa) -o app
 
+  The Python package, tifa, whose tifa.factor(n) is tifa_factor(), is
+  installed by pip rather than by CMake. From version 0.4.6 on, with wheels
+  for Linux and macOS (GMP in them):
+
+         prompt> pip install tifa-factor
+
+  or, from this tree, at its top (pip builds the library with CMake):
+
+         prompt> pip install ".[test]"
+         prompt> python -m pytest
+
+  GMP_ROOT=<dir> in the environment takes GMP from <dir>/include and
+  <dir>/lib. The file python/README.md has the details.
+
 ------------------------------------------------------------------------------
 6. Where do things get installed?
 ------------------------------------------------------------------------------
@@ -251,6 +268,7 @@
                             "Parameter tuning" section below)
           z2z8/ ........... Search for the ECM curves of z2z8_curves.c
 
+      python/ ............. The Python package, tifa, and its tests
       tests/ .............. The test suite (run by ctest)
       bench/ .............. Benchmark programs and ab.sh, to compare builds
       cmake/ .............. CMake modules and package templates
