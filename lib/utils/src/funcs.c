@@ -25,7 +25,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <math.h>
 #include <pthread.h>
 
@@ -341,7 +340,7 @@ uint32_t sqrtm_qr(uint32_t a, uint32_t p) {
     //
     // Find n such that p = q.2^n + 1 with q odd
     //
-    int n = ffs(p - 1) - 1;
+    int n = __builtin_ctz(p - 1);
     int k = n;
 
     uint32_t q = (p - 1) >> n;
