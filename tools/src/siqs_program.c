@@ -224,6 +224,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_SIQS;
     program.timing  = TIFA_TIMING_SIQS;
+    program.prove   = false;
 
     program.algo_name = "SIQS";
     program.params    = (void*) &params;

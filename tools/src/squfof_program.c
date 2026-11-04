@@ -148,6 +148,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_SQUFOF;
     program.timing  = TIFA_TIMING_SQUFOF;
+    program.prove   = false;
 
     program.algo_name = "SQUFOF";
     program.params    = (void*) &params;

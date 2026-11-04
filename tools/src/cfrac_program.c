@@ -231,6 +231,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_CFRAC;
     program.timing  = TIFA_TIMING_CFRAC;
+    program.prove   = false;
 
     program.algo_name = "CFRAC";
     program.params    = (void*) &params;

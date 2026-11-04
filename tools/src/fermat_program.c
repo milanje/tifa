@@ -145,6 +145,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_FERMAT;
     program.timing  = TIFA_TIMING_FERMAT;
+    program.prove   = false;
 
     program.algo_name = "Fermat";
     program.params    = (void*) &params;

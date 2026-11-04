@@ -192,6 +192,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_PM1;
     program.timing  = TIFA_TIMING_PM1;
+    program.prove   = false;
 
     program.algo_name = "Pollard's p-1";
     program.params    = (void*) &params;

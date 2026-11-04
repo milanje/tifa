@@ -373,6 +373,11 @@
 
       prompt> tifa-factor 19409887069306060631113
 
+  With --prove, it also proves the prime factors and prints their
+  certificates, in JSON, as tifa.check_certificate (Python) takes them:
+
+      prompt> tifa-factor --prove 340282366920938463463374607431768211457
+
   The other programs run one algorithm each: tifa-cfrac, tifa-ecm,
   tifa-fermat, tifa-siqs, tifa-squfof, tifa-rho, tifa-tdiv, tifa-p-minus-1
   and tifa-p-plus-1 (the Continued FRACtion, Elliptic Curve Method,
@@ -390,7 +395,8 @@
 
   All the programs exit with status 0 for a complete factorization (or a
   prime, or 1), 1 for a partial one, 2 if no factor was found, and 3 for
-  invalid input, so that "tifa-factor N && ..." reads as expected.
+  invalid input, so that "tifa-factor N && ..." reads as expected. With
+  --prove, a factor not proven prime makes the factorization partial.
 
   To choose better parameters for your machine, see the tifa-tune tool
   ("Parameter tuning" in section 7).

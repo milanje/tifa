@@ -42,13 +42,17 @@ static const char* const hint_names[] = { "random", "balanced", "unbalanced" };
 //------------------------------------------------------------------------------
 static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "%15s [random|balanced|unbalanced] <number_to_factor>\n",
-            program->argv[0]);
+    fprintf(stderr, "%15s [--prove] [random|balanced|unbalanced] "
+                    "<number_to_factor>\n", program->argv[0]);
     fprintf(stderr, "Or, to be asked for the number:\n");
-    fprintf(stderr, "%15s\n\n", program->argv[0]);
+    fprintf(stderr, "%15s [--prove]\n\n", program->argv[0]);
     fprintf(stderr, "balanced: two prime factors of about the same size;\n");
     fprintf(stderr, "unbalanced: a prime factor below a third of the size;\n");
     fprintf(stderr, "random (the default): nothing known.\n\n");
+    fprintf(stderr, "--prove: also prove the prime factors, and print their "
+                    "certificates in\nJSON, as tifa.check_certificate (Python) "
+                    "takes them. A factor not proven\nprime makes the "
+                    "factorization partial.\n\n");
     print_exit_statuses();
 }
 //------------------------------------------------------------------------------
@@ -143,11 +147,23 @@ int main(int argc, char** argv) {
     factoring_program_t program;
     tifa_factor_hint_t  hint = TIFA_FACTOR_RANDOM;
 
-    program.argc = argc;
+    bool prove = false;
+    int  nargs = 1;
+    for (int i = 1; i < argc; i++) {
+        if (0 == strcmp(argv[i], "--prove")) {
+            prove = true;
+        } else {
+            argv[nargs++] = argv[i];
+        }
+    }
+    argv[nargs] = NULL;
+
+    program.argc = nargs;
     program.argv = argv;
 
     program.verbose = false;
     program.timing  = false;
+    program.prove   = prove;
 
     program.algo_name = "tifa_factor()";
     program.params    = &hint;

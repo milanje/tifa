@@ -153,6 +153,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_TDIV;
     program.timing  = TIFA_TIMING_TDIV;
+    program.prove   = false;
 
     program.algo_name = "trial division";
     program.params    = NULL;

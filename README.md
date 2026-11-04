@@ -156,7 +156,8 @@ changes.
   returns a certificate that `tifa_check_prime_cert()` checks, as anyone can:
   steps from primes of p - 1 and p + 1 (Pocklington, Morrison, and
   Brillhart, Lehmer and Selfridge). `tifa_factor()` tells primes by a
-  Baillie-PSW test, which proves nothing above 2^64.
+  Baillie-PSW test, which proves nothing above 2^64; `tifa-factor --prove`
+  proves the factors it prints.
 - The algorithms themselves, each with its own header and parameters: SIQS
   (`siqs.h`), CFRAC (`cfrac.h`), ECM (`ecm.h`), Pollard's p-1 (`p_minus_1.h`),
   Williams' p+1 (`p_plus_1.h`), Pollard's rho (`rho.h`), SQUFOF (`squfof.h`),
@@ -216,7 +217,13 @@ function chooses, given a hint (`random`, the default, `balanced` or
 ```sh
 ./build/tools/tifa-factor 19409887069306060631113
 ./build/tools/tifa-factor balanced 206010655745875572166197184221848916071
+./build/tools/tifa-factor --prove 340282366920938463463374607431768211457
 ```
+
+With `--prove`, `tifa-factor` also proves the prime factors and prints
+their certificates in JSON, as `tifa.check_certificate` takes them (see
+[Python](#python)); a factor it cannot prove prime makes the factorization
+partial.
 
 The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 `tifa-fermat`, `tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-p-minus-1`,

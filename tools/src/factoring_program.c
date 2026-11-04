@@ -34,6 +34,7 @@
 #include "funcs.h"
 #include "macros.h"
 #include "tdiv.h"
+#include "prime_cert.h"
 #include "factoring_program.h"
 
 #include "tool_utils.h"
@@ -57,6 +58,62 @@
 #define NITERATIONS            100
 //-----------------------------------------------------------------------------
 void print_factors(mpz_array_t* const, uint32_array_t* const);
+//-----------------------------------------------------------------------------
+static void print_pairs(const mpz_array_t* const primes,
+                        const uint32_array_t* const witnesses) {
+    printf("[");
+    for (uint32_t i = 0; i < primes->length; i++) {
+        gmp_printf("%s[%Zd, %" PRIu32 "]", (i == 0) ? "" : ", ",
+                   primes->data[i], witnesses->data[i]);
+    }
+    printf("]");
+}
+//-----------------------------------------------------------------------------
+static bool print_certificate(const mpz_t p) {
+    prime_cert_t* const cert = alloc_prime_cert();
+    const prime_cert_status_t status = tifa_prove_prime(cert, p);
+
+    switch (status) {
+        case PRIME_PROVEN:
+            gmp_printf("\t%Zd: [", p);
+            for (uint32_t i = 0; i < cert->nsteps; i++) {
+                const prime_cert_step_t* const step = &cert->steps[i];
+                gmp_printf("%s\n\t    [%Zd, ", (i == 0) ? "" : ",", step->p);
+                print_pairs(step->pm1_primes, step->pm1_witnesses);
+                if (step->pp1_d != 0) {
+                    printf(", %" PRId32 ", ", step->pp1_d);
+                    print_pairs(step->pp1_primes, step->pp1_witnesses);
+                }
+                printf("]");
+            }
+            printf("]\n");
+            break;
+        case NOT_PRIME:
+            gmp_printf("\t%Zd: NOT PRIME, although it passed a Baillie-PSW "
+                       "test!\n", p);
+            break;
+        default:
+            gmp_printf("\t%Zd: could not be proven prime\n", p);
+            break;
+    }
+    fflush(stdout);
+    free_prime_cert(cert);
+    return status == PRIME_PROVEN;
+}
+//-----------------------------------------------------------------------------
+//
+// In JSON, as tifa.check_certificate (Python) takes them.
+//
+static bool print_certificates(const mpz_t* const primes, uint32_t nprimes) {
+    printf("Primality certificates:\n");
+    printf("-----------------------\n");
+    bool proven = true;
+    for (uint32_t i = 0; i < nprimes; i++) {
+        proven = print_certificate(primes[i]) && proven;
+    }
+    printf("\n");
+    return proven;
+}
 //-----------------------------------------------------------------------------
 int run_program(factoring_program_t* const program) {
 
@@ -84,7 +141,15 @@ int run_program(factoring_program_t* const program) {
     // Of course, check if program->n is prime before proceeding.
     //
     if (MPZ_IS_PRIME(program->n)) {
-        gmp_printf("\nOOPS: %Zd is (probably) prime!\n", program->n);
+        if (!program->prove) {
+            gmp_printf("\nOOPS: %Zd is (probably) prime!\n", program->n);
+            return TIFA_EXIT_COMPLETE;
+        }
+        printf("\n");
+        if (!print_certificates(&program->n, 1)) {
+            return TIFA_EXIT_PARTIAL;
+        }
+        gmp_printf("%Zd is prime.\n\n", program->n);
         return TIFA_EXIT_COMPLETE;
     }
     printf("Integer to factor:\n");
@@ -312,9 +377,15 @@ int run_program(factoring_program_t* const program) {
 
     print_factors(factors, multis);
 
+    if (   program->prove && (rcode == COMPLETE_FACTORIZATION_FOUND)
+        && !print_certificates(factors->data, factors->length)) {
+        rcode = PARTIAL_FACTORIZATION_FOUND;
+    }
     switch (rcode) {
         case COMPLETE_FACTORIZATION_FOUND:
-            printf("Factorization is complete.\n\n");
+            printf(program->prove
+                   ? "Factorization is complete, its factors proven prime.\n\n"
+                   : "Factorization is complete.\n\n");
             break;
         case PARTIAL_FACTORIZATION_FOUND:
             printf("Factorization is (potentially) not complete.\n\n");

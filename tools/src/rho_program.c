@@ -208,6 +208,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_RHO;
     program.timing  = TIFA_TIMING_RHO;
+    program.prove   = false;
 
     program.algo_name = "Pollard's rho";
     program.params    = (void*) &params;

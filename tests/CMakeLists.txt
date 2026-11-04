@@ -71,9 +71,22 @@ add_test(NAME tifa_factor_program_hint
 set_tests_properties(tifa_factor_program_hint PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "hint: balanced.*(340730379077795843[^0-9].*604614875560711445197|604614875560711445197[^0-9].*340730379077795843)[^0-9].*Factorization is complete")
+# --prove: a certificate with a step for the factor above 2^64, none for the
+# other, then for a prime, 2^127 - 1.
+add_test(NAME tifa_factor_program_prove
+         COMMAND tifa_factor --prove balanced 206010655745875572166197184221848916071)
+set_tests_properties(tifa_factor_program_prove PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "Primality certificates:.*(340730379077795843: \\[\\]\n.*604614875560711445197: \\[\n\t    \\[604614875560711445197, \\[\\[2, |604614875560711445197: \\[\n\t    \\[604614875560711445197, \\[\\[2, .*340730379077795843: \\[\\]\n).*Factorization is complete, its factors proven prime")
+add_test(NAME tifa_factor_program_prove_prime
+         COMMAND tifa_factor 170141183460469231731687303715884105727 --prove)
+set_tests_properties(tifa_factor_program_prove_prime PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "170141183460469231731687303715884105727: \\[\n\t    \\[170141183460469231731687303715884105727, \\[\\[2, .*\n170141183460469231731687303715884105727 is prime\\.")
 # A pass regex alone ignores the exit status: fail on sanitizer reports too.
 set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
                      tifa_factor_program_square tifa_factor_program_hint
+                     tifa_factor_program_prove tifa_factor_program_prove_prime
                      PROPERTIES
     FAIL_REGULAR_EXPRESSION "ERROR|Sanitizer|runtime error")
 
@@ -96,4 +109,8 @@ tifa_add_exit_test(exit_bad_argc  3 tifa_factor random 12 34)
 tifa_add_exit_test(exit_bad_hint  3 tifa_factor 12 34)
 tifa_add_exit_test(exit_no_input  3 tifa_factor)
 tifa_add_exit_test(exit_help      0 tifa_factor --help)
+tifa_add_exit_test(exit_prove_complete 0 tifa_factor --prove 1000000016000000063)
+tifa_add_exit_test(exit_prove_prime    0 tifa_factor --prove 1000003)
+tifa_add_exit_test(exit_prove_bad_hint 3 tifa_factor 12 --prove 34)
+tifa_add_exit_test(exit_prove_help     0 tifa_factor --prove --help)
 tifa_add_exit_test(exit_help_h    0 siqs -h)

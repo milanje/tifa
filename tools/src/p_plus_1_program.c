@@ -192,6 +192,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_PP1;
     program.timing  = TIFA_TIMING_PP1;
+    program.prove   = false;
 
     program.algo_name = "Williams's p+1";
     program.params    = (void*) &params;

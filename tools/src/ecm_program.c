@@ -198,6 +198,7 @@ int main(int argc, char** argv) {
 
     program.verbose = TIFA_VERBOSE_ECM;
     program.timing  = TIFA_TIMING_ECM;
+    program.prove   = false;
 
     program.algo_name = "ECM";
     program.params    = (void*) &params;

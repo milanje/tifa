@@ -82,6 +82,11 @@ struct struct_factoring_program {
         */
     int timing;
        /**
+        * Prove the prime factors of a complete factorization (or the number,
+        * if prime) and print their certificates.
+        */
+    bool prove;
+       /**
         * Number of primes used in the trial division of the number to factor.
         */
     uint32_t nprimes_tdiv;
