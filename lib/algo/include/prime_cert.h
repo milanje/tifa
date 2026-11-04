@@ -210,6 +210,10 @@ TIFA_API prime_cert_status_t tifa_prove_prime(prime_cert_t* cert,
    /**
     * \brief Checks a certificate.
     *
+    * Each prime has at most one step: the last for \c n, the others for
+    * primes below \c n. The time is then at most that of the step for \c n
+    * times the number of steps.
+    *
     * \param[in] cert A certificate.
     * \param[in] n The integer it should prove prime.
     * \return \c true if and only if every step of \c cert holds and the
@@ -228,7 +232,9 @@ TIFA_API bool tifa_check_prime_cert(const prime_cert_t* cert, const mpz_t n);
     * p + 1. A prime below 2^64 has <tt>[]</tt>.
     *
     * As \c snprintf does, it writes at most \c size characters, the
-    * terminating null one included.
+    * terminating null one included. A step whose arrays differ in length,
+    * or with primes of p + 1 and D = 0, which \c tifa_check_prime_cert
+    * refuses, is written so that \c tifa_prime_cert_from_str refuses it.
     *
     * \param[out] str The text, which can be \c NULL if \c size is 0.
     * \param[in]  size The size of \c str.

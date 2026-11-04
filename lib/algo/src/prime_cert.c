@@ -26,6 +26,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <inttypes.h>
 #include <pthread.h>
 
@@ -171,12 +172,8 @@ static void append_step(prime_cert_t* const cert, const mpz_t p,
     step->pp1_witnesses = copy_uint32_array(pp1_witnesses);
 }
 //-----------------------------------------------------------------------------
-static bool is_proven(const prime_cert_t* const cert, const uint32_t before,
-                      const mpz_t q) {
-    if (mpz_sizeinbase(q, 2) <= 64) {
-        return is_small_prime(q);
-    }
-    for (uint32_t j = 0; j < before; j++) {
+static bool has_step(const prime_cert_t* const cert, const mpz_t q) {
+    for (uint32_t j = 0; j < cert->nsteps; j++) {
         if (mpz_cmp(cert->steps[j].p, q) == 0) {
             return true;
         }
@@ -363,15 +360,43 @@ static bool part_of(mpz_t f, const mpz_t x, const mpz_array_t* const primes) {
     mpz_init_set(rest, x);
     bool valid = true;
     for (uint32_t j = 0; valid && (j < primes->length); j++) {
-        valid = mpz_divisible_p(rest, primes->data[j]);
-        mpz_remove(rest, rest, primes->data[j]);
+        valid =    (mpz_cmp_ui(primes->data[j], 1) > 0)
+                && mpz_divisible_p(rest, primes->data[j]);
+        if (valid) {
+            mpz_remove(rest, rest, primes->data[j]);
+        }
     }
     mpz_divexact(f, x, rest);
     mpz_clear(rest);
     return valid;
 }
 //-----------------------------------------------------------------------------
-static bool check_step(const prime_cert_t* const cert, const uint32_t i) {
+//
+// The steps' primes, sorted: a search for each q of a certificate of k steps
+// would otherwise take time in k^2.
+//
+typedef struct {
+    mpz_srcptr p;
+    uint32_t   step;
+} index_entry_t;
+
+static int compare_entries(const void* const a, const void* const b) {
+    return mpz_cmp(((const index_entry_t*) a)->p, ((const index_entry_t*) b)->p);
+}
+//-----------------------------------------------------------------------------
+static bool is_proven(const index_entry_t* const index, const uint32_t nsteps,
+                      const uint32_t before, const mpz_t q) {
+    if (mpz_sizeinbase(q, 2) <= 64) {
+        return is_small_prime(q);
+    }
+    const index_entry_t key = { q, 0 };
+    const index_entry_t* const found =
+        bsearch(&key, index, nsteps, sizeof(index_entry_t), compare_entries);
+    return (found != NULL) && (found->step < before);
+}
+//-----------------------------------------------------------------------------
+static bool check_step(const prime_cert_t* const cert,
+                       const index_entry_t* const index, const uint32_t i) {
     const prime_cert_step_t* const step = &cert->steps[i];
     const mpz_array_t* const qs = step->pm1_primes;
     const mpz_array_t* const rs = step->pp1_primes;
@@ -396,12 +421,12 @@ static bool check_step(const prime_cert_t* const cert, const uint32_t i) {
 
     bool valid = part_of(f1, pm1, qs) && part_of(f2, pp1, rs);
     for (uint32_t j = 0; valid && (j < qs->length); j++) {
-        valid =    is_proven(cert, i, qs->data[j])
+        valid =    is_proven(index, cert->nsteps, i, qs->data[j])
                 && (try_witness(step->p, pm1, qs->data[j],
                                 step->pm1_witnesses->data[j]) == 1);
     }
     for (uint32_t j = 0; valid && (j < rs->length); j++) {
-        valid =    is_proven(cert, i, rs->data[j])
+        valid =    is_proven(index, cert->nsteps, i, rs->data[j])
                 && (try_lucas(step->p, pp1, rs->data[j], step->pp1_d,
                               step->pp1_witnesses->data[j]) == 1);
     }
@@ -418,15 +443,30 @@ bool tifa_check_prime_cert(const prime_cert_t* cert, const mpz_t n) {
     if (cert->nsteps == 0) {
         return is_small_prime(n);
     }
-    if (mpz_cmp(cert->steps[cert->nsteps - 1].p, n) != 0) {
+    const uint32_t last = cert->nsteps - 1;
+    if (mpz_cmp(cert->steps[last].p, n) != 0) {
         return false;
     }
+    index_entry_t* const index =
+        tifa_malloc(cert->nsteps * sizeof(index_entry_t));
     for (uint32_t i = 0; i < cert->nsteps; i++) {
-        if (!check_step(cert, i)) {
-            return false;
-        }
+        index[i].p    = cert->steps[i].p;
+        index[i].step = i;
     }
-    return true;
+    qsort(index, cert->nsteps, sizeof(index_entry_t), compare_entries);
+    //
+    // One step per prime, n's the largest: no step costs more than n's, so
+    // the time is bounded by the length of the certificate.
+    //
+    bool valid = (index[last].step == last);
+    for (uint32_t i = 1; valid && (i < cert->nsteps); i++) {
+        valid = (mpz_cmp(index[i - 1].p, index[i].p) != 0);
+    }
+    for (uint32_t i = 0; valid && (i < cert->nsteps); i++) {
+        valid = check_step(cert, index, i);
+    }
+    free(index);
+    return valid;
 }
 
 //------------------------------------------------------------------------------
@@ -725,7 +765,7 @@ static prime_cert_status_t prove(prime_cert_t* const cert, const mpz_t n) {
     if (mpz_sizeinbase(n, 2) <= 64) {
         return is_small_prime(n) ? PRIME_PROVEN : NOT_PRIME;
     }
-    if (is_proven(cert, cert->nsteps, n)) {
+    if (has_step(cert, n)) {
         return PRIME_PROVEN;
     }
     if (!is_prime_mpz(n)) {
@@ -822,12 +862,25 @@ static void append_text(text_t* const text, const char* const format, ...) {
     text->length += (size_t) n;
 }
 //-----------------------------------------------------------------------------
+//
+// Arrays of different lengths, which tifa_check_prime_cert refuses, give
+// pairs of one number, which tifa_prime_cert_from_str refuses.
+//
 static void append_pairs(text_t* const text, const mpz_array_t* const primes,
                          const uint32_array_t* const witnesses) {
     append_text(text, "[");
-    for (uint32_t i = 0; i < primes->length; i++) {
-        append_text(text, "%s[%Zd, %" PRIu32 "]", (i == 0) ? "" : ", ",
-                    primes->data[i], witnesses->data[i]);
+    const uint32_t length = (primes->length > witnesses->length)
+                          ? primes->length : witnesses->length;
+    for (uint32_t i = 0; i < length; i++) {
+        append_text(text, (i == 0) ? "[" : ", [");
+        if (i < primes->length) {
+            append_text(text, "%Zd", primes->data[i]);
+        }
+        if (i < witnesses->length) {
+            append_text(text, "%s%" PRIu32, (i < primes->length) ? ", " : "",
+                        witnesses->data[i]);
+        }
+        append_text(text, "]");
     }
     append_text(text, "]");
 }
@@ -840,7 +893,8 @@ size_t tifa_prime_cert_to_str(char* str, size_t size,
         const prime_cert_step_t* const step = &cert->steps[i];
         append_text(&text, "%s[%Zd, ", (i == 0) ? "" : ",\n ", step->p);
         append_pairs(&text, step->pm1_primes, step->pm1_witnesses);
-        if (step->pp1_d != 0) {
+        if (   (step->pp1_d != 0) || (step->pp1_primes->length != 0)
+            || (step->pp1_witnesses->length != 0)) {
             append_text(&text, ", %" PRId32 ", ", step->pp1_d);
             append_pairs(&text, step->pp1_primes, step->pp1_witnesses);
         }
@@ -877,16 +931,27 @@ static bool accept(reader_t* const r, const char c) {
     return true;
 }
 //-----------------------------------------------------------------------------
+//
+// mpz_set_str rather than digit by digit, which takes time in length^2.
+//
 static bool read_mpz(reader_t* const r, mpz_t x) {
-    if (!isdigit((unsigned char) *r->s)) {
+    size_t length = 0;
+    while (isdigit((unsigned char) r->s[length])) {
+        length++;
+    }
+    if (length == 0) {
         return false;
     }
-    mpz_set_ui(x, 0);
-    for (; isdigit((unsigned char) *r->s); r->s++) {
-        mpz_mul_ui(x, x, 10);
-        mpz_add_ui(x, x, (unsigned long) (*r->s - '0'));
+    char  buffer[128];
+    char* const digits = (length < sizeof(buffer)) ? buffer
+                                                   : tifa_malloc(length + 1);
+    memcpy(digits, r->s, length);
+    digits[length] = '\0';
+    mpz_set_str(x, digits, 10);
+    if (digits != buffer) {
+        free(digits);
     }
-    r->s = skip_spaces(r->s);
+    r->s = skip_spaces(r->s + length);
     return true;
 }
 //-----------------------------------------------------------------------------

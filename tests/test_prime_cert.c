@@ -91,6 +91,34 @@ static bool reads_back(const prime_cert_t* c, prime_cert_t* d,
     return ok;
 }
 
+static char* text_of(const prime_cert_t* c) {
+    const size_t length = tifa_prime_cert_to_str(NULL, 0, c);
+    char* const text = malloc(length + 1);
+    tifa_prime_cert_to_str(text, length + 1, c);
+    return text;
+}
+
+// The steps of a, then those of b, as text: "[" a's "," b's "]".
+static char* joined(const char* a, const char* b) {
+    const size_t la = strlen(a);
+    const size_t lb = strlen(b);
+    char* const text = malloc(la + lb + 2);
+    memcpy(text, a, la - 1);
+    text[la - 1] = ',';
+    memcpy(text + la, b + 1, lb);
+    text[la + lb - 1] = '\0';
+    return text;
+}
+
+static bool check_text(prime_cert_t* c, const char* text, const char* digits) {
+    mpz_t n;
+    mpz_init_set_str(n, digits, 10);
+    const bool ok = tifa_prime_cert_from_str(c, text)
+                 && tifa_check_prime_cert(c, n);
+    mpz_clear(n);
+    return ok;
+}
+
 int main(void) {
     TIFA_TEST_BEGIN("prime_cert");
 
@@ -366,6 +394,85 @@ int main(void) {
         }
     }
     CHECK_EQ_UI(refused, nmalformed, "malformed texts refused, no steps left");
+
+    // ---- Hostile certificates: refused, without crash or long checks.
+    static const char* const zeros[] = {
+        "[[5, [[0, 2]]]]", "[[5, [], 3, [[0, 1]]]]",
+        "[[5, [[2, 2]], 3, [[0, 1]]]]", "[[5, [[1, 2]]]]",
+        "[[5, [[2, 2], [1, 2]]]]", "[[7, [[2, 3]], 3, [[1, 1]]]]",
+    };
+    bool none = true;
+    for (uint32_t i = 0; i < sizeof zeros / sizeof zeros[0]; i++) {
+        none = none && !check_text(d, zeros[i], (zeros[i][3] == '7') ? "7" : "5");
+    }
+    CHECK(none, "primes 0 and 1 refused");
+
+    mpz_set_str(n, "170141183460469231731687303715884105727", 10);
+    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^127 - 1 proven");
+    char* const m127 = text_of(c);
+    mpz_set_str(n, "618970019642690137449562111", 10);
+    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven");
+    char* const m89 = text_of(c);
+    char* const big_first   = joined(m127, m89);
+    char* const small_first = joined(m89, m127);
+    CHECK(!check_text(d, big_first, "618970019642690137449562111"),
+          "step for a prime above n refused");
+    CHECK(check_text(d, small_first,
+                     "170141183460469231731687303715884105727"),
+          "unused step for a prime below n accepted");
+    char* const twice = joined(m89, m89);
+    CHECK(tifa_prime_cert_from_str(d, twice) && (d->nsteps == 2)
+          && !check_text(d, twice, "618970019642690137449562111"),
+          "two steps for the same prime refused");
+
+    // 20000 steps, all for 2^89 - 1, before that of 2^127 - 1.
+    const size_t l89  = strlen(m89) - 2;
+    const size_t l127 = strlen(m127) - 2;
+    char* const many = malloc(19999 * (l89 + 1) + l127 + 3);
+    char* end = many;
+    *end++ = '[';
+    for (int i = 0; i < 19999; i++) {
+        memcpy(end, m89 + 1, l89);
+        end += l89;
+        *end++ = ',';
+    }
+    memcpy(end, m127 + 1, l127);
+    end += l127;
+    *end++ = ']';
+    *end   = '\0';
+    CHECK(tifa_prime_cert_from_str(d, many) && (d->nsteps == 20000)
+          && !check_text(d, many, "170141183460469231731687303715884105727"),
+          "20000 steps for one prime refused");
+    free(many);
+    free(m127);
+    free(m89);
+    free(big_first);
+    free(small_first);
+    free(twice);
+
+    // Arrays of different lengths, or primes of p + 1 with D = 0: refused,
+    // and their text too.
+    CHECK(tifa_prime_cert_from_str(d, "[[618970019642690137449562111, "
+                                      "[], -7, [[2, 1]]]]"), "a step to alter");
+    append_uint32_to_array(d->steps[0].pp1_witnesses, 3);
+    char* const longer = text_of(d);
+    CHECK(strcmp(longer, "[[618970019642690137449562111, [], -7, "
+                         "[[2, 1], [3]]]]") == 0, "text, a witness too many");
+    d->steps[0].pp1_witnesses->length = 0;
+    char* const shorter = text_of(d);
+    CHECK(strcmp(shorter, "[[618970019642690137449562111, [], -7, [[2]]]]")
+          == 0, "text, a witness too few");
+    d->steps[0].pp1_witnesses->length = 1;
+    d->steps[0].pp1_d = 0;
+    char* const no_d = text_of(d);
+    CHECK(strcmp(no_d, "[[618970019642690137449562111, [], 0, [[2, 1]]]]")
+          == 0, "text, primes of p + 1 and D = 0");
+    CHECK(!tifa_prime_cert_from_str(c, longer)
+          && !tifa_prime_cert_from_str(c, shorter)
+          && !tifa_prime_cert_from_str(c, no_d), "their texts refused");
+    free(longer);
+    free(shorter);
+    free(no_d);
     free_prime_cert(d);
 
     // ---- Proving again replaces the certificate.
