@@ -249,9 +249,10 @@ TIFA_API void tifa_tuning_set_dir(const char* dir);
     * \brief Returns the tuning row for an algorithm and bit-size, if any.
     *
     * Resolves the tuning directory (the value set by \c tifa_tuning_set_dir,
-    * else the \c TIFA_TUNING_DIR environment variable, else the compiled-in
-    * default), lazily loads <tt>&lt;dir&gt;/&lt;algo&gt;.tuning</tt> the first
-    * time it is needed, and returns the row applicable to \c bitsize.
+    * else the \c TIFA_TUNING_DIR environment variable, except in setuid or
+    * setgid programs, else the compiled-in default), lazily loads
+    * <tt>&lt;dir&gt;/&lt;algo&gt;.tuning</tt> the first time it is needed (if
+    * it is a regular file), and returns the row applicable to \c bitsize.
     *
     * Loaded tables are cached per algorithm for the lifetime of the process, so
     * each file is parsed at most once. Any failure (no directory, missing file,

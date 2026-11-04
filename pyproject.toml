@@ -37,6 +37,9 @@ sdist.exclude = ["build*", ".github", ".claude"]
 TIFA_BUILD_PYTHON = "ON"
 TIFA_BUILD_TESTS = "OFF"
 TIFA_GENERATE_DOXYGEN_DOC = "OFF"
+# No compiled-in tuning directory: the default would be the build's temporary
+# directory, which another user could create where the wheel is installed.
+TIFA_TUNING_DIR = ""
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"

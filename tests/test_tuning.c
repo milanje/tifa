@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "tifa_config.h"
 #include "tifa_test.h"
@@ -51,6 +53,27 @@
 
 static void make_path(char* buf, size_t buflen, const char* name) {
     snprintf(buf, buflen, "%s/%s", TIFA_TEST_FIXTURE_DIR, name);
+}
+
+// A file of n newlines (and a null character first if nul), then a row.
+static void write_lines(const char* path, int n, bool nul) {
+    FILE* const file = fopen(path, "w");
+    if (nul) {
+        fputc('\0', file);
+    }
+    for (int i = 0; i < n; i++) {
+        fputc('\n', file);
+    }
+    fputs("40 2000 40000 2\n", file);
+    fclose(file);
+}
+
+static bool refused(const char* path) {
+    tuning_table_t* table = NULL;
+    const int rc = tifa_tuning_load_file(path, TIFA_TUNING_NCOLS_P_MINUS_1,
+                                         &table);
+    tifa_tuning_free(table);
+    return (rc != 0) && (table == NULL);
 }
 
 // A directory with no tuning file.
@@ -152,6 +175,47 @@ int main(void) {
     rc = tifa_tuning_load_file(path, TIFA_TUNING_NCOLS_P_MINUS_1, &missing);
     CHECK(rc != 0, "missing file should fail to load");
     CHECK(missing == NULL, "missing file yields NULL table");
+
+    // --- Files that are not regular, or too long: refused at once. ------
+    char dir[] = "/tmp/tifa_tuning_XXXXXX";
+    CHECK(mkdtemp(dir) != NULL, "temporary directory made");
+    char fifo[1100];
+    char link[1100];
+    char lines[1100];
+    char nul[1100];
+    snprintf(fifo, sizeof(fifo), "%s/fifo.tuning", dir);
+    snprintf(link, sizeof(link), "%s/zero.tuning", dir);
+    snprintf(lines, sizeof(lines), "%s/lines.tuning", dir);
+    snprintf(nul, sizeof(nul), "%s/nul.tuning", dir);
+    CHECK((mkfifo(fifo, 0600) == 0) && refused(fifo), "a FIFO refused");
+    CHECK(refused("/dev/zero"), "/dev/zero refused");
+    CHECK((symlink("/dev/zero", link) == 0) && refused(link),
+          "a link to /dev/zero refused");
+    write_lines(lines, 4000, false);
+    CHECK(!refused(lines), "4000 blank lines, then a row: loaded");
+    write_lines(lines, 5000, false);
+    CHECK(refused(lines), "5000 blank lines refused");
+    write_lines(nul, 1, true);
+    CHECK(refused(nul), "a null character refused");
+    unlink(fifo);
+    unlink(link);
+    unlink(lines);
+    unlink(nul);
+    rmdir(dir);
+
+    // A directory that fills the path buffer: the truncated path, this
+    // directory, names p_minus_1.tuning, which must not be read.
+    char fixture[1024];
+    make_path(fixture, sizeof(fixture), "p_minus_1.tuning");
+    char long_dir[1024];
+    const size_t nslashes = sizeof(long_dir) - 1 - strlen(fixture);
+    memset(long_dir, '/', nslashes);
+    strcpy(long_dir + nslashes, fixture);
+    tifa_tuning_set_dir(long_dir);
+#if !TUNING_BAKED_IN
+    CHECK(tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 60)
+          == NULL, "truncated path not read");
+#endif
 
     // --- The directory-based resolver. ----------------------------------
     tifa_tuning_set_dir(TIFA_TEST_FIXTURE_DIR);

@@ -67,6 +67,19 @@ set(TIFA_BUILD_INCLUDE_DIRS
 # Compile the sources once into an object library.
 #------------------------------------------------------------------------------
 add_library(tifa_objects OBJECT ${TIFA_SOURCES})
+
+# Environment variables that a setuid program must not trust (tuning.c).
+include(CheckSymbolExists)
+set(CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
+check_symbol_exists(secure_getenv "stdlib.h" TIFA_HAVE_SECURE_GETENV)
+unset(CMAKE_REQUIRED_DEFINITIONS)
+check_symbol_exists(issetugid "unistd.h" TIFA_HAVE_ISSETUGID)
+foreach(_have TIFA_HAVE_SECURE_GETENV TIFA_HAVE_ISSETUGID)
+    if(${_have})
+        set_property(SOURCE algo/src/tuning.c APPEND PROPERTY
+                     COMPILE_DEFINITIONS ${_have}=1)
+    endif()
+endforeach()
 # Only the declarations marked TIFA_API (the public headers) are exported by
 # the shared library.
 set_target_properties(tifa_objects PROPERTIES

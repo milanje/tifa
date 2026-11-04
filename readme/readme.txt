@@ -311,8 +311,9 @@
 
       1. a runtime file <dir>/<algo>.tuning, where <dir> is the one set by
          tifa_tuning_set_dir() (tuning.h, for embedders), else the
-         TIFA_TUNING_DIR environment variable, else the directory compiled in
-         with -DTIFA_TUNING_DIR (default <prefix>/share/tifa/tuning);
+         TIFA_TUNING_DIR environment variable (ignored by setuid and setgid
+         programs), else the directory compiled in with -DTIFA_TUNING_DIR
+         (default <prefix>/share/tifa/tuning; none in the Python package);
       2. compiled-in "baked" tables, if built with -DTIFA_USE_BAKED_TUNING=ON;
       3. the built-in defaults (an untouched build behaves as before);
          tifa_tuning_set_dir("") selects them alone, skipping 1 and 2.

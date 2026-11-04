@@ -23,11 +23,19 @@
  * \version 1.0
  */
 
+// open, fstat, fdopen and secure_getenv, which strict C99 hides.
+#if !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <pthread.h>
@@ -52,6 +60,7 @@
 //
 #define TUNING_MAX_ROWS  256
 #define TUNING_LINE_MAX  1024
+#define TUNING_MAX_LINES 4096
 
 //------------------------------------------------------------------------------
 //                             FILE PARSING
@@ -164,6 +173,24 @@ static int cmp_rows(const void* a, const void* b) {
 }
 
 //------------------------------------------------------------------------------
+//
+// Regular files only: a FIFO would block in open, and /dev/zero in the reads,
+// with tuning_lock held.
+//
+static FILE* open_regular(const char* path) {
+    const int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) {
+        return NULL;
+    }
+    struct stat st;
+    FILE* const file = ((fstat(fd, &st) == 0) && S_ISREG(st.st_mode))
+                     ? fdopen(fd, "r") : NULL;
+    if (file == NULL) {
+        close(fd);
+    }
+    return file;
+}
+//------------------------------------------------------------------------------
 int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
                           tuning_table_t** out_table) {
     *out_table = NULL;
@@ -172,7 +199,7 @@ int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
         return 1;
     }
 
-    FILE* file = fopen(path, "r");
+    FILE* file = open_regular(path);
     if (file == NULL) {
         // A missing file is the common, expected case: no error message.
         return 1;
@@ -185,11 +212,23 @@ int tifa_tuning_load_file(const char* path, uint32_t expect_ncols,
     }
 
     uint32_t nrows   = 0;
+    uint32_t nlines  = 0;
     bool     bad     = false;
     char     line[TUNING_LINE_MAX];
 
     while (fgets(line, (int) sizeof(line), file) != NULL) {
         const size_t len = strlen(line);
+        if (++nlines > TUNING_MAX_LINES) {
+            PRINT_ERROR("%s: too many lines (max %d)\n", path,
+                        TUNING_MAX_LINES);
+            bad = true;
+            break;
+        }
+        if (len == 0) {
+            PRINT_ERROR("%s: null character\n", path);
+            bad = true;
+            break;
+        }
         if ((len == sizeof(line) - 1) && (line[len - 1] != '\n')
                 && !feof(file)) {
             PRINT_ERROR("%s: line too long\n", path);
@@ -377,7 +416,16 @@ static const char* resolve_tuning_dir(void) {
     if (tuning_dir_override != NULL) {
         return tuning_dir_override;
     }
+    //
+    // Not in a setuid or setgid program: the user would choose its files.
+    //
+#if defined(TIFA_HAVE_SECURE_GETENV)
+    const char* env = secure_getenv("TIFA_TUNING_DIR");
+#elif defined(TIFA_HAVE_ISSETUGID)
+    const char* env = issetugid() ? NULL : getenv("TIFA_TUNING_DIR");
+#else
     const char* env = getenv("TIFA_TUNING_DIR");
+#endif
     if ((env != NULL) && (env[0] != '\0')) {
         return env;
     }
@@ -427,9 +475,14 @@ static const tuning_table_t* table_for(const char* algo,
         const char* dir = resolve_tuning_dir();
         if (dir != NULL) {
             char path[TUNING_LINE_MAX];
-            snprintf(path, sizeof(path), "%s/%s.tuning", dir, algo);
-            // Failure leaves entry->table == NULL, i.e. a cached miss.
-            (void) tifa_tuning_load_file(path, expect_ncols, &entry->table);
+            const int length = snprintf(path, sizeof(path), "%s/%s.tuning",
+                                        dir, algo);
+            // Failure leaves entry->table == NULL, i.e. a cached miss. A
+            // truncated path would name another file.
+            if ((length > 0) && ((size_t) length < sizeof(path))) {
+                (void) tifa_tuning_load_file(path, expect_ncols,
+                                             &entry->table);
+            }
         }
     }
 

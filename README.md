@@ -356,9 +356,10 @@ built-in defaults always as the final fallback:
 
 1. **A runtime tuning file** — `<dir>/<algo>.tuning`, where `<dir>` is the one
    set by `tifa_tuning_set_dir()` (`tuning.h`, for embedders), else the
-   `TIFA_TUNING_DIR` environment variable, else the directory compiled in with
-   `-DTIFA_TUNING_DIR=<dir>` (default `<prefix>/share/tifa/tuning`). You can
-   swap files without recompiling.
+   `TIFA_TUNING_DIR` environment variable (ignored by setuid and setgid
+   programs), else the directory compiled in with `-DTIFA_TUNING_DIR=<dir>`
+   (default `<prefix>/share/tifa/tuning`; none in the Python package). You
+   can swap files without recompiling.
 2. **Compiled-in ("baked") tables** — enabled with `-DTIFA_USE_BAKED_TUNING=ON`;
    consulted when no runtime file is found (see below).
 3. **The built-in defaults** — used whenever neither of the above applies, so an
