@@ -22,6 +22,7 @@
  * \brief Primality certificates (see prime_cert.h).
  */
 
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -847,4 +848,142 @@ size_t tifa_prime_cert_to_str(char* str, size_t size,
     }
     append_text(&text, "]");
     return text.length;
+}
+//-----------------------------------------------------------------------------
+typedef struct {
+    const char*     s;
+    mpz_t           p;
+    mpz_t           x;
+    mpz_array_t*    primes[2];
+    uint32_array_t* witnesses[2];
+} reader_t;
+//-----------------------------------------------------------------------------
+static const char* skip_spaces(const char* s) {
+    while ((*s == ' ') || (*s == '\t') || (*s == '\n') || (*s == '\r')) {
+        s++;
+    }
+    return s;
+}
+//-----------------------------------------------------------------------------
+//
+// Each read leaves r->s on the next character that is not a space; accept
+// does not move it when c is not there.
+//
+static bool accept(reader_t* const r, const char c) {
+    if (*r->s != c) {
+        return false;
+    }
+    r->s = skip_spaces(r->s + 1);
+    return true;
+}
+//-----------------------------------------------------------------------------
+static bool read_mpz(reader_t* const r, mpz_t x) {
+    if (!isdigit((unsigned char) *r->s)) {
+        return false;
+    }
+    mpz_set_ui(x, 0);
+    for (; isdigit((unsigned char) *r->s); r->s++) {
+        mpz_mul_ui(x, x, 10);
+        mpz_add_ui(x, x, (unsigned long) (*r->s - '0'));
+    }
+    r->s = skip_spaces(r->s);
+    return true;
+}
+//-----------------------------------------------------------------------------
+static bool read_int(reader_t* const r, const int64_t min, const int64_t max,
+                     int64_t* const v) {
+    const bool negative = (*r->s == '-');
+    r->s += negative;
+    if (!isdigit((unsigned char) *r->s)) {
+        return false;
+    }
+    int64_t x = 0;
+    for (; isdigit((unsigned char) *r->s); r->s++) {
+        x = 10 * x + (*r->s - '0');
+        if (x > max - min) {
+            return false;
+        }
+    }
+    *v = negative ? -x : x;
+    r->s = skip_spaces(r->s);
+    return (*v >= min) && (*v <= max);
+}
+//-----------------------------------------------------------------------------
+static bool read_pairs(reader_t* const r, const int side) {
+    reset_mpz_array(r->primes[side]);
+    reset_uint32_array(r->witnesses[side]);
+    if (!accept(r, '[')) {
+        return false;
+    }
+    if (accept(r, ']')) {
+        return true;
+    }
+    do {
+        int64_t w;
+        if (   !accept(r, '[') || !read_mpz(r, r->x) || !accept(r, ',')
+            || !read_int(r, 0, UINT32_MAX, &w) || !accept(r, ']')) {
+            return false;
+        }
+        append_mpz_to_array(r->primes[side], r->x);
+        append_uint32_to_array(r->witnesses[side], (uint32_t) w);
+    } while (accept(r, ','));
+    return accept(r, ']');
+}
+//-----------------------------------------------------------------------------
+//
+// 0 means no D, and labs(INT32_MIN) overflows where long has 32 bits.
+//
+static bool read_step(reader_t* const r, prime_cert_t* const cert) {
+    int64_t d = 0;
+    if (   !accept(r, '[') || !read_mpz(r, r->p) || !accept(r, ',')
+        || !read_pairs(r, 0)) {
+        return false;
+    }
+    if (accept(r, ',')) {
+        if (   !read_int(r, -INT32_MAX, INT32_MAX, &d) || (d == 0)
+            || !accept(r, ',') || !read_pairs(r, 1)) {
+            return false;
+        }
+    } else {
+        reset_mpz_array(r->primes[1]);
+        reset_uint32_array(r->witnesses[1]);
+    }
+    if (!accept(r, ']')) {
+        return false;
+    }
+    append_step(cert, r->p, r->primes[0], r->witnesses[0], (int32_t) d,
+                r->primes[1], r->witnesses[1]);
+    return true;
+}
+//-----------------------------------------------------------------------------
+bool tifa_prime_cert_from_str(prime_cert_t* cert, const char* str) {
+    clear_prime_cert(cert);
+
+    reader_t r;
+    r.s = skip_spaces(str);
+    mpz_init(r.p);
+    mpz_init(r.x);
+    for (int i = 0; i < 2; i++) {
+        r.primes[i]    = alloc_mpz_array(8);
+        r.witnesses[i] = alloc_uint32_array(8);
+    }
+    bool ok = accept(&r, '[');
+    if (ok && !accept(&r, ']')) {
+        do {
+            ok = read_step(&r, cert);
+        } while (ok && accept(&r, ','));
+        ok = ok && accept(&r, ']');
+    }
+    ok = ok && (*r.s == '\0');
+
+    if (!ok) {
+        clear_prime_cert(cert);
+    }
+    mpz_clear(r.p);
+    mpz_clear(r.x);
+    for (int i = 0; i < 2; i++) {
+        free_mpz_array(r.primes[i]);
+        free_uint32_array(r.witnesses[i]);
+    }
+    return ok;
 }

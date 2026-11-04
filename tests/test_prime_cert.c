@@ -74,6 +74,23 @@ static bool text_matches(const prime_cert_t* c) {
     return ok;
 }
 
+// The text of c, read into d, is that of a certificate of n, and the same
+// text again.
+static bool reads_back(const prime_cert_t* c, prime_cert_t* d,
+                       const mpz_t n) {
+    const size_t length = tifa_prime_cert_to_str(NULL, 0, c);
+    char* const text  = malloc(length + 1);
+    char* const again = malloc(length + 1);
+    tifa_prime_cert_to_str(text, length + 1, c);
+    const bool ok = tifa_prime_cert_from_str(d, text)
+                 && tifa_check_prime_cert(d, n)
+                 && (tifa_prime_cert_to_str(again, length + 1, d) == length)
+                 && (strcmp(text, again) == 0);
+    free(text);
+    free(again);
+    return ok;
+}
+
 int main(void) {
     TIFA_TEST_BEGIN("prime_cert");
 
@@ -283,9 +300,11 @@ int main(void) {
     CHECK((strlen(text) == 9) && (strncmp(text, expected, 9) == 0)
           && (text[10] == 'x'), "text truncated");
 
+    prime_cert_t* const d = alloc_prime_cert();
     uint32_t most = 0;
     bool with_pp1 = false;
     bool matched  = true;
+    bool read     = true;
     for (int i = 0; i < 40; i++) {
         do {
             mpz_urandomb(n, state, 200);
@@ -293,13 +312,61 @@ int main(void) {
         } while (!mpz_probab_prime_p(n, 30));
         CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "200-bit prime proven");
         matched = matched && text_matches(c);
+        read    = read && reads_back(c, d, n);
         most = (c->nsteps > most) ? c->nsteps : most;
         for (uint32_t j = 0; j < c->nsteps; j++) {
             with_pp1 = with_pp1 || (c->steps[j].pp1_d != 0);
         }
     }
     CHECK(matched, "text of 200-bit primes, a line per step");
+    CHECK(read, "text of 200-bit primes read back and checked");
     CHECK((most >= 2) && with_pp1, "texts with several steps, and p + 1");
+
+    // ---- Reading text.
+    mpz_set_str(n, "5704689200685129054721", 10);
+    CHECK(tifa_prime_cert_from_str(d, "[[5704689200685129054721, [[2, 7], "
+                                      "[3, 3], [5, 3], [12497, 3]]]]")
+          && tifa_check_prime_cert(d, n), "certificate of 2^128 + 1's factor");
+    CHECK(tifa_prime_cert_from_str(d, " [ ]\n") && (d->nsteps == 0),
+          "no step");
+    CHECK(tifa_prime_cert_from_str(d, " [ [ 618970019642690137449562111 ,\t"
+                                      "[ ] , -7 ,\n[ [ 2 , 1 ] ] ] ]\r\n"),
+          "spaces, tabs and newlines");
+    CHECK_EQ_UI(tifa_prime_cert_to_str(text, sizeof text, d), 49,
+                "read: length");
+    CHECK(strcmp(text, "[[618970019642690137449562111, [], -7, [[2, 1]]]]")
+          == 0, "read: text");
+    CHECK(tifa_prime_cert_from_str(d, "[[5, [[2, 4294967295]], 2147483647, "
+                                      "[]], [7, [], -2147483647, [[2, 0]]]]")
+          && (d->nsteps == 2)
+          && (d->steps[0].pm1_witnesses->data[0] == UINT32_MAX)
+          && (d->steps[0].pp1_d == INT32_MAX)
+          && (d->steps[1].pp1_d == -INT32_MAX)
+          && (d->steps[1].pp1_witnesses->data[0] == 0), "bounds");
+
+    static const char* const malformed[] = {
+        "", "x", "[", "]", "[,]", "[[]]", "[5]", "[[5]]", "[[5, []",
+        "[[5, [[2]]]]", "[[5, [[2, 3, 4]]]]", "[[5, [[2, 3]], 7]]",
+        "[[5, [[2, 3]], 0, [[2, 1]]]]", "[[5, [[2, 3]], -7, [[2, 1]], 1]]",
+        "[[5, [[2, 3]]]] x", "[[5, [[2, 3]]]][]", "[[5, [[2, 3.0]]]]",
+        "[[5, [[2, -3]]]]", "[[-5, [[2, 3]]]]", "[[+5, [[2, 3]]]]",
+        "[[5, [[-2, 3]]]]", "[[5, [[2, 4294967296]]]]",
+        "[[5, [[2, 99999999999999999999999]]]]", "[[5, [], 2147483648, []]]",
+        "[[5, [], -2147483648, []]]", "[[5, [[2, 3]]],]", "[[5, [[2, 3],]]]",
+        "[[5, [[2, 3]]] [7, []]]", "[[5, [[2, 3]], -, []]]",
+    };
+    const uint32_t nmalformed = sizeof malformed / sizeof malformed[0];
+    uint32_t refused = 0;
+    for (uint32_t i = 0; i < nmalformed; i++) {
+        tifa_prime_cert_from_str(d, "[[5, [[2, 3]]]]");
+        if (!tifa_prime_cert_from_str(d, malformed[i]) && (d->nsteps == 0)) {
+            refused++;
+        } else {
+            printf("    accepted: \"%s\"\n", malformed[i]);
+        }
+    }
+    CHECK_EQ_UI(refused, nmalformed, "malformed texts refused, no steps left");
+    free_prime_cert(d);
 
     // ---- Proving again replaces the certificate.
     mpz_set_str(n, "618970019642690137449562111", 10);

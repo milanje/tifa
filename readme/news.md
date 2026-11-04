@@ -42,7 +42,10 @@ In Python, `tifa.factor(n, proof=True)` also proves the prime factors above
 `(p, [(q, a), ...])` or `(p, [(q, a), ...], D, [(r, P), ...])` steps, and
 `tifa.check_certificate(p, cert)` checks it in plain Python, without TIFA's
 C code. In C, `tifa_prime_cert_to_str()` writes a certificate in that
-format, in JSON, a step per line, as `snprintf` writes a string.
+format, in JSON, a step per line, as `snprintf` writes a string, and
+`tifa_prime_cert_from_str()` reads it back, or the same JSON otherwise
+spaced (that of Python's `json.dumps`, for example), for
+`tifa_check_prime_cert()` to check.
 `tifa-factor --prove` proves the factors it finds, or the number if it is
 prime, and prints their certificates so; a factor not proven prime makes
 the factorization partial (exit status 1).

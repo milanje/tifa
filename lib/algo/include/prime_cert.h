@@ -67,7 +67,8 @@
  * step: they are strong probable primes to the bases 2, 3, 5, ..., 37 (the
  * first 12 primes), which no composite below 2^64 is (Sorenson and Webster,
  * 2017, "Strong pseudoprimes to twelve prime bases").
- * \c tifa_prime_cert_to_str writes a certificate as text, in JSON.
+ * \c tifa_prime_cert_to_str writes a certificate as text, in JSON, and
+ * \c tifa_prime_cert_from_str reads it back.
  *
  * To prove p, \c tifa_prove_prime searches p - 1 for factors by trial
  * division and ECM, then p + 1 if they are not enough, and, if still not,
@@ -237,6 +238,24 @@ TIFA_API bool tifa_check_prime_cert(const prime_cert_t* cert, const mpz_t n);
     */
 TIFA_API size_t tifa_prime_cert_to_str(char* str, size_t size,
                                        const prime_cert_t* cert);
+
+   /**
+    * \brief Reads a certificate from text.
+    *
+    * The text is that of \c tifa_prime_cert_to_str, or the same JSON with
+    * other spaces, tabs or newlines between its numbers and brackets (that
+    * of \c json.dumps of a Python certificate, for example). Only its form
+    * is checked: \c tifa_check_prime_cert checks the certificate.
+    *
+    * \param[out] cert The certificate read (its previous steps are dropped),
+    *             without steps if the text is not one.
+    * \param[in]  str The text, null-terminated.
+    * \return \c true if \c str is a list of steps and nothing else but
+    *         spaces: p, the q_i, a_i, r_j and P_j at least 0, the a_i and
+    *         P_j below 2^32, and D, if there is one, not 0 and below 2^31 in
+    *         absolute value.
+    */
+TIFA_API bool tifa_prime_cert_from_str(prime_cert_t* cert, const char* str);
 
 #ifdef __cplusplus
 }
