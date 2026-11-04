@@ -90,6 +90,8 @@
   method by size, and tifa_cofactor() decides whether an integer splits into
   primes below a bound, as the cofactorization step of a sieve asks. Below
   2^64, primality testing and factorization run in machine words.
+  tifa_prove_prime() proves that an integer is prime, with a certificate
+  that tifa_check_prime_cert() (or anyone) checks.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)

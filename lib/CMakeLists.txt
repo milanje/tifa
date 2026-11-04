@@ -44,6 +44,9 @@ set(TIFA_SOURCES
     utils/src/stopwatch.c
     utils/src/x_array_list.c
     utils/src/x_tree.c
+    # Last, so that the code before it keeps its addresses: the speed of the
+    # sieve's loops depends on their alignment.
+    algo/src/prime_cert.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the
@@ -131,6 +134,7 @@ set(TIFA_PUBLIC_HEADERS
     algo/include/rho.h
     algo/include/p_minus_1.h
     algo/include/p_plus_1.h
+    algo/include/prime_cert.h
     algo/include/tdiv.h
     algo/include/tifa_factor.h
     algo/include/tuning.h

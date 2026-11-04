@@ -53,6 +53,7 @@
 #include "tdiv.h"
 #include "tifa_factor.h"
 #include "cofactor.h"
+#include "prime_cert.h"
 //
 // Includes from lib/data
 //

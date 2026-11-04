@@ -32,6 +32,7 @@ tifa_add_test(test_mont_ecm)
 tifa_add_test(test_mont_pm1)
 tifa_add_test(test_cofactor)
 tifa_add_test(test_inputs)
+tifa_add_test(test_prime_cert)
 
 # The tuning-loader test reads fixture files from the source tree; hand it their
 # location as a compile definition (no env var needed: the test unsets
