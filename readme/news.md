@@ -1,5 +1,17 @@
 # TIFA news
 
+## 4 November 2026 &mdash; version 0.4.6
+
+Version 0.4.6 gathers the work below since 0.4.5: a Python package,
+`tifa-factor` on PyPI, whose `tifa.factor(n)` returns the prime
+factorization of `n` with `tifa_factor()`, and the bucket fill of SIQS with
+AVX-512 where the processor has it (`siqs()` 0.84 to 0.87 of the time of
+0.4.5 at 220 bits on the EPYC 9V45 and 9V74 and the Xeon 6975P-C). The
+wheels are for Linux (x86-64 and arm64, glibc and musl) and macOS (arm64 and
+x86-64), Python 3.10 and later, with GMP 6.3.0 linked in. `sqrtm_qr()` no
+longer calls `ffs()`, which musl hides in strict C99. The ABI is unchanged:
+the shared library is still `libtifa.so.0.4`.
+
 ## 4 November 2026 &mdash; Python bindings (0.4.6)
 
 `pip install .` builds a Python package, `tifa`, whose one function,

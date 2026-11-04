@@ -64,7 +64,7 @@ prime).
 
 ## Installing
 
-From PyPI, from version 0.4.6 on:
+From PyPI:
 
 ```sh
 pip install tifa-factor

@@ -27,6 +27,15 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+Version 0.4.6 (November 2026) brings a Python package: `pip install
+tifa-factor`, then `tifa.factor(n)` returns the prime factorization of `n`
+as `{prime: exponent}`, in 0.24 to 0.51 of the time of PARI/GP's
+`factorint` on balanced semiprimes from 100 to 220 bits (see
+[Python](#python)). Where the processor has AVX-512, the bucket fill of
+SIQS takes sixteen primes at a time: `siqs()` takes 0.84 to 0.87 of the
+time of 0.4.5 at 220 bits (EPYC 9V45 and 9V74, Xeon 6975P-C). The ABI is
+unchanged (`libtifa.so.0.4`).
+
 Version 0.4.5 (November 2026) makes SIQS 0.94 to 0.98 of the time of 0.4.4
 from 140 to 220 bits on an Apple M5 Pro, and 0.96 to 0.99 on x86-64 (EPYC
 7763 and 9V74, Xeon 8370C): the candidate pre-check finds the small primes
