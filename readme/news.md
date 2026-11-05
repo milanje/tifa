@@ -13,9 +13,11 @@ once it returns true, they give up as at the time limit, and
 at most every 50 ms to run the signal handlers (`PyErr_CheckSignals()`), which
 Python runs in the main thread only: in other threads, a `timeout` bounds a
 factorization. On an Apple M5 Pro, `KeyboardInterrupt` (or the exception
-of another handler) came 7 to 67 ms after the signal, from 240 to 256 bits,
-in SIQS as in ECM. A call took at most 1% longer (64, 100 and 160 bits).
-The ABI only grows.
+of another handler) came 7 to 67 ms after the signal, from 240 to 320 bits,
+in SIQS as in ECM. The signals are first polled 50 ms into a call, so that
+shorter ones never take the GIL: a call takes as long as before, but for
+70 ns at 64 bits (0.3%), and the C library 0.99 to 1.00 of its time. The ABI
+only grows.
 
 ## 5 November 2026 &mdash; version 0.4.7
 

@@ -50,11 +50,15 @@
 //
 #define SIGNAL_POLL_SECONDS 0.05
 
-static bool check_signals(void* const arg) {
-    double* const next = arg;
+static double monotonic_now(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
-    const double now = (double) t.tv_sec + 1e-9 * (double) t.tv_nsec;
+    return (double) t.tv_sec + 1e-9 * (double) t.tv_nsec;
+}
+
+static bool check_signals(void* const arg) {
+    double* const next = arg;
+    const double now = monotonic_now();
     if (now < *next) {
         return false;
     }
@@ -150,7 +154,7 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     int prime = 0;
     bool timed_out;
     bool interrupted;
-    double next_poll = 0.0;
+    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
 
     Py_BEGIN_ALLOW_THREADS
     tifa_set_time_limit(timeout);
@@ -271,7 +275,7 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     prime_cert_status_t status;
     bool timed_out;
     bool interrupted;
-    double next_poll = 0.0;
+    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
 
     Py_BEGIN_ALLOW_THREADS
     tifa_set_time_limit(timeout);
