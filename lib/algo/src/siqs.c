@@ -170,7 +170,7 @@
 // Number of ranges for the size of the number to factor. Each range is
 // define by the "optimal" (read good enough) values of the parameters to use.
 //
-#define NRANGES             35
+#define NRANGES             37
 //
 // Set to non zero to perform additional timing measurements. Has no effect
 // if __TIMING__ if set to 0.
@@ -434,29 +434,32 @@ static const u32triplet_t best_params[NRANGES] = {
     {.size_n = 190, .size_base = 3200, .hwidth =  65536, .thres = 67},
     {.size_n = 195, .size_base = 3900, .hwidth = 131072, .thres = 69},
     {.size_n = 200, .size_base = 4600, .hwidth = 196608, .thres = 73},
+    {.size_n = 210, .size_base =  6500, .hwidth =  196608, .thres =  77},
+    {.size_n = 215, .size_base =  7400, .hwidth =  196608, .thres =  79},
+    {.size_n = 220, .size_base =  8800, .hwidth =  196608, .thres =  81},
+    {.size_n = 225, .size_base = 10400, .hwidth =  450000, .thres =  84},
     //
-    // The following parameters were optained by crude extrapolation... and
-    // should thus be looked at with a very critical eye...
+    // From 232 bits, least-squares quadratics in the size of n, fitted on the
+    // rows from 140 to 200 bits and on those tuned at 272 and 288 bits on an
+    // Apple M5 Pro: log2 of the base, the threshold, and log2 of the half
+    // width (from 195 bits, below which a sieve chunk bounds it), which peaks
+    // at 268 bits and is kept from there. The base stops at
+    // MAX_NPRIMES_IN_BASE, past 288 bits. Below, the fit's half widths and
+    // thresholds took 1.06 to 1.18 of the time of the rows above, from 212 to
+    // 222 bits.
     //
-    {.size_n = 210, .size_base =  6500, .hwidth =  196608, .thres = 77},
-    {.size_n = 215, .size_base =  7400, .hwidth =  196608, .thres = 79},
-    {.size_n = 220, .size_base =  8800, .hwidth =  196608, .thres = 81},
-    {.size_n = 225, .size_base = 10400, .hwidth =  450000, .thres = 84},
-    {.size_n = 230, .size_base = 12300, .hwidth =  550000, .thres = 86},
-    {.size_n = 235, .size_base = 14500, .hwidth =  650000, .thres = 89},
-    {.size_n = 240, .size_base = 17250, .hwidth =  765000, .thres = 91},
-    {.size_n = 245, .size_base = 20300, .hwidth =  925000, .thres = 94},
-    {.size_n = 250, .size_base = 24000, .hwidth = 1100000, .thres = 96},
-    {.size_n = 255, .size_base = 28400, .hwidth = 1300000, .thres = 99},
-    {.size_n = 260, .size_base = 33400, .hwidth = 1575000, .thres = 101},
-    {.size_n = 265, .size_base = 39500, .hwidth = 1875000, .thres = 104},
-    //
-    // Tuned on an Apple M5 Pro (siqs-bench, 2 balanced semiprimes, one at a
-    // time): 0.74 of the time of the extrapolated rows at 272 bits, 0.70 at
-    // 288. Above, the base would exceed MAX_NPRIMES_IN_BASE.
-    //
-    {.size_n = 272, .size_base = 50150, .hwidth =  882000, .thres =  99},
-    {.size_n = 288, .size_base = 65250, .hwidth =  812500, .thres = 107}
+    {.size_n = 232, .size_base = 12950, .hwidth =  579000, .thres =  84},
+    {.size_n = 240, .size_base = 16600, .hwidth =  693000, .thres =  87},
+    {.size_n = 248, .size_base = 21250, .hwidth =  793000, .thres =  90},
+    {.size_n = 256, .size_base = 27200, .hwidth =  868000, .thres =  94},
+    {.size_n = 264, .size_base = 34700, .hwidth =  908000, .thres =  97},
+    {.size_n = 272, .size_base = 44250, .hwidth =  914000, .thres = 100},
+    {.size_n = 280, .size_base = 56300, .hwidth =  914000, .thres = 103},
+    {.size_n = 288, .size_base = 65536, .hwidth =  914000, .thres = 106},
+    {.size_n = 296, .size_base = 65536, .hwidth =  914000, .thres = 110},
+    {.size_n = 304, .size_base = 65536, .hwidth =  914000, .thres = 113},
+    {.size_n = 312, .size_base = 65536, .hwidth =  914000, .thres = 116},
+    {.size_n = 320, .size_base = 65536, .hwidth =  914000, .thres = 119}
 };
 //------------------------------------------------------------------------------
 
