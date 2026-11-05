@@ -446,8 +446,10 @@ static const u32triplet_t best_params[NRANGES] = {
     // at 268 bits and is kept from there. The base stops at
     // MAX_NPRIMES_IN_BASE, past 288 bits. Below, the fit's half widths and
     // thresholds took 1.06 to 1.18 of the time of the rows above, from 212 to
-    // 222 bits. From 248 bits, the half widths are half the fit's, which took
-    // up to 1.13 times as long on the M5 and 1.32 on x86-64.
+    // 222 bits. The half widths are half the fit's from 248 to 280 bits, which
+    // took 0.89 to 0.96 of its time on the M5 and 0.74 to 0.91 on a Xeon
+    // 8573C, but up to 1.09 on an EPYC 7763 from 264 bits; and 0.7 of the
+    // fit's from 288 bits, where half took 1.01 to 1.03 on the M5.
     //
     {.size_n = 232, .size_base = 12950, .hwidth =  579000, .thres =  84},
     {.size_n = 240, .size_base = 16600, .hwidth =  693000, .thres =  87},
@@ -456,11 +458,11 @@ static const u32triplet_t best_params[NRANGES] = {
     {.size_n = 264, .size_base = 34700, .hwidth =  454000, .thres =  97},
     {.size_n = 272, .size_base = 44250, .hwidth =  457000, .thres = 100},
     {.size_n = 280, .size_base = 56300, .hwidth =  457000, .thres = 103},
-    {.size_n = 288, .size_base = 65536, .hwidth =  457000, .thres = 106},
-    {.size_n = 296, .size_base = 65536, .hwidth =  457000, .thres = 110},
-    {.size_n = 304, .size_base = 65536, .hwidth =  457000, .thres = 113},
-    {.size_n = 312, .size_base = 65536, .hwidth =  457000, .thres = 116},
-    {.size_n = 320, .size_base = 65536, .hwidth =  457000, .thres = 119}
+    {.size_n = 288, .size_base = 65536, .hwidth =  640000, .thres = 106},
+    {.size_n = 296, .size_base = 65536, .hwidth =  640000, .thres = 110},
+    {.size_n = 304, .size_base = 65536, .hwidth =  640000, .thres = 113},
+    {.size_n = 312, .size_base = 65536, .hwidth =  640000, .thres = 116},
+    {.size_n = 320, .size_base = 65536, .hwidth =  640000, .thres = 119}
 };
 //------------------------------------------------------------------------------
 
