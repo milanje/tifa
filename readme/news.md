@@ -26,6 +26,99 @@ minutes and the best parameters differ between processors (see
   with Bernstein's batch algorithm: slower than the library, which
   trial-divides by the whole base, so `tifa-tune` underrated larger bases.
 
+## 5 November 2026 &mdash; SIQS: narrower sieves from 248 bits
+
+The sieve half widths of the fitted parameters (below) were too wide on
+most processors: at 264 bits, the AMD EPYC 9V74 (Zen 4) and 9V45 (Zen 5)
+were fastest with a quarter to a third of them, an Intel Xeon Platinum
+8573C with half or less. They are now halved from 248 to 280 bits, and 0.7
+of the fit's from 288 bits, where half was slower on an Apple M5 Pro. Time
+of halved widths over that of the fit's, `siqs-bench` on the same balanced
+semiprimes for both (2 per size to 280 bits, then 1; three EPYC 7763
+runners):
+
+| `siqs()`, bits | 244 | 248 | 256 | 264 | 272 | 280 | 288 | 296 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.94 | 0.91 | 0.89 | 0.93 | 0.92 | 0.96 | 1.01 | 1.03 |
+| Intel Xeon Platinum 8573C | 0.91 | 0.81 | 0.74 | 0.76 | 0.75 | 0.76 | 0.77 | 0.75 |
+| AMD EPYC 7763 (Zen 3) | 0.97&ndash;0.98 | 0.97&ndash;0.98 | 0.95&ndash;0.98 | 1.02&ndash;1.03 | 1.05 | 1.08&ndash;1.09 | 1.11&ndash;1.12 | 1.13&ndash;1.14 |
+
+With 0.7 of the fit's widths from 288 bits, the M5 takes 0.99 of the fit's
+time at 288 and 296 bits. On the EPYC 7763, wider widths remain faster from
+264 bits: `tifa-tune` can find them for such a machine (see above). The
+cores disagree among themselves, not by architecture, so a second table for
+x86-64 would not help. The EPYC 7763 has the smallest L2 cache per core of
+them (512 KB): a possible reason, not verified.
+
+## 5 November 2026 &mdash; Tuning tables apply near their rows only
+
+`tifa_tuning_row_for()` and `tifa_tuning_get_row()` gave the first or last
+row of a table for any size below or above it: with a SIQS table from
+`tifa-tune`'s default range, 65 to 200 bits, a 288-bit number got the
+200-bit row, 4600 primes in the base and a sieve half width of 196608,
+instead of the 65536 primes and 914000 of the built-in table. A table now
+applies from 8 bits below its first row to 8 bits above its last, and the
+algorithm's built-in defaults beyond. `tifa_tuning_lookup()` and
+`tifa_tuning_interpolate()`, on a table, still clamp.
+
+## 5 November 2026 &mdash; SIQS: parameters from 232 bits
+
+The SIQS parameters above 210 bits were a crude extrapolation, never
+measured past the old cap of the factor base (below), and absent above 280
+bits. A coordinate descent at 272 and 288 bits on an Apple M5 Pro, on the
+size of the base, the sieve half width and the threshold, found the half
+widths 3 to 4 times too wide (272 bits: 85.1 s to 62.9 s; 288 bits: 267.8 s
+to 186.4 s). From 232 bits, the parameters now come from least-squares
+quadratics in the size of n, fitted on the parameters from 140 to 200 bits
+and on these two: of the logarithm of the factor base, of the logarithm of
+the half width (kept at its peak, at 268 bits, above), and of the threshold.
+One row every 8 bits up to 320, the base stopping at 65536 primes. Time
+over that of the two tuned rows alone, `siqs-bench` on balanced semiprimes
+(on the M5, A/B over four rounds up to 236 bits, 2 numbers each above):
+
+| `siqs()`, bits | 232 | 240 | 248 | 256 | 264 | 272 | 288 | 296 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.93 | 0.98 | 0.96 | 0.90 | 0.86 | 1.00 | 0.99 | 0.95 |
+| Intel Xeon Platinum 8573C | | | 0.91 | 0.80 | 0.61 | | | |
+| AMD EPYC 9V74 (Zen 4) | | | | 0.86 | 0.61 | | | |
+| AMD EPYC 7763 (Zen 3) | | | 1.00 | 0.97 | 0.90 | | | |
+
+Up to 225 bits the parameters stay: there, the fit's wider half widths took
+1.06 to 1.18 of their time (212 to 222 bits).
+
+## 4 November 2026 &mdash; SIQS: factor bases of up to 65536 primes
+
+The factor base of SIQS was capped at a quarter of the 65536 tabulated
+primes, 16384, while its parameters asked for 22520 primes at 248 bits,
+38280 at 264 and 65250 from 280: above about 240 bits, SIQS sieved with too
+few primes and found its relations slowly. Past the table, the primes now
+come from a sieve of segments of odd numbers, and the cap is 65536 primes.
+
+The exponents of the primes of the base in each relation were a dense byte
+matrix, relations by primes, which grows as the square of the base: 1.5 GB
+at 38280 primes, 4.3 GB at 65250. Beyond 16384 primes, they are now kept
+sparse: the exponents that are not 0, grouped by relation before the square
+roots. Up to 16384 primes the dense matrix stays, faster there: the sparse
+one took 1.06 of its time at 80 bits, 1.01 at 120. On an Apple M5 Pro,
+`siqs-bench` on 3 balanced semiprimes per size, against the capped and
+dense code:
+
+| bits | 248 | 256 | 264 | 280 |
+|---|---:|---:|---:|---:|
+| before | 17.6 s | 38.5 s | 69.2 s | 406 s |
+| now | 14.9 s | 26.4 s | 40.0 s | 146 s |
+| ratio | 0.85 | 0.69 | 0.58 | 0.36 |
+| peak memory | 340 &rarr; 150 MB | 342 &rarr; 239 MB | 344 &rarr; 375 MB | 350 &rarr; 983 MB |
+
+At 280 bits, most of the memory is the binary matrix of the elimination,
+still dense (about 530 MB for 65250 primes); the sieve takes 90% to 96% of
+a run from 248 to 280 bits, the linear algebra 3% to 9%. Below 240 bits,
+where the cap did not apply, SIQS takes 0.996 to 1.008 of its former time
+from 100 to 232 bits, and `tifa_factor()` 1.008 to 1.012 at 80 bits, where
+the code moved. `test_siqs` factors with 34000 primes in the base, past the
+table and the dense exponents; `test_matrix` checks the sparse exponents
+against dense ones.
+
 ## 4 November 2026 &mdash; Security fixes
 
 A review of the library for untrusted input (certificates, tuning files,
