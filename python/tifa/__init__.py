@@ -34,15 +34,17 @@ from __future__ import annotations
 
 import math
 import operator
+import os
 from typing import Any, Iterable, Literal, Optional, SupportsIndex, Union
 
-from ._tifa import LIBRARY_VERSION, _factor, _prime_certificate
+from ._tifa import LIBRARY_VERSION, _factor, _prime_certificate, _set_tuning_dir
 
 __all__ = [
     "FactorizationError",
     "check_certificate",
     "factor",
     "prime_certificate",
+    "set_tuning_dir",
 ]
 __version__ = LIBRARY_VERSION
 
@@ -142,6 +144,25 @@ def factor(
                     n, factors, f"could not prove that {p} is prime"
                 )
     return factors
+
+
+def set_tuning_dir(path: Union[str, bytes, os.PathLike, None]) -> None:
+    """Take the parameters of the algorithms from the tuning files of ``path``.
+
+    ``tifa-tune``, installed with the package, measures the parameters that
+    suit the machine and writes them to files ``<algo>.tuning`` in a
+    directory: ``tifa-tune --help`` tells how. Each file is read when its
+    algorithm first needs it, and applies to the sizes it was tuned for, give
+    or take 8 bits; the built-in parameters to the others.
+
+    ``path`` holds for the whole process, all threads included, instead of the
+    ``TIFA_TUNING_DIR`` environment variable. ``None`` goes back to that
+    variable, and ``""`` to the built-in parameters alone.
+
+    Raises ``TypeError`` if ``path`` is not a path or ``None``, and
+    ``ValueError`` if it holds a null character.
+    """
+    _set_tuning_dir(None if path is None else os.fsencode(path))
 
 
 def prime_certificate(p: SupportsIndex) -> Certificate:

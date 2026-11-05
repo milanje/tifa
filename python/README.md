@@ -55,6 +55,30 @@ with ThreadPoolExecutor() as pool:
     results = list(pool.map(tifa.factor, numbers))
 ```
 
+## Tuning
+
+The parameters of the algorithms were tuned on an Apple M5 Pro and recent
+x86-64 processors; others may want their own, above 240 bits most. The
+package installs `tifa-tune`, which measures them on the machine and writes
+them to files that `set_tuning_dir` points the package at:
+
+```sh
+tifa-tune --algo siqs --sizes 232,248,264,280 --search descent --trials 2 \
+    --fit 8 --out /path/to/tuning
+```
+
+```python
+tifa.set_tuning_dir("/path/to/tuning")
+```
+
+Each file applies to the sizes it was tuned for, give or take 8 bits.
+`set_tuning_dir` holds for the whole process; until it is called, the
+directory is that of the `TIFA_TUNING_DIR` environment variable, if set.
+`set_tuning_dir("")` keeps the built-in parameters alone. `tifa-tune --help`
+lists its options, which
+[TIFA's README](https://github.com/milanje/tifa#parameter-tuning) explains;
+the example above takes a few hours.
+
 ## Errors
 
 `TypeError` if `n` is not an integer, `ValueError` if it is not positive

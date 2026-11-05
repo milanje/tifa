@@ -17,3 +17,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 install(TARGETS _tifa LIBRARY DESTINATION tifa COMPONENT python)
+if(DEFINED SKBUILD_SCRIPTS_DIR)
+    install(TARGETS tifa_tune RUNTIME DESTINATION "${SKBUILD_SCRIPTS_DIR}"
+            COMPONENT python)
+endif()

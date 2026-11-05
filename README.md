@@ -271,7 +271,9 @@ The `tifa` package gives Python 3.10 and later `tifa_factor()`:
 On balanced semiprimes it takes 0.24 to 0.51 of the time of PARI/GP's
 `factorint` from 100 to 220 bits. `factor(n, proof=True)` also proves the
 primes, and `prime_certificate(p)` returns a proof that
-`check_certificate(p, cert)` checks in plain Python.
+`check_certificate(p, cert)` checks in plain Python. The package installs
+`tifa-tune` as well, and `set_tuning_dir(path)` takes the parameters from
+the files it writes (see [Parameter tuning](#parameter-tuning)).
 
 From version 0.4.6 on, `pip install tifa-factor` installs it from PyPI, with
 wheels for Linux and macOS. From this tree, at its top:

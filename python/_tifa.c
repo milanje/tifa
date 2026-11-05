@@ -19,14 +19,17 @@
 //
 
 //
-// tifa._tifa: tifa_factor_with_hint and tifa_prove_prime for Python. The
-// argument checks and the shape of the results are left to tifa/__init__.py.
+// tifa._tifa: tifa_factor_with_hint, tifa_prove_prime and tifa_tuning_set_dir
+// for Python. The argument checks and the shape of the results are left to
+// tifa/__init__.py.
 //
 #if !defined(Py_LIMITED_API)
 #define Py_LIMITED_API 0x030A0000
 #endif
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+
+#include <string.h>
 
 #include <gmp.h>
 
@@ -36,6 +39,7 @@
 #include "factoring_machine.h"
 #include "prime_cert.h"
 #include "tifa_factor.h"
+#include "tuning.h"
 
 //
 // Integers cross the boundary as hexadecimal strings: a few hundred
@@ -230,10 +234,34 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     return (steps == NULL) ? NULL : Py_BuildValue("(iN)", (int) status, steps);
 }
 
+PyDoc_STRVAR(set_tuning_dir_doc,
+"_set_tuning_dir(path, /)\n--\n\n"
+"tifa_tuning_set_dir(path), path being bytes without NUL, or None.");
+
+static PyObject* set_tuning_dir(PyObject* const self, PyObject* const path) {
+    (void) self;
+    if (path == Py_None) {
+        tifa_tuning_set_dir(NULL);
+        Py_RETURN_NONE;
+    }
+    char* dir;
+    Py_ssize_t length;
+    if (PyBytes_AsStringAndSize(path, &dir, &length) != 0) {
+        return NULL;
+    }
+    if (strlen(dir) != (size_t) length) {
+        PyErr_SetString(PyExc_ValueError, "embedded null byte");
+        return NULL;
+    }
+    tifa_tuning_set_dir(dir);
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef methods[] = {
     {"_factor", factor, METH_VARARGS, factor_doc},
     {"_prime_certificate", prime_certificate, METH_VARARGS,
      prime_certificate_doc},
+    {"_set_tuning_dir", set_tuning_dir, METH_O, set_tuning_dir_doc},
     {NULL, NULL, 0, NULL}
 };
 
