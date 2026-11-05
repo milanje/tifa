@@ -252,7 +252,9 @@ TIFA_API void tifa_tuning_set_dir(const char* dir);
     * else the \c TIFA_TUNING_DIR environment variable, except in setuid or
     * setgid programs, else the compiled-in default), lazily loads
     * <tt>&lt;dir&gt;/&lt;algo&gt;.tuning</tt> the first time it is needed (if
-    * it is a regular file), and returns the row applicable to \c bitsize.
+    * it is a regular file), and returns the row applicable to \c bitsize:
+    * none more than 8 bits below its first row or above its last, where the
+    * algorithm's built-in defaults apply.
     *
     * Loaded tables are cached per algorithm for the lifetime of the process, so
     * each file is parsed at most once. Any failure (no directory, missing file,

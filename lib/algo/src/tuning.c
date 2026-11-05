@@ -501,11 +501,32 @@ static const tuning_table_t* table_for(const char* algo,
 }
 
 //------------------------------------------------------------------------------
+//
+// A table applies to sizes up to TUNING_RANGE_MARGIN bits from its rows only:
+// a SIQS table tuned to 200 bits (the default range of tifa-tune) gave its
+// last row, a base of 4600 primes, to numbers of 280 bits.
+//
+#define TUNING_RANGE_MARGIN 8
+
+static const tuning_table_t* covering(const tuning_table_t* const table,
+                                      const uint32_t bitsize) {
+    if (   (table == NULL) || (table->nrows == 0)
+        || (bitsize + TUNING_RANGE_MARGIN < table->rows[0].min_bitsize)
+        || (bitsize > table->rows[table->nrows - 1].min_bitsize
+                      + TUNING_RANGE_MARGIN)) {
+        return NULL;
+    }
+    return table;
+}
+//------------------------------------------------------------------------------
 const tuning_row_t* tifa_tuning_row_for(const char* algo, uint32_t expect_ncols,
                                         uint32_t bitsize) {
     pthread_mutex_lock(&tuning_lock);
-    const tuning_row_t* row =
-        tifa_tuning_lookup(table_for(algo, expect_ncols), bitsize);
+    const tuning_row_t* row = tifa_tuning_lookup(
+                                  covering(table_for(algo, expect_ncols),
+                                           bitsize),
+                                  bitsize
+                              );
     pthread_mutex_unlock(&tuning_lock);
     return row;
 }
@@ -516,8 +537,8 @@ bool tifa_tuning_get_row(const char* algo, uint32_t expect_ncols,
                          tuning_row_t* const out) {
     pthread_mutex_lock(&tuning_lock);
     const bool found = tifa_tuning_interpolate(
-                           table_for(algo, expect_ncols), bitsize,
-                           interp_cols, out
+                           covering(table_for(algo, expect_ncols), bitsize),
+                           bitsize, interp_cols, out
                        );
     pthread_mutex_unlock(&tuning_lock);
     return found;

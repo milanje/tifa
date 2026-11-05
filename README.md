@@ -364,6 +364,10 @@ built-in defaults always as the final fallback:
    consulted when no runtime file is found (see below).
 3. **The built-in defaults** — used whenever neither of the above applies, so an
    untouched build behaves exactly as before this feature existed.
+
+A table applies only to sizes up to 8 bits beyond its first and last rows:
+outside, the built-in defaults do, rather than the parameters of numbers much
+smaller or larger.
    `tifa_tuning_set_dir("")` selects them alone, skipping 1 and 2.
 
 A tuning file lists rows of parameters for increasing bit-sizes. Between two

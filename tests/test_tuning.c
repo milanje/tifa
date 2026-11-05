@@ -227,6 +227,21 @@ int main(void) {
         CHECK_EQ_UI(row->min_bitsize, 56, "resolver picks row 56 for bitsize 60");
     }
 
+    // Up to 8 bits beyond the rows (40 to 72 bits), not further: the
+    // defaults apply there.
+    CHECK((tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 80)
+           != NULL)
+          && (tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 32)
+              != NULL), "rows 8 bits beyond the table");
+    CHECK((tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 81)
+           == NULL)
+          && (tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 31)
+              == NULL), "no row further");
+    tuning_row_t far;
+    CHECK(!tifa_tuning_get_row("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 200,
+                               TIFA_TUNING_INTERP_P_MINUS_1, &far),
+          "no row copied at 200 bits");
+
     // An algorithm with no fixture file resolves to NULL (defaults kept).
     const tuning_row_t* none =
         tifa_tuning_row_for("nonexistent_algo", TIFA_TUNING_NCOLS_P_MINUS_1, 60);

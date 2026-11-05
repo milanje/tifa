@@ -315,7 +315,8 @@
          programs), else the directory compiled in with -DTIFA_TUNING_DIR
          (default <prefix>/share/tifa/tuning; none in the Python package);
       2. compiled-in "baked" tables, if built with -DTIFA_USE_BAKED_TUNING=ON;
-      3. the built-in defaults (an untouched build behaves as before);
+      3. the built-in defaults (an untouched build behaves as before), also
+         for sizes more than 8 bits beyond the rows of a table;
          tifa_tuning_set_dir("") selects them alone, skipping 1 and 2.
 
     Between two rows of a tuning file, most quantities (bounds, sizes,
