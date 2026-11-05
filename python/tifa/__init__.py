@@ -33,14 +33,17 @@ True
 from __future__ import annotations
 
 import math
+import numbers
 import operator
 import os
+import time
 from typing import Any, Iterable, Literal, Optional, SupportsIndex, Union
 
 from ._tifa import LIBRARY_VERSION, _factor, _prime_certificate, _set_tuning_dir
 
 __all__ = [
     "FactorizationError",
+    "FactorizationTimeout",
     "check_certificate",
     "factor",
     "prime_certificate",
@@ -78,8 +81,37 @@ class FactorizationError(RuntimeError):
         self.factors = factors
 
 
+class FactorizationTimeout(FactorizationError, TimeoutError):
+    """The time limit of ``factor`` passed before the factorization was done.
+
+    ``factors`` holds what was found, as for ``FactorizationError``.
+    """
+
+
+def _deadline(timeout: Optional[float]) -> Optional[float]:
+    if timeout is None:
+        return None
+    if isinstance(timeout, bool) or not isinstance(timeout, numbers.Real):
+        raise TypeError(f"timeout must be a number or None, not {timeout!r}")
+    seconds = float(timeout)
+    if not seconds > 0:
+        raise ValueError(f"timeout must be positive, not {timeout!r}")
+    return time.monotonic() + seconds
+
+
+def _left(deadline: Optional[float]) -> float:
+    # What the C functions take: 0 for no limit.
+    if deadline is None:
+        return 0.0
+    return max(deadline - time.monotonic(), 1e-9)
+
+
 def factor(
-    n: SupportsIndex, *, hint: Optional[Hint] = None, proof: bool = False
+    n: SupportsIndex,
+    *,
+    hint: Optional[Hint] = None,
+    proof: bool = False,
+    timeout: Optional[float] = None,
 ) -> dict[int, int]:
     """Return the prime factorization of ``n`` as ``{prime: exponent}``.
 
@@ -108,6 +140,14 @@ def factor(
     to 200 bits, but 40 ms on average for a prime of 224 bits, which
     ``factor`` alone answers in 0.1 ms.
 
+    With ``timeout``, a number of seconds, ``FactorizationTimeout`` is raised
+    if ``n`` is not factored (and its factors proven, with ``proof=True``)
+    within about that time: the algorithms check the time now and then, so
+    that it can be exceeded, by a few tens of milliseconds at most:
+
+    >>> factor(2**128 + 1, timeout=60)
+    {59649589127497217: 1, 5704689200685129054721: 1}
+
     The GIL is released while ``n`` is factored, so that threads factor in
     parallel::
 
@@ -115,10 +155,12 @@ def factor(
         with ThreadPoolExecutor() as pool:
             results = list(pool.map(tifa.factor, numbers))
 
-    Raises ``TypeError`` if ``n`` is not an integer, ``ValueError`` if it is
-    not positive or ``hint`` is not one of the above, and
-    ``FactorizationError`` in the rare event that ``n`` could not be factored
-    completely (or, with ``proof=True``, a factor not proven prime).
+    Raises ``TypeError`` if ``n`` is not an integer or ``timeout`` not a
+    number, ``ValueError`` if ``n`` or ``timeout`` is not positive or ``hint``
+    is not one of the above, ``FactorizationTimeout`` (a ``TimeoutError``)
+    as said above, and ``FactorizationError`` in the rare event that ``n``
+    could not be factored completely (or, with ``proof=True``, a factor not
+    proven prime).
     """
     n = operator.index(n)
     if n < 1:
@@ -129,17 +171,29 @@ def factor(
         raise ValueError(
             f"hint must be 'balanced', 'unbalanced' or None, not {hint!r}"
         ) from None
+    deadline = _deadline(timeout)
     if n == 1:
         return {}
-    complete, pairs = _factor(n, code)
+    complete, pairs, late = _factor(n, code, _left(deadline))
     factors: dict[int, int] = {}
     for p, e in sorted(pairs):
         factors[p] = factors.get(p, 0) + e
     if not complete:
+        if late:
+            raise FactorizationTimeout(
+                n, factors, f"could not factor {n} in {timeout} s"
+            )
         raise FactorizationError(n, factors)
     if proof:
         for p in factors:
-            if p >= _SMALL and _prime_certificate(p)[0] != _PROVEN:
+            if p < _SMALL:
+                continue
+            status, _, late = _prime_certificate(p, _left(deadline))
+            if late:
+                raise FactorizationTimeout(
+                    n, factors, f"could not prove that {p} is prime in {timeout} s"
+                )
+            if status != _PROVEN:
                 raise FactorizationError(
                     n, factors, f"could not prove that {p} is prime"
                 )
@@ -165,7 +219,9 @@ def set_tuning_dir(path: Union[str, bytes, os.PathLike, None]) -> None:
     _set_tuning_dir(None if path is None else os.fsencode(path))
 
 
-def prime_certificate(p: SupportsIndex) -> Certificate:
+def prime_certificate(
+    p: SupportsIndex, *, timeout: Optional[float] = None
+) -> Certificate:
     """Prove that ``p`` is prime, and return the proof.
 
     The certificate is a list of steps, the last one proving ``p``. A step
@@ -184,14 +240,20 @@ def prime_certificate(p: SupportsIndex) -> Certificate:
     ``check_certificate`` checks it, in Python only (see its documentation
     for the theorems used). Up to 256 bits, a proof takes a fraction of a
     second on average, as parts of ``p - 1`` and ``p + 1`` have to be
-    factored; beyond, it can take much longer.
+    factored; beyond, it can take much longer: with ``timeout``, a number of
+    seconds, ``TimeoutError`` is raised if the proof is not done within that
+    time.
 
-    Raises ``TypeError`` if ``p`` is not an integer, ``ValueError`` if it is
-    not prime, and ``RuntimeError`` in the rare event that it could not be
-    proven prime.
+    Raises ``TypeError`` if ``p`` is not an integer or ``timeout`` not a
+    number, ``ValueError`` if ``p`` is not prime or ``timeout`` not positive,
+    ``TimeoutError`` as said above, and ``RuntimeError`` in the rare event
+    that ``p`` could not be proven prime.
     """
     p = operator.index(p)
-    status, steps = _prime_certificate(p)
+    deadline = _deadline(timeout)
+    status, steps, late = _prime_certificate(p, _left(deadline))
+    if late and status != _PROVEN:
+        raise TimeoutError(f"could not prove that {p} is prime in {timeout} s")
     if status == _NOT_PRIME:
         raise ValueError(f"{p} is not prime")
     if status != _PROVEN:

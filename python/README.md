@@ -55,6 +55,24 @@ with ThreadPoolExecutor() as pool:
     results = list(pool.map(tifa.factor, numbers))
 ```
 
+## Time limits
+
+```python
+try:
+    factors = tifa.factor(n, timeout=60)
+except tifa.FactorizationTimeout as e:
+    print("not done in a minute:", e.factors)
+```
+
+`FactorizationTimeout` is a `TimeoutError`, and a `FactorizationError`:
+its `factors` hold what was found, which multiply to `n`.
+`prime_certificate(p, timeout=60)` raises `TimeoutError`. The limit is
+approximate: the algorithms check the time now and then (SIQS every 16
+chunks of its sieve, ECM after each curve), so that a call can end a little
+after it, by a millisecond from 240 to 280 bits on an Apple M5 Pro, a few
+tens at most. Ctrl-C does not interrupt `factor`: a time limit is the way to
+bound it.
+
 ## Tuning
 
 The parameters of the algorithms were tuned on an Apple M5 Pro and recent

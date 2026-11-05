@@ -31,6 +31,7 @@
 #include "matrix.h"
 #include "gauss_elim.h"
 #include "lindep.h"
+#include "time_limit.h"
 
 static void test_byte_matrix_clone(void) {
     const uint32_t nrows = 5;
@@ -215,6 +216,53 @@ static void test_gaussian_elim(const int filtered) {
     }
 }
 
+// Past the time limit, the elimination stops: the plain one finds no
+// dependency, and the filtered one only true ones (those it finds while
+// filtering).
+static void test_elim_time_limit(const int filtered) {
+    const uint32_t nrows = 600;
+    const uint32_t ncols = 520;
+    binary_matrix_t* m = alloc_binary_matrix(nrows, ncols);
+    m->nrows = nrows;
+    srand(99);
+    for (uint32_t i = 0; i < nrows; i++) {
+        for (uint32_t c = 0; c < ncols; c++) {
+            if (rand() % ((c < 3) ? 2 : 12) == 0) {
+                set_matrix_bit_to_one(i, c, m);
+            }
+        }
+    }
+    binary_matrix_t* orig = clone_binary_matrix(m);
+    uint32_array_list_t* deps = alloc_uint32_array_list(nrows);
+    tifa_set_time_limit(1e-9);
+    while (!tifa_time_limit_reached()) {
+    }
+    if (filtered) {
+        filtered_gaussian_elim(deps, m);
+    } else {
+        gaussian_elim(deps, m);
+    }
+    tifa_set_time_limit(0.0);
+    if (!filtered) {
+        CHECK_EQ_UI(deps->length, 0, "past the limit, no dependency");
+    }
+    bool ok = true;
+    for (uint32_t d = 0; d < deps->length; d++) {
+        const uint32_array_t* dep = deps->data[d];
+        for (uint32_t c = 0; c < ncols; c++) {
+            uint32_t sum = 0;
+            for (uint32_t k = 0; k < dep->length; k++) {
+                sum ^= get_matrix_bit(dep->data[k], c, orig);
+            }
+            ok = ok && (sum == 0);
+        }
+    }
+    CHECK(ok, "past the limit, only true dependencies");
+    free_uint32_array_list(deps);
+    free_binary_matrix(orig);
+    free_binary_matrix(m);
+}
+
 int main(void) {
     TIFA_TEST_BEGIN("matrix clone and gaussian eliminations");
 
@@ -258,5 +306,7 @@ int main(void) {
     test_binary_matrix_clone();
     test_gaussian_elim(0);
     test_gaussian_elim(1);
+    test_elim_time_limit(0);
+    test_elim_time_limit(1);
     TIFA_TEST_END();
 }

@@ -47,6 +47,7 @@ set(TIFA_SOURCES
     # Last, so that the code before it keeps its addresses: the speed of the
     # sieve's loops depends on their alignment.
     algo/src/prime_cert.c
+    utils/src/time_limit.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the
@@ -160,6 +161,7 @@ set(TIFA_PUBLIC_HEADERS
     utils/include/factoring_machine.h
     utils/include/factor_u64.h
     utils/include/methods.h
+    utils/include/time_limit.h
     # Umbrella header
     tifa.h
 )

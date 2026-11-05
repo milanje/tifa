@@ -4,6 +4,7 @@ import os
 import random
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -165,3 +166,39 @@ def test_giving_up_raises_factorization_error(tmp_path):
         [sys.executable, "-c", code], env=env, capture_output=True, text=True
     )
     assert run.stdout.strip() == "True", run.stderr
+
+
+def test_timeout():
+    rng = random.Random(220)
+    n = random_prime(110, rng) * random_prime(110, rng)
+    start = time.monotonic()
+    with pytest.raises(tifa.FactorizationTimeout) as raised:
+        tifa.factor(n, timeout=0.05)
+    assert time.monotonic() - start < 2
+    assert isinstance(raised.value, TimeoutError)
+    assert isinstance(raised.value, tifa.FactorizationError)
+    assert product(raised.value.factors) == n
+    assert tifa.factor(2**64 + 1, timeout=10) == {274177: 1, 67280421310721: 1}
+    assert tifa.factor(2**64 + 1, timeout=math.inf) == {274177: 1, 67280421310721: 1}
+
+
+def test_timeout_proof():
+    p = random_prime(400, random.Random(400))
+    with pytest.raises(TimeoutError):
+        tifa.prime_certificate(p, timeout=0.001)
+    with pytest.raises(tifa.FactorizationTimeout):
+        tifa.factor(p * 3, proof=True, timeout=0.001)
+
+
+@pytest.mark.parametrize("timeout", [0, -1, math.nan])
+def test_timeout_must_be_positive(timeout):
+    with pytest.raises(ValueError):
+        tifa.factor(15, timeout=timeout)
+    with pytest.raises(ValueError):
+        tifa.prime_certificate(97, timeout=timeout)
+
+
+@pytest.mark.parametrize("timeout", ["1", True, 1j])
+def test_timeout_must_be_a_number(timeout):
+    with pytest.raises(TypeError):
+        tifa.factor(15, timeout=timeout)

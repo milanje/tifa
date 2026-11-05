@@ -58,6 +58,7 @@
 #include "messages.h"
 #include "print_error.h"
 #include "tifa_alloc.h"
+#include "time_limit.h"
 
 //-----------------------------------------------------------------------------
 //                         NON PUBLIC DEFINE(S)
@@ -563,7 +564,7 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
 
     for (uint32_t attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         ecode = run_machine(&machine);
-        if (ecode != GIVING_UP) {
+        if ((ecode != GIVING_UP) || tifa_time_limit_reached()) {
             break;
         }
         //
@@ -1703,6 +1704,7 @@ static ecode_t collect_relations(siqs_context_t* const context) {
     uint32_t max_to_go    = nrels_to_go;
     uint32_t idle_batches = 0;
     uint32_t idle_fills   = 0;
+    uint32_t fills        = 0;
 
     //
     // Collect relations that will ultimately lead to congruences of squares,
@@ -1724,6 +1726,9 @@ static ecode_t collect_relations(siqs_context_t* const context) {
             compute_reduced_polynomial_values(context);
             if (context->max_cofactor_bits != 0) {
                 drop_hopeless_candidates(context, ncands);
+            }
+            if (((++fills & 15) == 0) && tifa_time_limit_reached()) {
+                return GIVING_UP;
             }
             //
             // After the drop, which can leave none of the new candidates.

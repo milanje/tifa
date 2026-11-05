@@ -19,8 +19,8 @@
 //
 
 //
-// tifa._tifa: tifa_factor_with_hint, tifa_prove_prime and tifa_tuning_set_dir
-// for Python. The argument checks and the shape of the results are left to
+// tifa._tifa: tifa_factor_with_hint, tifa_prove_prime, tifa_tuning_set_dir and
+// tifa_set_time_limit for Python. The argument checks and the shape of the results are left to
 // tifa/__init__.py.
 //
 #if !defined(Py_LIMITED_API)
@@ -39,6 +39,7 @@
 #include "factoring_machine.h"
 #include "prime_cert.h"
 #include "tifa_factor.h"
+#include "time_limit.h"
 #include "tuning.h"
 
 //
@@ -92,16 +93,19 @@ static PyObject* pairs_from_arrays(const mpz_array_t* const factors,
 }
 
 PyDoc_STRVAR(factor_doc,
-"_factor(n, hint, /)\n--\n\n"
-"Factor the int n > 1 with tifa_factor_with_hint (hint 0, 1 or 2).\n"
-"Return (complete, [(factor, exponent), ...]), complete being False when\n"
-"some factors may not be prime.");
+"_factor(n, hint, timeout, /)\n--\n\n"
+"Factor the int n > 1 with tifa_factor_with_hint (hint 0, 1 or 2), within\n"
+"timeout seconds if it is positive and finite. Return (complete,\n"
+"[(factor, exponent), ...], timed_out), complete being False when some\n"
+"factors may not be prime.");
 
 static PyObject* factor(PyObject* const self, PyObject* const args) {
     (void) self;
     PyObject* nobj;
     int hint;
-    if (!PyArg_ParseTuple(args, "O!i:_factor", &PyLong_Type, &nobj, &hint)) {
+    double timeout;
+    if (!PyArg_ParseTuple(args, "O!id:_factor", &PyLong_Type, &nobj, &hint,
+                          &timeout)) {
         return NULL;
     }
     mpz_t n;
@@ -119,36 +123,42 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     uint32_array_t* const multis  = alloc_uint32_array(8);
     ecode_t ecode;
     int prime = 0;
+    bool timed_out;
 
     Py_BEGIN_ALLOW_THREADS
+    tifa_set_time_limit(timeout);
     ecode = tifa_factor_with_hint(factors, multis, n,
                                   FIND_COMPLETE_FACTORIZATION,
                                   (tifa_factor_hint_t) hint);
-    if (ecode == NO_FACTOR_FOUND) {
+    timed_out = tifa_time_limit_reached();
+    tifa_set_time_limit(0.0);
+    if ((ecode == NO_FACTOR_FOUND) && !timed_out) {
         prime = (mpz_probab_prime_p(n, 30) != 0);
     }
     Py_END_ALLOW_THREADS
 
+    PyObject* const late = timed_out ? Py_True : Py_False;
     PyObject* result = NULL;
     if (prime) {
         PyObject* const p = pylong_from_mpz(n);
         if (p != NULL) {
-            result = Py_BuildValue("(O[(NI)])", Py_True, p, 1U);
+            result = Py_BuildValue("(O[(NI)]O)", Py_True, p, 1U, late);
         }
     } else if (   (ecode == COMPLETE_FACTORIZATION_FOUND)
                || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
         PyObject* const pairs = pairs_from_arrays(factors, multis);
         if (pairs != NULL) {
             result = Py_BuildValue(
-                "(ON)",
+                "(ONO)",
                 (ecode == COMPLETE_FACTORIZATION_FOUND) ? Py_True : Py_False,
-                pairs
+                pairs,
+                late
             );
         }
     } else {
         PyObject* const p = pylong_from_mpz(n);
         if (p != NULL) {
-            result = Py_BuildValue("(O[(NI)])", Py_False, p, 1U);
+            result = Py_BuildValue("(O[(NI)]O)", Py_False, p, 1U, late);
         }
     }
     free_mpz_array(factors);
@@ -196,16 +206,18 @@ static PyObject* step_from_cert(const prime_cert_step_t* const step) {
 }
 
 PyDoc_STRVAR(prime_certificate_doc,
-"_prime_certificate(n, /)\n--\n\n"
-"Prove the int n prime with tifa_prove_prime. Return (status, steps), status\n"
-"0 (proven), 1 (not prime) or 2 (not proven), steps [(p, [(q, a), ...]), ...]\n"
-"or (p, [(q, a), ...], D, [(r, P), ...]) when proven.");
+"_prime_certificate(n, timeout, /)\n--\n\n"
+"Prove the int n prime with tifa_prove_prime, within timeout seconds if it is\n"
+"positive and finite. Return (status, steps, timed_out), status 0 (proven),\n"
+"1 (not prime) or 2 (not proven), steps [(p, [(q, a), ...]), ...] or\n"
+"(p, [(q, a), ...], D, [(r, P), ...]) when proven.");
 
 static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     (void) self;
     PyObject* nobj;
-    if (!PyArg_ParseTuple(args, "O!:_prime_certificate", &PyLong_Type,
-                          &nobj)) {
+    double timeout;
+    if (!PyArg_ParseTuple(args, "O!d:_prime_certificate", &PyLong_Type,
+                          &nobj, &timeout)) {
         return NULL;
     }
     mpz_t n;
@@ -216,9 +228,13 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     }
     prime_cert_t* const cert = alloc_prime_cert();
     prime_cert_status_t status;
+    bool timed_out;
 
     Py_BEGIN_ALLOW_THREADS
+    tifa_set_time_limit(timeout);
     status = tifa_prove_prime(cert, n);
+    timed_out = tifa_time_limit_reached();
+    tifa_set_time_limit(0.0);
     Py_END_ALLOW_THREADS
 
     PyObject* steps = PyList_New(0);
@@ -231,7 +247,9 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     }
     free_prime_cert(cert);
     mpz_clear(n);
-    return (steps == NULL) ? NULL : Py_BuildValue("(iN)", (int) status, steps);
+    return (steps == NULL) ? NULL
+                           : Py_BuildValue("(iNO)", (int) status, steps,
+                                           timed_out ? Py_True : Py_False);
 }
 
 PyDoc_STRVAR(set_tuning_dir_doc,

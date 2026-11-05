@@ -93,7 +93,8 @@
   tifa_prove_prime() proves that an integer is prime, with a certificate
   that tifa_check_prime_cert() (or anyone) checks, that
   tifa_prime_cert_to_str() writes as text and tifa_prime_cert_from_str()
-  reads back.
+  reads back. tifa_set_time_limit() bounds the time of the factorizations
+  of a thread, approximately.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)

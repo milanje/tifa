@@ -31,6 +31,7 @@
 #include "gauss_elim.h"
 #include "array.h"
 #include "tifa_alloc.h"
+#include "time_limit.h"
 
 //-----------------------------------------------------------------------------
 // Ref. "A compact algorithm for Gaussian elimination over GF(2)
@@ -124,7 +125,12 @@ void pw_elim(uint32_array_list_t* relations, binary_matrix_t* const matrix,
             }
         }
     }
+    bool stopped = false;
     for (uint32_t icol = ncols - 1; icol != UINT32_MAX; icol--) {
+        if (((icol & 255) == 0) && tifa_time_limit_reached()) {
+            stopped = true;
+            break;
+        }
         row = head[icol];
         if (row == NO_SUCH_ROW) {
             continue;
@@ -177,9 +183,10 @@ void pw_elim(uint32_array_list_t* relations, binary_matrix_t* const matrix,
     free(weight);
     pivot->length = ncols;
     //
-    // Stage 2: Find dependencies
+    // Stage 2: Find dependencies (none if the elimination stopped: the rows
+    // left are not combinations of zero).
     //
-    for (uint32_t irow = 0U; irow < nrows; irow++) {
+    for (uint32_t irow = 0U; !stopped && (irow < nrows); irow++) {
         if (relations->length == relations->alloced) {
             break;
         }

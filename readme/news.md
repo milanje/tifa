@@ -1,5 +1,43 @@
 # TIFA news
 
+## 5 November 2026 &mdash; Python: time limits and tuning files
+
+- `factor(n, timeout=60)` raises `tifa.FactorizationTimeout` (a
+  `TimeoutError`, and a `FactorizationError` holding the factors found) if
+  `n` is not factored within about a minute; `prime_certificate(p,
+  timeout=60)` raises `TimeoutError`. See the time limits below.
+- `set_tuning_dir(path)` takes the parameters of the algorithms from the
+  tuning files of `path`, for the whole process (`None` goes back to the
+  `TIFA_TUNING_DIR` environment variable, `""` to the built-in parameters
+  alone); the wheels install `tifa-tune`, which writes such files.
+
+## 5 November 2026 &mdash; Time limits
+
+`tifa_set_time_limit(seconds)` (`time_limit.h`, which `tifa.h` includes)
+limits the time of the calling thread's factorizations: `tifa_factor()`,
+`tifa_prove_prime()` and the algorithms that take long give up when they
+next check the time, and return what they found. SIQS checks it every 16
+chunks of its sieve, its elimination every 256 columns, ECM after each
+curve, and the factoring modes other than `SINGLE_RUN` before each new run.
+`tifa_time_limit_reached()` tells whether it has passed. Each thread has
+its own limit.
+
+On an Apple M5 Pro, factorizations of 240 to 280 bits stopped within a
+millisecond of their limits (from 0.5 s to 60 s), in SIQS's collection of
+relations as in ECM's search for a factor of 80 or 90 bits (with the hint
+`unbalanced`); in the elimination, which checks every 256 columns, it can be
+a few tens of milliseconds at 280 bits. Time of the new version over that of
+the previous one, without a limit:
+
+| `siqs()`, bits | 70 | 100 | 140 | 180 | 220 |
+|---|---:|---:|---:|---:|---:|
+| Apple M5 Pro | 0.990 | 0.997 | 1.004 | 0.997 | 0.999 |
+
+and 0.994 to 1.003 for `tifa_factor()` (100 and 140 bits, and 160 bits with
+a factor of 40 bits) and ECM (100 bits); with a limit that does not expire,
+`tifa.factor()` takes as long at 180 bits. The ABI only grows: the shared
+library is still `libtifa.so.0.4`.
+
 ## 5 November 2026 &mdash; tifa-tune: large sizes
 
 `tifa-tune` can tune SIQS up to 320 bits (200 before), where a run takes

@@ -27,6 +27,7 @@
 
 #include "ecm_schedule.h"
 #include "tifa_alloc.h"
+#include "time_limit.h"
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -152,6 +153,9 @@ static bool run_levels(mpz_t g, const mpz_t n,
         for (uint32_t j = 0; j < levels[i].ncurves; j++) {
             if (mont_ecm_curve(g, n, sigma++, schedule->plans[i])) {
                 return true;
+            }
+            if (tifa_time_limit_reached()) {
+                return false;
             }
         }
     }

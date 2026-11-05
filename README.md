@@ -149,6 +149,9 @@ changes.
   `tifa_factor_with_hint()` does the same, told what is known of the number:
   two prime factors of about the same size (SIQS runs right away), or one
   below a third of its size (ECM searches for longer).
+- `tifa_set_time_limit()` (`time_limit.h`) limits the time of the calling
+  thread's factorizations: SIQS, its linear algebra and ECM give up soon
+  after it.
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).
@@ -271,7 +274,9 @@ The `tifa` package gives Python 3.10 and later `tifa_factor()`:
 On balanced semiprimes it takes 0.24 to 0.51 of the time of PARI/GP's
 `factorint` from 100 to 220 bits. `factor(n, proof=True)` also proves the
 primes, and `prime_certificate(p)` returns a proof that
-`check_certificate(p, cert)` checks in plain Python. The package installs
+`check_certificate(p, cert)` checks in plain Python. `factor(n, timeout=60)`
+gives up after about a minute (`tifa.FactorizationTimeout`, a
+`TimeoutError`). The package installs
 `tifa-tune` as well, and `set_tuning_dir(path)` takes the parameters from
 the files it writes (see [Parameter tuning](#parameter-tuning)).
 
