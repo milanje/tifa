@@ -446,20 +446,21 @@ static const u32triplet_t best_params[NRANGES] = {
     // at 268 bits and is kept from there. The base stops at
     // MAX_NPRIMES_IN_BASE, past 288 bits. Below, the fit's half widths and
     // thresholds took 1.06 to 1.18 of the time of the rows above, from 212 to
-    // 222 bits.
+    // 222 bits. From 248 bits, the half widths are half the fit's, which took
+    // up to 1.13 times as long on the M5 and 1.32 on x86-64.
     //
     {.size_n = 232, .size_base = 12950, .hwidth =  579000, .thres =  84},
     {.size_n = 240, .size_base = 16600, .hwidth =  693000, .thres =  87},
-    {.size_n = 248, .size_base = 21250, .hwidth =  793000, .thres =  90},
-    {.size_n = 256, .size_base = 27200, .hwidth =  868000, .thres =  94},
-    {.size_n = 264, .size_base = 34700, .hwidth =  908000, .thres =  97},
-    {.size_n = 272, .size_base = 44250, .hwidth =  914000, .thres = 100},
-    {.size_n = 280, .size_base = 56300, .hwidth =  914000, .thres = 103},
-    {.size_n = 288, .size_base = 65536, .hwidth =  914000, .thres = 106},
-    {.size_n = 296, .size_base = 65536, .hwidth =  914000, .thres = 110},
-    {.size_n = 304, .size_base = 65536, .hwidth =  914000, .thres = 113},
-    {.size_n = 312, .size_base = 65536, .hwidth =  914000, .thres = 116},
-    {.size_n = 320, .size_base = 65536, .hwidth =  914000, .thres = 119}
+    {.size_n = 248, .size_base = 21250, .hwidth =  396500, .thres =  90},
+    {.size_n = 256, .size_base = 27200, .hwidth =  434000, .thres =  94},
+    {.size_n = 264, .size_base = 34700, .hwidth =  454000, .thres =  97},
+    {.size_n = 272, .size_base = 44250, .hwidth =  457000, .thres = 100},
+    {.size_n = 280, .size_base = 56300, .hwidth =  457000, .thres = 103},
+    {.size_n = 288, .size_base = 65536, .hwidth =  457000, .thres = 106},
+    {.size_n = 296, .size_base = 65536, .hwidth =  457000, .thres = 110},
+    {.size_n = 304, .size_base = 65536, .hwidth =  457000, .thres = 113},
+    {.size_n = 312, .size_base = 65536, .hwidth =  457000, .thres = 116},
+    {.size_n = 320, .size_base = 65536, .hwidth =  457000, .thres = 119}
 };
 //------------------------------------------------------------------------------
 
