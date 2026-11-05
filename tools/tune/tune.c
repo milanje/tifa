@@ -21,13 +21,15 @@
  * \brief   tifa-tune: measure and record good algorithm parameters per bit-size.
  *
  * For each selected algorithm and bit-size, tifa-tune generates a shared set of
- * test composites, sweeps the algorithm's parameter grid around a center that
- * depends on the size (evaluating every combination on the same composites for
- * a fair comparison, and dropping one as soon as it has taken longer than the
- * best), times each run, and selects the parameter combination minimizing the
- * expected time to find a factor. The winning combination for each bit-size is
- * written as one row of a per-algorithm <tt>&lt;algo&gt;.tuning</tt> file that
- * the library can load at runtime (see lib/algo/include/tuning.h).
+ * test composites, searches the algorithm's parameter grid around its defaults
+ * for the size (every combination, or one parameter at a time with --search
+ * descent, all on the same composites for a fair comparison, and dropping one
+ * as soon as it has taken longer than the best), times each run, and selects
+ * the parameter combination minimizing the expected time to find a factor. The
+ * winning combination for each bit-size is written as one row of a
+ * per-algorithm <tt>&lt;algo&gt;.tuning</tt> file that the library can load at
+ * runtime (see lib/algo/include/tuning.h), or smoothed across the sizes with
+ * --fit.
  */
 
 // This tool relies on POSIX facilities (fork/pipe/select/waitpid/kill for the
@@ -72,16 +74,27 @@
 // Consecutive sizes a "sticky-on" column must win before it is locked on, so a
 // single noisy win cannot prematurely stop the off case from being tested.
 #define TUNE_STICKY_HYSTERESIS 2
+// --fit smooths each row over this many tuned sizes at most, the nearest.
+#define TUNE_FIT_WINDOW 5
+// The automatic watchdog: this many times the defaults' longest run, at least
+// TUNE_MIN_TIMEOUT seconds.
+#define TUNE_TIMEOUT_FACTOR 10.0
+#define TUNE_MIN_TIMEOUT    30.0
 
 typedef struct {
     const char*   algo;         // "all" or a specific algorithm name
     unsigned int  min_bits;
     unsigned int  max_bits;
     unsigned int  step;
+    unsigned int  sizes[TUNE_MAX_ROWS];   // --sizes, sorted, else none
+    unsigned int  nsizes;
+    bool          descent;      // coordinate descent rather than the whole grid
+    unsigned int  fit_step;     // --fit: rows every fit_step bits (0: no fit)
     unsigned int  trials;       // test composites per (bit-size, factor-count)
     double        threshold;    // required success rate for deterministic algos
     double        min_success;  // required success rate for probabilistic algos
-    double        timeout_s;    // per-run wall-clock budget (0 disables watchdog)
+    double        timeout_s;    // per-run wall-clock budget (0 disables
+                                // watchdog, < 0 automatic)
     unsigned long seed;
     const char*   outdir;
     const char*   emit_c;       // if set, code-generate this .c from tuning files
@@ -303,6 +316,44 @@ static bool parse_double_in(const char* v, double lo, double hi, double* out) {
 }
 
 //------------------------------------------------------------------------------
+//
+// Parses a comma-separated list of bit-sizes into opt->sizes, sorted, without
+// duplicates.
+//
+static bool parse_sizes(const char* v, options_t* opt) {
+    opt->nsizes = 0;
+    const char* p = v;
+    for (;;) {
+        char field[16];
+        const size_t length = strcspn(p, ",");
+        if ((length == 0) || (length >= sizeof(field))
+            || (opt->nsizes == TUNE_MAX_ROWS)) {
+            return false;
+        }
+        memcpy(field, p, length);
+        field[length] = '\0';
+        unsigned int bits;
+        if (!parse_unsigned(field, &bits) || (bits < 4)) {
+            return false;
+        }
+        uint32_t i = 0;
+        while ((i < opt->nsizes) && (opt->sizes[i] < bits)) {
+            i++;
+        }
+        if ((i == opt->nsizes) || (opt->sizes[i] != bits)) {
+            memmove(&opt->sizes[i + 1], &opt->sizes[i],
+                    (opt->nsizes - i) * sizeof(opt->sizes[0]));
+            opt->sizes[i] = bits;
+            opt->nsizes++;
+        }
+        if (p[length] == '\0') {
+            return true;
+        }
+        p += length + 1;
+    }
+}
+
+//------------------------------------------------------------------------------
 static void usage(FILE* out, const char* prog) {
     fprintf(out,
         "Usage: %s [options]\n"
@@ -313,6 +364,15 @@ static void usage(FILE* out, const char* prog) {
         "  --max <bits>        Largest composite bit-size (default: 200)\n"
         "  --step <bits>       Bit-size increment; --max is always tuned\n"
         "                      (default: 16)\n"
+        "  --sizes <list>      Comma-separated bit-sizes to tune, instead of\n"
+        "                      --min, --max and --step\n"
+        "  --search <how>      'grid' tries every combination of parameters\n"
+        "                      (default); 'descent' varies one at a time from\n"
+        "                      the defaults, much faster for large sizes, and\n"
+        "                      varies the SIQS sieve threshold too\n"
+        "  --fit <bits>        Write rows every <bits> bits from the smallest\n"
+        "                      tuned size to the largest, each fitted on the\n"
+        "                      5 nearest tuned sizes (a least-squares quadratic)\n"
         "  --trials <n>        Test composites per bit-size, x2 below 90 bits\n"
         "                      and x4 below 64 (default: 25)\n"
         "  --threshold <p>     Min success rate for sieve algos (default: 0.90)\n"
@@ -320,7 +380,8 @@ static void usage(FILE* out, const char* prog) {
         "  --seed <u>          RNG seed for reproducible composites (default: 1)\n"
         "  --timeout <sec>     Per-run wall-clock budget; a run that exceeds it\n"
         "                      is killed and scored as a failure (0 disables;\n"
-        "                      default: 30)\n"
+        "                      default: none for the defaults, then 10 times\n"
+        "                      their longest run, at least 30)\n"
         "  --out <dir>         Output directory (default: .)\n"
         "  --quick             Fast preset (min=48 max=64 step=16 trials=3)\n"
         "  --emit-c <file>     Code-generate baked C tables (no tuning is run)\n"
@@ -342,8 +403,12 @@ static void usage(FILE* out, const char* prog) {
 }
 
 //------------------------------------------------------------------------------
+//
+// Writes rows, fitted on the tuned rows if those are given (else NULL).
+//
 static int write_tuning_file(const options_t* opt, const tune_algo_desc_t* desc,
-                             const tuning_row_t* rows, uint32_t nrows) {
+                             const tuning_row_t* rows, uint32_t nrows,
+                             const tuning_row_t* tuned, uint32_t ntuned) {
     char path[1024];
     const int length = snprintf(path, sizeof(path), "%s/%s.tuning",
                                 opt->outdir, desc->name);
@@ -375,7 +440,20 @@ static int write_tuning_file(const options_t* opt, const tune_algo_desc_t* desc,
     } else {
         fprintf(f, "# composites: 2 balanced primes\n");
     }
+    fprintf(f, "# search:    %s\n", opt->descent ? "descent" : "grid");
     fprintf(f, "# key:       bitsize(n)\n");
+    if (tuned != NULL) {
+        fprintf(f, "# fit:       rows every %u bits, each a least-squares"
+                   " quadratic on the %u nearest tuned rows:\n",
+                opt->fit_step, TUNE_FIT_WINDOW);
+        for (uint32_t i = 0; i < ntuned; i++) {
+            fprintf(f, "#   %" PRIu32, tuned[i].min_bitsize);
+            for (uint32_t c = 0; c < desc->ncols; c++) {
+                fprintf(f, " %" PRIu32, tuned[i].cols[c]);
+            }
+            fprintf(f, "\n");
+        }
+    }
     fprintf(f, "columns: min_bitsize %s\n", desc->colnames);
 
     for (uint32_t i = 0; i < nrows; i++) {
@@ -544,8 +622,9 @@ typedef enum { RUN_OK = 0, RUN_TIMEOUT, RUN_CRASH } run_outcome_t;
 // GMP allocation leaks back into the tuner -- the reason fork is used instead
 // of interrupting the call in-process.
 //
-// When budget_s <= 0 the watchdog is disabled and the run executes in-process.
-// On any fork/pipe failure it also falls back to running in-process.
+// When budget_s <= 0 the watchdog is disabled and the run executes in-process;
+// an infinite budget_s only guards against crashes. On any fork/pipe failure it
+// also falls back to running in-process.
 //
 static bool run_watched(const tune_algo_desc_t* desc,
                         const mpz_t n, const mpz_t p, const uint32_t cols[],
@@ -603,10 +682,14 @@ static bool run_watched(const tune_algo_desc_t* desc,
         FD_ZERO(&rfds);
         FD_SET(fds[0], &rfds);
         struct timeval tv;
-        tv.tv_sec  = (time_t) remaining;
-        tv.tv_usec = (suseconds_t) ((remaining - (double) tv.tv_sec) * 1.0e6);
+        struct timeval* timeout = NULL;
+        if (isfinite(remaining)) {
+            tv.tv_sec  = (time_t) remaining;
+            tv.tv_usec = (suseconds_t) ((remaining - (double) tv.tv_sec) * 1.0e6);
+            timeout    = &tv;
+        }
 
-        int sel = select(fds[0] + 1, &rfds, NULL, NULL, &tv);
+        int sel = select(fds[0] + 1, &rfds, NULL, NULL, timeout);
         if (sel > 0) {
             // Readable: a full result means success; EOF/short read means the
             // child died without reporting (e.g. it crashed).
@@ -644,20 +727,353 @@ static bool run_watched(const tune_algo_desc_t* desc,
 }
 
 //
-// Tunes a single algorithm across the configured bit-size range and writes its
+// The search for the best parameters at one bit-size.
+//
+typedef struct {
+    const options_t*        opt;
+    const tune_algo_desc_t* desc;
+    const grid_t*           grid;
+    mpz_t*       nset;
+    mpz_t*       pset;
+    unsigned int setlen;
+    double       thr;
+    double       budget;     // per-run watchdog budget (see run_watched)
+    progress_t   pr;
+    bool         have_best;
+    bool         best_qualified;
+    double       best_score;
+    uint32_t     best_cols[TIFA_TUNING_MAX_COLS];
+    unsigned     timeouts;
+    unsigned     crashes;
+    uint64_t     visited[TUNE_MAX_ROWS];
+    unsigned     nvisited;
+} search_t;
+
+//
+// Times the point with the value of index idx[i] on each axis i, keeps it if it
+// is the best yet, and returns whether it is. Under the automatic watchdog, the
+// first point timed has no budget and sets the others'.
+//
+static bool evaluate(search_t* s, const uint32_t idx[]) {
+    uint64_t linear = 0;
+    for (uint32_t i = s->grid->naxes; i-- > 0;) {
+        linear = linear * s->grid->axes[i].nvalues + idx[i];
+    }
+    for (unsigned i = 0; i < s->nvisited; i++) {
+        if (s->visited[i] == linear) {
+            return false;
+        }
+    }
+    if (s->nvisited < TUNE_MAX_ROWS) {
+        s->visited[s->nvisited++] = linear;
+    }
+
+    uint32_t cols[TIFA_TUNING_MAX_COLS] = { 0 };
+    grid_point_at(s->grid, idx, cols);
+    if (s->desc->tie != NULL) {
+        s->desc->tie(cols);
+    }
+    // Once a point has spent more than the qualified best's total, its score
+    // cannot beat it: stop timing it, and cut a run off before it alone
+    // would. The slack keeps fork and wall-clock jitter from cutting short
+    // runs.
+    const double bound = s->best_qualified ? s->best_score * (double) s->setlen
+                                           : INFINITY;
+    double   sum_cpu = 0.0;
+    double   longest = 0.0;
+    unsigned succ    = 0;
+    for (unsigned int t = 0; t < s->setlen; t++) {
+        double budget = s->budget;
+        bool   cut    = false;
+        if ((budget > 0.0) && isfinite(bound)) {
+            const double left = 2.0 * (bound - sum_cpu) + 0.1;
+            if (left < budget) {
+                budget = left;
+                cut    = true;
+            }
+        }
+        double secs = 0.0;
+        run_outcome_t oc = RUN_OK;
+        bool ok = run_watched(s->desc, s->nset[t], s->pset[t], cols,
+                              budget, &secs, &oc);
+        sum_cpu += secs;
+        if (ok) {
+            succ++;
+        }
+        if (oc == RUN_OK) {
+            longest = fmax(longest, secs);
+        } else if ((oc == RUN_TIMEOUT) && !cut) {
+            s->timeouts++;
+        } else if (oc == RUN_CRASH) {
+            s->crashes++;
+        }
+        progress_tick(&s->pr);
+        if (sum_cpu > bound) {
+            s->pr.done += s->setlen - t - 1;
+            return false;
+        }
+    }
+    if (!isfinite(s->budget)) {
+        s->budget = fmax(TUNE_MIN_TIMEOUT, TUNE_TIMEOUT_FACTOR * longest);
+    }
+    if (succ == 0) {
+        return false;
+    }
+    double p_success = (double) succ / (double) s->setlen;
+    double mean_cpu  = sum_cpu / (double) s->setlen;
+    double score     = mean_cpu / fmax(p_success, TUNE_EPS);
+    bool   qualified = (p_success >= s->thr);
+
+    // Prefer a qualifying point; among equally (un)qualified points, prefer
+    // the lower score.
+    bool better;
+    if (!s->have_best) {
+        better = true;
+    } else if (qualified != s->best_qualified) {
+        better = qualified;
+    } else {
+        better = (score < s->best_score);
+    }
+    if (better) {
+        s->have_best      = true;
+        s->best_qualified = qualified;
+        s->best_score     = score;
+        memcpy(s->best_cols, cols, sizeof(s->best_cols));
+    }
+    return better;
+}
+
+//
+// Times every point of the grid, the defaults first.
+//
+static void search_grid(search_t* s) {
+    const grid_t* g = s->grid;
+    uint32_t idx[TIFA_TUNING_MAX_COLS];
+    for (uint32_t i = 0; i < g->naxes; i++) {
+        idx[i] = g->axes[i].start;
+    }
+    evaluate(s, idx);
+    memset(idx, 0, sizeof(idx));
+    for (;;) {
+        evaluate(s, idx);
+        uint32_t i = 0;
+        while ((i < g->naxes) && (++idx[i] == g->axes[i].nvalues)) {
+            idx[i++] = 0;
+        }
+        if (i == g->naxes) {
+            return;
+        }
+    }
+}
+
+//
+// From the defaults, tries each value of one axis at a time, the others at their
+// best yet, until a pass over the axes improves nothing (two passes at most).
+//
+static void search_descent(search_t* s) {
+    const grid_t* g = s->grid;
+    uint32_t idx[TIFA_TUNING_MAX_COLS];
+    for (uint32_t i = 0; i < g->naxes; i++) {
+        idx[i] = g->axes[i].start;
+    }
+    evaluate(s, idx);
+    for (unsigned pass = 0; pass < 2; pass++) {
+        bool improved = false;
+        for (uint32_t a = 0; a < g->naxes; a++) {
+            const uint32_t from = idx[a];
+            uint32_t best = from;
+            for (uint32_t v = 0; v < g->axes[a].nvalues; v++) {
+                if (v == from) {
+                    continue;
+                }
+                idx[a] = v;
+                if (evaluate(s, idx)) {
+                    best     = v;
+                    improved = true;
+                }
+            }
+            idx[a] = best;
+        }
+        if (!improved) {
+            return;
+        }
+        uint64_t more = 0;
+        for (uint32_t a = 0; a < g->naxes; a++) {
+            more += g->axes[a].nvalues - 1;
+        }
+        s->pr.total += more * s->setlen;
+    }
+}
+
+//
+// Fits the column values of the tuned rows at the sizes (x) of the rows, with a
+// least-squares polynomial of degree at most 2 on x - at, and returns its value
+// at x = at: the fit's constant coefficient.
+//
+static double fit_at(const double* xs, const double* ys, uint32_t n, double at) {
+    double sx[5] = { 0 };
+    double sy[3] = { 0 };
+    for (uint32_t i = 0; i < n; i++) {
+        const double x = xs[i] - at;
+        double p = 1.0;
+        for (int k = 0; k < 5; k++) {
+            if (k < 3) {
+                sy[k] += p * ys[i];
+            }
+            sx[k] += p;
+            p *= x;
+        }
+    }
+    for (uint32_t degree = (n > 2) ? 2 : n - 1; degree > 0; degree--) {
+        // Gaussian elimination on the normal equations.
+        const uint32_t m = degree + 1;
+        double a[3][4];
+        for (uint32_t r = 0; r < m; r++) {
+            for (uint32_t c = 0; c < m; c++) {
+                a[r][c] = sx[r + c];
+            }
+            a[r][m] = sy[r];
+        }
+        bool singular = false;
+        for (uint32_t c = 0; (c < m) && !singular; c++) {
+            uint32_t pivot = c;
+            for (uint32_t r = c + 1; r < m; r++) {
+                if (fabs(a[r][c]) > fabs(a[pivot][c])) {
+                    pivot = r;
+                }
+            }
+            if (fabs(a[pivot][c]) < 1e-12 * fabs(sx[0])) {
+                singular = true;
+                break;
+            }
+            for (uint32_t k = 0; k <= m; k++) {
+                const double tmp = a[c][k];
+                a[c][k] = a[pivot][k];
+                a[pivot][k] = tmp;
+            }
+            for (uint32_t r = 0; r < m; r++) {
+                if (r != c) {
+                    const double f = a[r][c] / a[c][c];
+                    for (uint32_t k = c; k <= m; k++) {
+                        a[r][k] -= f * a[c][k];
+                    }
+                }
+            }
+        }
+        if (!singular) {
+            return a[0][m] / a[0][0];
+        }
+    }
+    return sy[0] / sx[0];
+}
+
+//
+// Writes into out a row every opt->fit_step bits from the first tuned size to
+// the last, each fitted on the TUNE_FIT_WINDOW nearest tuned rows and kept
+// within their values. Returns the number of rows, 0 if there are too many.
+//
+static uint32_t fit_rows(const options_t* opt, const tune_algo_desc_t* desc,
+                         const tuning_row_t* tuned, uint32_t ntuned,
+                         tuning_row_t* out) {
+    const uint32_t first = tuned[0].min_bitsize;
+    const uint32_t last  = tuned[ntuned - 1].min_bitsize;
+    const uint32_t k     = (ntuned < TUNE_FIT_WINDOW) ? ntuned : TUNE_FIT_WINDOW;
+    uint32_t nout = 0;
+    for (uint64_t at = first; at <= last;
+         at = (at == last) ? at + 1
+                           : ((last - at < opt->fit_step) ? last
+                                                          : at + opt->fit_step)) {
+        if (nout == TUNE_MAX_ROWS) {
+            return 0;
+        }
+        uint32_t lo = 0;
+        while ((lo + k < ntuned)
+               && ((int64_t) at - tuned[lo].min_bitsize
+                   > (int64_t) tuned[lo + k].min_bitsize - (int64_t) at)) {
+            lo++;
+        }
+        uint32_t below = 0;
+        while ((below + 1 < ntuned) && (tuned[below + 1].min_bitsize <= at)) {
+            below++;
+        }
+        tuning_row_t* row = &out[nout++];
+        memset(row, 0, sizeof(*row));
+        row->min_bitsize = (uint32_t) at;
+        for (uint32_t c = 0; c < desc->ncols; c++) {
+            const char kind = desc->fit[c];
+            if (kind == 'b') {
+                row->cols[c] = tuned[below].cols[c];
+                continue;
+            }
+            double xs[TUNE_FIT_WINDOW];
+            double ys[TUNE_FIT_WINDOW];
+            double lowest  = INFINITY;
+            double highest = 0.0;
+            for (uint32_t i = 0; i < k; i++) {
+                const double v = (double) tuned[lo + i].cols[c];
+                xs[i]   = (double) tuned[lo + i].min_bitsize;
+                ys[i]   = (kind == 'g') ? log2(fmax(v, 1.0)) : v;
+                lowest  = fmin(lowest, v);
+                highest = fmax(highest, v);
+            }
+            double v = lowest;
+            if (lowest < highest) {
+                v = fit_at(xs, ys, k, (double) at);
+                if (kind == 'g') {
+                    v = exp2(v);
+                }
+                v = fmin(fmax(v, lowest), highest);
+            }
+            row->cols[c] = (uint32_t) floor(v + 0.5);
+        }
+        if (desc->tie != NULL) {
+            desc->tie(row->cols);
+        }
+    }
+    return nout;
+}
+
+//
+// Tunes a single algorithm across the configured bit-sizes and writes its
 // tuning file. Returns 0 on success.
 //
 static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
                          gmp_randstate_t rng) {
-    // Intersect the requested range with the algorithm's supported range.
-    unsigned int lo = (opt->min_bits > desc->min_bits) ? opt->min_bits
-                                                        : desc->min_bits;
-    unsigned int hi = (opt->max_bits < desc->max_bits) ? opt->max_bits
-                                                        : desc->max_bits;
+    // The requested sizes within the algorithm's supported range; the last
+    // step of a range stops at its end, so the table covers the whole range.
+    unsigned int sizes[TUNE_MAX_ROWS];
+    unsigned int nsizes = 0;
+    if (opt->nsizes > 0) {
+        for (unsigned int i = 0; i < opt->nsizes; i++) {
+            if ((opt->sizes[i] >= desc->min_bits)
+                && (opt->sizes[i] <= desc->max_bits)) {
+                sizes[nsizes++] = opt->sizes[i];
+            } else {
+                printf("%s: skipping %u bits, outside %u..%u\n", desc->name,
+                       opt->sizes[i], desc->min_bits, desc->max_bits);
+            }
+        }
+    } else {
+        unsigned int lo = (opt->min_bits > desc->min_bits) ? opt->min_bits
+                                                            : desc->min_bits;
+        unsigned int hi = (opt->max_bits < desc->max_bits) ? opt->max_bits
+                                                            : desc->max_bits;
+        for (unsigned int bits = lo; bits <= hi && nsizes < TUNE_MAX_ROWS;
+             bits = (bits == hi) ? hi + 1
+                                 : ((hi - bits < opt->step) ? hi
+                                                            : bits + opt->step)) {
+            sizes[nsizes++] = bits;
+        }
+    }
 
+    if (nsizes == 0) {
+        printf("Tuning %s: no bit-sizes in the requested range; skipping\n",
+               desc->name);
+        return 0;
+    }
     printf("Tuning %s (%s, %u..%u bits, ",
            desc->name, desc->probabilistic ? "probabilistic" : "deterministic",
-           lo, hi);
+           sizes[0], sizes[nsizes - 1]);
     if (desc->max_factors > 2) {
         printf("2-prime <%u bits, %u-prime >=%u bits)\n",
                desc->multi_factor_min_bits, desc->max_factors,
@@ -665,13 +1081,6 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
     } else {
         printf("2 balanced primes)\n");
     }
-
-    if (lo > hi) {
-        printf("  (no bit-sizes in the requested range; skipping)\n");
-        return 0;
-    }
-
-    double thr = desc->probabilistic ? opt->min_success : opt->threshold;
 
     tuning_row_t rows[TUNE_MAX_ROWS];
     uint32_t     nrows = 0;
@@ -682,17 +1091,12 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
     unsigned sticky_wins   = 0;
     bool     sticky_locked = false;
 
-    // The last step stops at hi, so the table covers the whole range: past
-    // its last row, the library keeps using that row.
-    for (unsigned int bits = lo; bits <= hi && nrows < TUNE_MAX_ROWS;
-         bits = (bits == hi) ? hi + 1
-                             : ((hi - bits < opt->step) ? hi
-                                                        : bits + opt->step)) {
+    for (unsigned int is = 0; is < nsizes; is++) {
+        const unsigned int bits = sizes[is];
 
         // Use more test composites for small (cheap) numbers to beat down
         // timing noise.
-        unsigned int trials = trials_for_bits(opt->trials, bits);
-        unsigned int setlen = trials;
+        unsigned int setlen = trials_for_bits(opt->trials, bits);
 
         // Choose the factor count for this size: the requested max_factors at
         // or above the crossover, else 2 balanced primes.
@@ -710,121 +1114,66 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
         }
 
         grid_t grid;
-        desc->build_grid(bits, &grid);
+        desc->build_grid(bits, opt->descent, &grid);
         // If the large-prime variation won at TUNE_STICKY_HYSTERESIS consecutive
         // smaller sizes, collapse its axis to "on" so we don't re-benchmark the
         // losing "off" case.
         if (sticky_locked && (desc->sticky_col >= 0)
             && ((uint32_t) desc->sticky_col < grid.naxes)) {
-            grid.axes[desc->sticky_col].nvalues  = 1;
+            grid.axes[desc->sticky_col].nvalues   = 1;
             grid.axes[desc->sticky_col].values[0] = 1;
+            grid.axes[desc->sticky_col].start     = 0;
         }
+
+        search_t* s = tifa_malloc(sizeof(search_t));
+        memset(s, 0, sizeof(*s));
+        s->opt    = opt;
+        s->desc   = desc;
+        s->grid   = &grid;
+        s->nset   = nset;
+        s->pset   = pset;
+        s->setlen = setlen;
+        s->thr    = desc->probabilistic ? opt->min_success : opt->threshold;
+        s->budget = (opt->timeout_s < 0.0) ? INFINITY : opt->timeout_s;
+
         uint64_t npoints = grid_size(&grid);
-
-        progress_t pr;
-        progress_init(&pr, bits, npoints * (uint64_t) setlen);
-
-        bool     have_best = false;
-        bool     best_qualified = false;
-        double   best_score = 0.0;
-        uint32_t best_cols[TIFA_TUNING_MAX_COLS];
-        unsigned timeouts = 0;
-        unsigned crashes  = 0;
-
-        for (uint64_t g = 0; g < npoints; g++) {
-            uint32_t cols[TIFA_TUNING_MAX_COLS];
-            grid_point(&grid, g, cols);
-
-            // Once a point has spent more than the qualified best's total, its
-            // score cannot beat it: stop timing it, and cut a run off before
-            // it alone would. The slack keeps fork and wall-clock jitter from
-            // cutting short runs.
-            const double bound = best_qualified ? best_score * (double) setlen
-                                                : INFINITY;
-            double   sum_cpu = 0.0;
-            unsigned succ    = 0;
-            bool     pruned  = false;
-            for (unsigned int t = 0; t < setlen; t++) {
-                double budget = opt->timeout_s;
-                bool   cut    = false;
-                if ((budget > 0.0) && isfinite(bound)) {
-                    const double left = 2.0 * (bound - sum_cpu) + 0.1;
-                    if (left < budget) {
-                        budget = left;
-                        cut    = true;
-                    }
-                }
-                double secs = 0.0;
-                run_outcome_t oc = RUN_OK;
-                bool ok = run_watched(desc, nset[t], pset[t], cols,
-                                      budget, &secs, &oc);
-                sum_cpu += secs;
-                if (ok) {
-                    succ++;
-                }
-                if ((oc == RUN_TIMEOUT) && !cut) {
-                    timeouts++;
-                } else if (oc == RUN_CRASH) {
-                    crashes++;
-                }
-                progress_tick(&pr);
-                if (sum_cpu > bound) {
-                    pr.done += setlen - t - 1;
-                    pruned   = true;
-                    break;
-                }
-            }
-            if (pruned || (succ == 0)) {
-                continue;
-            }
-            double p_success = (double) succ / (double) setlen;
-            double mean_cpu  = sum_cpu / (double) setlen;
-            double score     = mean_cpu / fmax(p_success, TUNE_EPS);
-            bool   qualified = (p_success >= thr);
-
-            // Prefer a qualifying point; among equally (un)qualified points,
-            // prefer the lower score.
-            bool better;
-            if (!have_best) {
-                better = true;
-            } else if (qualified != best_qualified) {
-                better = qualified;                 // qualifying always wins
-            } else {
-                better = (score < best_score);
-            }
-            if (better) {
-                have_best      = true;
-                best_qualified = qualified;
-                best_score     = score;
-                memcpy(best_cols, cols, sizeof(best_cols));
+        if (opt->descent) {
+            npoints = 1;
+            for (uint32_t a = 0; a < grid.naxes; a++) {
+                npoints += grid.axes[a].nvalues - 1;
             }
         }
+        progress_init(&s->pr, bits, npoints * (uint64_t) setlen);
+        if (opt->descent) {
+            search_descent(s);
+        } else {
+            search_grid(s);
+        }
+        progress_finish(&s->pr);
 
-        progress_finish(&pr);
-
-        if (have_best) {
+        if (s->have_best) {
             rows[nrows].min_bitsize = bits;
-            memcpy(rows[nrows].cols, best_cols, sizeof(best_cols));
+            memcpy(rows[nrows].cols, s->best_cols, sizeof(s->best_cols));
             printf("  %3u bits [%u nums, %u-prime]:", bits, setlen, nfactors);
             for (uint32_t c = 0; c < desc->ncols; c++) {
                 printf(" %" PRIu32, rows[nrows].cols[c]);
             }
-            printf("   (score %.6g%s", best_score,
-                   best_qualified ? "" : ", below threshold");
-            if (timeouts > 0) {
-                printf(", %u run%s hit the %gs limit", timeouts,
-                       (timeouts == 1) ? "" : "s", opt->timeout_s);
+            printf("   (score %.6g%s", s->best_score,
+                   s->best_qualified ? "" : ", below threshold");
+            if (s->timeouts > 0) {
+                printf(", %u run%s hit the %gs limit", s->timeouts,
+                       (s->timeouts == 1) ? "" : "s", s->budget);
             }
-            if (crashes > 0) {
-                printf(", %u run%s crashed", crashes,
-                       (crashes == 1) ? "" : "s");
+            if (s->crashes > 0) {
+                printf(", %u run%s crashed", s->crashes,
+                       (s->crashes == 1) ? "" : "s");
             }
             printf(")\n");
             nrows++;
 
             // Track consecutive "on" wins; lock only after enough of them.
             if ((desc->sticky_col >= 0) && !sticky_locked) {
-                if (best_cols[desc->sticky_col] == 1) {
+                if (s->best_cols[desc->sticky_col] == 1) {
                     sticky_wins++;
                     if (sticky_wins >= TUNE_STICKY_HYSTERESIS) {
                         sticky_locked = true;
@@ -837,6 +1186,7 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
             printf("  %3u bits: no point factored any number, no row\n", bits);
         }
 
+        free(s);
         for (unsigned int t = 0; t < setlen; t++) {
             mpz_clear(nset[t]);
             mpz_clear(pset[t]);
@@ -845,7 +1195,21 @@ static int tune_one_algo(const options_t* opt, const tune_algo_desc_t* desc,
         free(pset);
     }
 
-    return write_tuning_file(opt, desc, rows, nrows);
+    if ((opt->fit_step == 0) || (nrows < 2)) {
+        return write_tuning_file(opt, desc, rows, nrows, NULL, 0);
+    }
+    tuning_row_t* fitted = tifa_malloc(TUNE_MAX_ROWS * sizeof(tuning_row_t));
+    const uint32_t nfitted = fit_rows(opt, desc, rows, nrows, fitted);
+    int rc;
+    if (nfitted == 0) {
+        fprintf(stderr, "tifa-tune: --fit %u makes more than %d rows\n",
+                opt->fit_step, TUNE_MAX_ROWS);
+        rc = 1;
+    } else {
+        rc = write_tuning_file(opt, desc, fitted, nfitted, rows, nrows);
+    }
+    free(fitted);
+    return rc;
 }
 
 //------------------------------------------------------------------------------
@@ -862,7 +1226,7 @@ int main(int argc, char** argv) {
         .trials      = 25,
         .threshold   = 0.90,
         .min_success = 0.05,
-        .timeout_s   = 30.0,
+        .timeout_s   = -1.0,
         .seed        = 1,
         .outdir      = "."
     };
@@ -907,6 +1271,23 @@ int main(int argc, char** argv) {
         } else if (strcmp(a, "--step") == 0) {
             const char* v; NEXT_VAL(&v);
             if (!parse_unsigned(v, &opt.step)) { BAD_VAL(); }
+        } else if (strcmp(a, "--sizes") == 0) {
+            const char* v; NEXT_VAL(&v);
+            if (!parse_sizes(v, &opt)) { BAD_VAL(); }
+        } else if (strcmp(a, "--search") == 0) {
+            const char* v; NEXT_VAL(&v);
+            if (strcmp(v, "grid") == 0) {
+                opt.descent = false;
+            } else if (strcmp(v, "descent") == 0) {
+                opt.descent = true;
+            } else {
+                BAD_VAL();
+            }
+        } else if (strcmp(a, "--fit") == 0) {
+            const char* v; NEXT_VAL(&v);
+            if (!parse_unsigned(v, &opt.fit_step) || (opt.fit_step == 0)) {
+                BAD_VAL();
+            }
         } else if (strcmp(a, "--trials") == 0) {
             const char* v; NEXT_VAL(&v);
             if (!parse_unsigned(v, &opt.trials)) { BAD_VAL(); }

@@ -383,16 +383,19 @@ cmake --build build --target tifa_tune     # the CMake target of tifa-tune
 ```
 
 `tifa-tune` builds test composites (products of similar-size primes), sweeps a
-parameter grid around a size-dependent center for each bit-size, times each
+parameter grid around the built-in defaults for each bit-size, times each
 run, and writes the combination minimizing the expected time to find a factor.
 A combination is dropped as soon as its runs have taken longer in total than
 the best one's. Useful options (`--help` lists
 all): `--algo <names|all>` (a comma-separated list of algorithm names, or `all`;
-`--help` lists the valid names), `--min`/`--max`/`--step` (bit-size range; `--max` is always tuned), `--trials`,
+`--help` lists the valid names), `--min`/`--max`/`--step` (bit-size range; `--max` is always tuned),
+`--sizes <list>` (comma-separated bit-sizes instead of a range), `--trials`,
+`--search descent` and `--fit <bits>` (see [Large SIQS sizes](#large-siqs-sizes)),
 `--seed` (reproducible composites), `--timeout <sec>` (per-run wall-clock budget;
 a run that exceeds it is killed in its child process and scored as a failure, so
-a pathological parameter/input combination can never stall the tune — default
-30 s, `0` disables), and `--quick` (a fast, coarse preset). More
+a pathological parameter/input combination can never stall the tune — by
+default none for the defaults, then 10 times their longest run and at least
+30 s; `0` disables), and `--quick` (a fast, coarse preset). More
 test composites are used for small numbers (twice as many below 90 bits, four
 times below 64), where runs are cheap and timing noise is otherwise larger. When
 a given size takes more than a few seconds, a progress bar with an ETA is shown —
@@ -408,6 +411,30 @@ Point the library at the generated files at runtime:
 ```sh
 TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/tifa-siqs <number_to_factor>
 ```
+
+#### Large SIQS sizes
+
+From about 240 bits, a SIQS run takes from seconds to minutes, and the best
+parameters differ between processors: the built-in sieve half widths, chosen
+on an Apple M5 Pro and recent x86-64 cores, took up to 9% longer than twice as
+wide ones on an AMD EPYC 7763 (Zen 3) from 264 to 280 bits. To tune a few large
+sizes:
+
+```sh
+./build/tools/tune/tifa-tune --algo siqs --sizes 232,248,264,280 \
+    --search descent --trials 2 --fit 8 --out ~/.tifa/tuning
+```
+
+`--search descent` starts from the built-in defaults and tries each value of
+one parameter at a time — the factor base, the sieve half width, the sieve
+threshold, the large-prime variation and the extra primes in `a` — keeping the
+others at their best yet, for at most two passes: 14 combinations per pass
+rather than the grid's 100. `--fit 8` then writes a row every 8 bits from
+the smallest tuned size to the largest, each a least-squares quadratic on the 5
+nearest tuned sizes (on the logarithm of the factor base and of the half
+width), kept within their values: this smooths the noise of a few numbers per
+size and fills in the sizes between. The tuned rows are kept as comments at the
+top of the file.
 
 ### Baking tuned values into the library
 

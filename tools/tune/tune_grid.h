@@ -42,6 +42,8 @@
 typedef struct {
     uint32_t nvalues;
     uint32_t values[TUNE_MAX_AXIS_VALUES];
+        /** Index of the default value, where a search starts. */
+    uint32_t start;
 } grid_axis_t;
 
 typedef struct {
@@ -59,8 +61,10 @@ void grid_clear(grid_t* g);
     *
     * Each candidate value is <tt>round(center * ratio)</tt>, clamped to the
     * inclusive range <tt>[minval, maxval]</tt>; adjacent duplicates are
-    * dropped so repeated clamped values do not inflate the grid. Adds nothing (and does not fail)
-    * if the grid already has \c TIFA_TUNING_MAX_COLS axes.
+    * dropped so repeated clamped values do not inflate the grid. The value of
+    * the ratio 1, if any, is the axis's default (else its first value). Adds
+    * nothing (and does not fail) if the grid already has
+    * \c TIFA_TUNING_MAX_COLS axes.
     *
     * \param[in,out] g       The grid to extend.
     * \param[in]     center  The center value.
@@ -82,9 +86,21 @@ void grid_add_axis_fixed(grid_t* g, uint32_t value);
     * \brief Appends an axis holding an explicit list of values.
     *
     * At most \c TUNE_MAX_AXIS_VALUES values are stored. Adds nothing if the
-    * grid is already full or the list is empty.
+    * grid is already full or the list is empty. Its first value is its default
+    * (see \c grid_set_default).
     */
 void grid_add_axis_list(grid_t* g, const uint32_t* values, uint32_t nvalues);
+
+   /**
+    * \brief Makes \c value the default of the last axis added, if it holds it.
+    */
+void grid_set_default(grid_t* g, uint32_t value);
+
+   /**
+    * \brief Writes the point with the value of index <tt>idx[i]</tt> on each
+    * axis \c i into \c out_cols.
+    */
+void grid_point_at(const grid_t* g, const uint32_t idx[], uint32_t out_cols[]);
 
    /**
     * \brief Returns the number of points in the grid (product of axis sizes).

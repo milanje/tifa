@@ -68,6 +68,8 @@ static const double R_UP[] = { 1.0, 1.5, 2.0 };
 // Both ways for SIQS, which gives up on a stalled collection and retries wider.
 // The default comes first, so the tuner prunes against it and keeps it on ties.
 static const double R_SIQS[] = { 1.0, 0.5, 0.7, 1.4, 2.0 };
+// The descent's sieve thresholds besides the default, relative to it.
+static const int32_t SIQS_THRESHOLD_DELTAS[] = { -3, -6, 3 };
 // Boolean axis (off, then on): "off" first so it wins exact ties, i.e. the
 // large-prime variation, or an extra prime in a, is only preferred when it is
 // strictly better.
@@ -121,7 +123,8 @@ static bool found_factor(const mpz_array_t* factors, const mpz_t n) {
 //                              Pollard p-1
 //------------------------------------------------------------------------------
 
-static void build_grid_p_minus_1(uint32_t bitsize, grid_t* g) {
+static void build_grid_p_minus_1(uint32_t bitsize, bool descent, grid_t* g) {
+    (void) descent;
     grid_clear(g);
     const double b1_center = TUNE_B1_CENTER_MULT * (double) bitsize;
     const double b2_center = 1000.0 * (double) bitsize;
@@ -147,7 +150,8 @@ static bool run_p_minus_1(const mpz_t n, const mpz_t p, const uint32_t cols[],
 //                              Williams p+1
 //------------------------------------------------------------------------------
 
-static void build_grid_p_plus_1(uint32_t bitsize, grid_t* g) {
+static void build_grid_p_plus_1(uint32_t bitsize, bool descent, grid_t* g) {
+    (void) descent;
     grid_clear(g);
     const double b1_center = TUNE_B1_CENTER_MULT * (double) bitsize;
     const double b2_center = 1000.0 * (double) bitsize;
@@ -174,7 +178,8 @@ static bool run_p_plus_1(const mpz_t n, const mpz_t p, const uint32_t cols[],
 //                              Pollard rho
 //------------------------------------------------------------------------------
 
-static void build_grid_rho(uint32_t bitsize, grid_t* g) {
+static void build_grid_rho(uint32_t bitsize, bool descent, grid_t* g) {
+    (void) descent;
     grid_clear(g);
     // The dominant knob is max_niters, which must scale with sqrt of the
     // smallest factor. That factor is ~bitsize/3 for the 3-prime composites
@@ -218,7 +223,8 @@ static bool run_rho(const mpz_t n, const mpz_t p, const uint32_t cols[],
 //                                  ECM
 //------------------------------------------------------------------------------
 
-static void build_grid_ecm(uint32_t bitsize, grid_t* g) {
+static void build_grid_ecm(uint32_t bitsize, bool descent, grid_t* g) {
+    (void) descent;
     grid_clear(g);
     // Center on ECM's bounds for the smallest factor of the test composites:
     // ~bitsize/3 for the 3-prime ones used at/above the crossover, ~bitsize/2
@@ -256,7 +262,8 @@ static bool run_ecm(const mpz_t n, const mpz_t p, const uint32_t cols[],
 //                                 CFRAC
 //------------------------------------------------------------------------------
 
-static void build_grid_cfrac(uint32_t bitsize, grid_t* g) {
+static void build_grid_cfrac(uint32_t bitsize, bool descent, grid_t* g) {
+    (void) descent;
     grid_clear(g);
     // Center on CFRAC's own size-dependent factor-base default; sweep only the
     // factor-base size and keep the rest at their (sane) defaults.
@@ -271,6 +278,12 @@ static void build_grid_cfrac(uint32_t bitsize, grid_t* g) {
     grid_add_axis_fixed(g, d.nprimes_tdiv);                                       // nprimes_tdiv
     grid_add_axis_fixed(g, d.nrelations);                                         // nrelations
     grid_add_axis_list(g, BOOL01, 2);                                             // use_large_primes
+    grid_set_default(g, d.use_large_primes ? 1 : 0);
+}
+
+// The library's defaults trial-divide by the whole factor base.
+static void tie_cfrac(uint32_t cols[]) {
+    cols[1] = cols[0];
 }
 
 static bool run_cfrac(const mpz_t n, const mpz_t p, const uint32_t cols[],
@@ -292,7 +305,7 @@ static bool run_cfrac(const mpz_t n, const mpz_t p, const uint32_t cols[],
 //                                  SIQS
 //------------------------------------------------------------------------------
 
-static void build_grid_siqs(uint32_t bitsize, grid_t* g) {
+static void build_grid_siqs(uint32_t bitsize, bool descent, grid_t* g) {
     grid_clear(g);
     // Center on SIQS's own size-dependent defaults; crucially this uses the
     // algorithm's sane sieve threshold rather than a hardcoded one (a too-low
@@ -306,11 +319,29 @@ static void build_grid_siqs(uint32_t bitsize, grid_t* g) {
 
     grid_add_axis_mul(g, (double) d.nprimes_in_base,  R_SIQS, 5, 32, NFIRST_PRIMES); // nprimes_in_base
     grid_add_axis_mul(g, (double) d.sieve_half_width, R_SIQS, 5, 1000, 2000000);     // sieve_half_width
-    grid_add_axis_fixed(g, d.threshold);                                           // threshold
+    if (descent) {
+        uint32_t thresholds[4] = { d.threshold };
+        uint32_t nthresholds = 1;
+        for (uint32_t i = 0; i < 3; i++) {
+            const int64_t t = (int64_t) d.threshold + SIQS_THRESHOLD_DELTAS[i];
+            if (t >= 1) {
+                thresholds[nthresholds++] = (uint32_t) t;
+            }
+        }
+        grid_add_axis_list(g, thresholds, nthresholds);                             // threshold
+    } else {
+        grid_add_axis_fixed(g, d.threshold);                                        // threshold
+    }
     grid_add_axis_fixed(g, d.nprimes_tdiv);                                         // nprimes_tdiv
     grid_add_axis_fixed(g, d.nrelations);                                           // nrelations
     grid_add_axis_list(g, BOOL01, 2);                                               // use_large_primes
+    grid_set_default(g, d.use_large_primes ? 1 : 0);
     grid_add_axis_list(g, BOOL01, 2);                                               // extra_primes_in_a
+    grid_set_default(g, d.extra_primes_in_a);
+}
+
+static void tie_siqs(uint32_t cols[]) {
+    cols[3] = cols[0];
 }
 
 static bool run_siqs(const mpz_t n, const mpz_t p, const uint32_t cols[],
@@ -335,21 +366,27 @@ static bool run_siqs(const mpz_t n, const mpz_t p, const uint32_t cols[],
 //                              Registry
 //------------------------------------------------------------------------------
 
-// Trailing field is sticky_col: the use_large_primes column index for the sieve
-// methods (cfrac=3, siqs=5), -1 for the rest.
+// The last three fields: sticky_col, the use_large_primes column index for the
+// sieve methods (cfrac=3, siqs=5), -1 for the rest; fit; tie.
 const tune_algo_desc_t TUNE_ALGOS[] = {
     { "p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, TIFA_TUNING_COLS_P_MINUS_1,
-      true,  40, 140, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_p_minus_1, run_p_minus_1, -1 },
+      true,  40, 140, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_p_minus_1, run_p_minus_1, -1,
+      "ggb", NULL },
     { "p_plus_1",  TIFA_TUNING_NCOLS_P_PLUS_1,  TIFA_TUNING_COLS_P_PLUS_1,
-      true,  40, 140, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_p_plus_1,  run_p_plus_1, -1 },
+      true,  40, 140, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_p_plus_1,  run_p_plus_1, -1,
+      "ggb", NULL },
     { "rho",       TIFA_TUNING_NCOLS_RHO,       TIFA_TUNING_COLS_RHO,
-      true,  40, 100, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_rho,       run_rho, -1 },
+      true,  40, 100, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_rho,       run_rho, -1,
+      "bbbg", NULL },
     { "ecm",       TIFA_TUNING_NCOLS_ECM,       TIFA_TUNING_COLS_ECM,
-      true,  40, 140, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_ecm,       run_ecm, -1 },
+      true,  40, 140, 3, TUNE_MULTI_FACTOR_MIN_BITS, build_grid_ecm,       run_ecm, -1,
+      "ggg", NULL },
     { "cfrac",     TIFA_TUNING_NCOLS_CFRAC,     TIFA_TUNING_COLS_CFRAC,
-      false, 56, 140, 2, 0, build_grid_cfrac,     run_cfrac, 3 },
+      false, 56, 140, 2, 0, build_grid_cfrac,     run_cfrac, 3,
+      "gbbb", tie_cfrac },
     { "siqs",      TIFA_TUNING_NCOLS_SIQS,      TIFA_TUNING_COLS_SIQS,
-      false, 65, 200, 2, 0, build_grid_siqs,      run_siqs, 5 },
+      false, 65, 320, 2, 0, build_grid_siqs,      run_siqs, 5,
+      "ggabbbb", tie_siqs },
 };
 
 const unsigned int TUNE_NALGOS = sizeof(TUNE_ALGOS) / sizeof(TUNE_ALGOS[0]);

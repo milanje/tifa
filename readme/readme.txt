@@ -329,10 +329,27 @@
         prompt> ./build/tools/tune/tifa-tune --algo all --out ~/.tifa/tuning
         prompt> TIFA_TUNING_DIR=~/.tifa/tuning ./build/tools/tifa-siqs <number>
 
-    "tifa-tune --help" lists all options (algorithm, bit-size range, trials,
-    RNG seed, per-run time limit, and a fast "--quick" preset). The
-    convenience target "cmake --build build --target tune-quick" runs the
-    quick preset into <build>/tuning.
+    "tifa-tune --help" lists all options (algorithm, bit-size range or list,
+    search, fit, trials, RNG seed, per-run time limit, and a fast "--quick"
+    preset). The convenience target "cmake --build build --target tune-quick"
+    runs the quick preset into <build>/tuning.
+
+    From about 240 bits, a SIQS run takes from seconds to minutes, and the
+    best parameters differ between processors (the built-in sieve half widths
+    took up to 9% longer than twice as wide ones on an AMD EPYC 7763 from 264
+    to 280 bits). To tune a few large sizes:
+
+        prompt> ./build/tools/tune/tifa-tune --algo siqs \
+                    --sizes 232,248,264,280 --search descent --trials 2 \
+                    --fit 8 --out ~/.tifa/tuning
+
+    "--search descent" starts from the defaults and tries each value of one
+    parameter at a time, the others at their best yet, for at most two passes
+    (14 combinations per pass for SIQS, which then also varies its sieve
+    threshold, rather than the grid's 100). "--fit 8" writes a row every 8
+    bits from the smallest tuned size to the largest, each a least-squares
+    quadratic on the 5 nearest tuned sizes, kept within their values; the
+    tuned rows are kept as comments at the top of the file.
 
     To bake tuned values into the library, regenerate the committed tables and
     enable them:

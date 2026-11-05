@@ -52,6 +52,7 @@ void grid_add_axis_mul(grid_t* g, double center,
     }
     grid_axis_t* axis = &g->axes[g->naxes];
     axis->nvalues = 0;
+    axis->start   = 0;
 
     for (uint32_t i = 0; i < nratios; i++) {
         double d = center * ratios[i];
@@ -69,6 +70,9 @@ void grid_add_axis_mul(grid_t* g, double center,
             v = minval;
         }
         axis_push_unique(axis, v);
+        if (ratios[i] == 1.0) {
+            axis->start = axis->nvalues - 1;
+        }
     }
     if (axis->nvalues > 0) {
         g->naxes++;
@@ -83,6 +87,7 @@ void grid_add_axis_fixed(grid_t* g, uint32_t value) {
     grid_axis_t* axis = &g->axes[g->naxes];
     axis->nvalues  = 1;
     axis->values[0] = value;
+    axis->start     = 0;
     g->naxes++;
 }
 
@@ -93,10 +98,32 @@ void grid_add_axis_list(grid_t* g, const uint32_t* values, uint32_t nvalues) {
     }
     grid_axis_t* axis = &g->axes[g->naxes];
     axis->nvalues = 0;
+    axis->start   = 0;
     for (uint32_t i = 0; (i < nvalues) && (i < TUNE_MAX_AXIS_VALUES); i++) {
         axis->values[axis->nvalues++] = values[i];
     }
     g->naxes++;
+}
+
+//------------------------------------------------------------------------------
+void grid_set_default(grid_t* g, uint32_t value) {
+    if (g->naxes == 0) {
+        return;
+    }
+    grid_axis_t* axis = &g->axes[g->naxes - 1];
+    for (uint32_t i = 0; i < axis->nvalues; i++) {
+        if (axis->values[i] == value) {
+            axis->start = i;
+            return;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void grid_point_at(const grid_t* g, const uint32_t idx[], uint32_t out_cols[]) {
+    for (uint32_t i = 0; i < g->naxes; i++) {
+        out_cols[i] = g->axes[i].values[idx[i]];
+    }
 }
 
 //------------------------------------------------------------------------------

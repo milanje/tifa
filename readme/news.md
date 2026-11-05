@@ -1,5 +1,31 @@
 # TIFA news
 
+## 5 November 2026 &mdash; tifa-tune: large sizes
+
+`tifa-tune` can tune SIQS up to 320 bits (200 before), where a run takes
+minutes and the best parameters differ between processors (see
+[Large SIQS sizes](../README.md#large-siqs-sizes)):
+
+- `--sizes <list>` tunes a list of bit-sizes rather than a range.
+- `--search descent` starts from the built-in defaults and tries each value
+  of one parameter at a time, the others at their best yet, for at most two
+  passes: 14 combinations per pass for SIQS rather than the grid's 100. SIQS
+  then also tries its sieve threshold 3 and 6 lower and 3 higher.
+- `--fit <bits>` writes a row every `<bits>` bits from the smallest tuned
+  size to the largest, each a least-squares quadratic on the 5 nearest tuned
+  sizes (on the logarithm of factor bases, bounds and widths), kept within
+  their values; the tuned rows are kept as comments.
+- By default, the watchdog no longer kills a run after 30 s, which SIQS runs
+  take from about 264 bits on an Apple M5 Pro: the defaults' runs have no
+  limit, then the others have 10 times the defaults' longest, and at least
+  30 s.
+- The grid times the built-in defaults first, so that the others are cut
+  off against them from the start.
+- A grid point of SIQS or CFRAC with a larger factor base than the
+  defaults' trial-divided by the defaults' primes only, and factored the rest
+  with Bernstein's batch algorithm: slower than the library, which
+  trial-divides by the whole base, so `tifa-tune` underrated larger bases.
+
 ## 4 November 2026 &mdash; Security fixes
 
 A review of the library for untrusted input (certificates, tuning files,

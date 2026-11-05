@@ -67,8 +67,11 @@ typedef struct {
          * when \c max_factors == 2.
          */
     uint32_t    multi_factor_min_bits;
-        /** Builds the parameter grid to sweep for a given bit-size. */
-    void (*build_grid)(uint32_t bitsize, grid_t* out);
+        /**
+         * Builds the parameter grid to sweep for a given bit-size; a coordinate
+         * descent (\c descent true) visits each axis alone, which affords more.
+         */
+    void (*build_grid)(uint32_t bitsize, bool descent, grid_t* out);
         /**
          * Runs one timed attempt with the given column values on the composite
          * \c n (whose smallest prime factor is \c p), storing the elapsed CPU
@@ -85,6 +88,13 @@ typedef struct {
          * where it can no longer win. -1 if the algorithm has no such column.
          */
     int sticky_col;
+        /**
+         * How --fit smooths each column across the tuned sizes: 'g' fits its
+         * logarithm, 'a' the value itself, and 'b' takes the tuned row below.
+         */
+    const char* fit;
+        /** Sets columns that follow others (or NULL), on every point. */
+    void (*tie)(uint32_t cols[]);
 } tune_algo_desc_t;
 
 extern const tune_algo_desc_t TUNE_ALGOS[];
