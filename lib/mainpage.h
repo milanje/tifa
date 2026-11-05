@@ -19,7 +19,7 @@
  * composite integer factorization. Its goal is to provide portable and 
  * reasonably fast implementations for several algorithms, 
  * with a particular emphasis on the factorization of small to medium-sized 
- * composites, say from 40 bits to about 220 bits. 
+ * composites, say from 40 bits to about 280 bits. 
  *
  * Although it obviously won't break any record by itself, <strong>TIFA</strong>
  * may be a good companion to more ambitious factorization attempts such as a

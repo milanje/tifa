@@ -6,7 +6,7 @@
 
 `TIFA` (_Tools for Integer FActorization_) is a small C library that implements
 utilities and algorithms to perform integer factorizations, with an emphasis on
-small to medium-size composites, say from 40 to 220 bits. It can be used on its
+small to medium-size composites, say from 40 to 280 bits. It can be used on its
 own, or inside a larger program such as a number field sieve, to factor its
 cofactors one per thread.
 
@@ -144,8 +144,8 @@ changes.
 
 - `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
   methods by size: machine-word arithmetic below 2^64; above, trial division by
-  the primes below 1000, a short ECM search (single p-1 and p+1 runs without
-  128-bit integers), then SIQS.
+  the primes below 1000, a short ECM search (single p-1 and p+1 runs above 256
+  bits or without 128-bit integers), then SIQS.
   `tifa_factor_with_hint()` does the same, told what is known of the number:
   two prime factors of about the same size (SIQS runs right away), or one
   below a third of its size (ECM searches for longer).

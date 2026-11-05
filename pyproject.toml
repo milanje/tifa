@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "tifa-factor"
 dynamic = ["version"]
-description = "Fast factorization of integers of up to about 220 bits, with the TIFA library"
+description = "Fast factorization of integers of up to about 280 bits, with the TIFA library"
 readme = "python/README.md"
 license = "LGPL-2.1-or-later"
 license-files = ["readme/license_v2.1.txt", "readme/license_v3.txt"]

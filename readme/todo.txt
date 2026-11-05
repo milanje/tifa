@@ -11,7 +11,18 @@ Here are some short term objectives:
     November 2026, found them within 2% of the best everywhere, the machines
     disagreeing on the rest (a larger factor base at 190 bits on x86-64, a
     smaller one at 210). Tuning files (tifa-tune) can take that last 2% to
-    3% on each machine. Above 220 bits the defaults are still extrapolated.
+    3% on each machine. From 232 bits the defaults come from a fit on rows
+    tuned on the M5 at 272 and 288 bits, their sieve half widths halved from
+    248 to 280 bits for the M5 and the newer x86-64 cores; an EPYC 7763
+    (Zen 3) was up to 9% faster with twice as wide ones from 264 bits, for a
+    reason not known (its 512 KB L2 cache?). tifa-tune --search descent
+    --fit tunes these sizes on a machine.
+
+  - SIQS above 280 bits: the binary matrix of the elimination is dense,
+    about 530 MB at 65536 primes, the cap of the factor base, reached at
+    288 bits; a sparse method (block Lanczos or Wiedemann) would be needed
+    beyond. tifa_factor() searches with ECM up to 256 bits only (mont_ecm
+    stops at four limbs): above, single p-1 and p+1 runs come before SIQS.
 
   - ECM on one to four limbs (mont_ecm.c), measured on 30 October 2026:
       - The setup of a curve takes 0.3 us (Z/2 x Z/8) to 0.6 us (Suyama),

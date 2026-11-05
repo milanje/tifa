@@ -16,7 +16,7 @@
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-"""Fast factorization of integers of up to about 220 bits (66 digits).
+"""Fast factorization of integers of up to about 280 bits (84 digits).
 
 >>> import tifa
 >>> tifa.factor(360)
@@ -90,7 +90,8 @@ def factor(
 
     ``n`` is a positive integer: an ``int``, or any integer type with
     ``__index__`` (NumPy's, gmpy2's ``mpz``). Up to about 220 bits, ``n`` is
-    factored in seconds at most; beyond, the time keeps growing quickly.
+    factored in seconds at most, and up to about 280 bits in minutes; beyond,
+    the time keeps growing quickly.
 
     ``hint`` says what is known of ``n``, to save time: ``"balanced"`` if it
     is the product of two primes of about the same size (an RSA modulus),

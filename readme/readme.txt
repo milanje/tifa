@@ -72,7 +72,7 @@
 
   The TIFA library implements utilities and algorithms to perform integer
   factorizations, with an emphasis on small to medium-sized composites, say
-  from 40 to 220 bits.
+  from 40 to 280 bits.
 
   The following factorization algorithms are implemented:
 
@@ -463,6 +463,7 @@
 
     Unfortunately yes: TIFA does not save its relations, to reload them
     before collecting more. That said, it focuses on small to medium-sized
-    numbers, whose factorizations take a few seconds at most (about two at
-    220 bits on an Apple M5 Pro, three to six on x86-64), and SIQS collects
-    more relations by itself when the ones it has do not split the number.
+    numbers, whose factorizations take seconds to minutes (on an Apple M5
+    Pro, about 2 s at 220 bits, 3 to 6 s on x86-64, and 2 minutes at 280
+    bits), and SIQS collects more relations by itself when the ones it has
+    do not split the number.

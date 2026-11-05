@@ -1,6 +1,6 @@
 # tifa
 
-Fast factorization of integers of up to about 220 bits (66 digits), with
+Fast factorization of integers of up to about 280 bits (84 digits), with
 the [TIFA](https://github.com/milanje/tifa) C library: its quadratic sieve,
 elliptic curves and smaller methods, chosen by the size of the number.
 
@@ -28,8 +28,9 @@ EPYC 9V45:
 | `tifa.factor` | 0.7 ms | 9.6 ms | 0.18 s | 3.0 s |
 | PARI/GP 2.15 `factorint` | 1.9 ms | 39 ms | 0.55 s | 9.0 s |
 
-Numbers with small factors take much less. From 180 to 220 bits the time
-doubles about every 10 bits, and keeps growing beyond.
+Numbers with small factors take much less. From 180 bits the time doubles
+about every 10 to 12 bits: on an Apple M5 Pro, about 9 s at 240 bits, 24 s
+at 256 and 2 minutes at 280.
 
 ## Hints
 
