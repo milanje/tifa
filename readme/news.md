@@ -1,6 +1,27 @@
 # TIFA news
 
-## 5 November 2026 &mdash; Python: time limits and tuning files
+## 5 November 2026 &mdash; version 0.4.7
+
+Version 0.4.7 gathers the work below since 0.4.6. SIQS is 1.1 to 4.1 times
+as fast from 232 to 280 bits on an Apple M5 Pro, the same 2 balanced
+semiprimes per size timed with both versions:
+
+| `siqs()`, bits | 232 | 240 | 248 | 256 | 264 | 272 | 280 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 0.4.6 | 5.77 s | 9.38 s | 18.98 s | 41.36 s | 67.26 s | 198.5 s | 406.6 s |
+| 0.4.7 | 5.27 s | 8.93 s | 13.85 s | 22.75 s | 31.44 s | 61.0 s | 98.0 s |
+| ratio | 0.91 | 0.95 | 0.73 | 0.55 | 0.47 | 0.31 | 0.24 |
+
+Below 232 bits nothing changes but the layout of the code: SIQS takes 0.98
+to 1.01 of the time of 0.4.6 from 70 to 220 bits (`bench/ab.sh`), and
+`tifa_factor()` 1.005 to 1.02 from 80 to 160 bits; builds in between, with
+no change to that code, varied from 1.00 to 1.03. Also new: primality
+certificates, time limits, `tifa-tune` for large sizes, the Python
+package's proofs, time limits and tuning files, and the fixes of a review
+for untrusted input. The ABI only grows: the shared library is still
+`libtifa.so.0.4`.
+
+## 5 November 2026 &mdash; Python: time limits and tuning files (0.4.7)
 
 - `factor(n, timeout=60)` raises `tifa.FactorizationTimeout` (a
   `TimeoutError`, and a `FactorizationError` holding the factors found) if
@@ -11,7 +32,7 @@
   `TIFA_TUNING_DIR` environment variable, `""` to the built-in parameters
   alone); the wheels install `tifa-tune`, which writes such files.
 
-## 5 November 2026 &mdash; Time limits
+## 5 November 2026 &mdash; Time limits (0.4.7)
 
 `tifa_set_time_limit(seconds)` (`time_limit.h`, which `tifa.h` includes)
 limits the time of the calling thread's factorizations: `tifa_factor()`,
@@ -38,7 +59,7 @@ a factor of 40 bits) and ECM (100 bits); with a limit that does not expire,
 `tifa.factor()` takes as long at 180 bits. The ABI only grows: the shared
 library is still `libtifa.so.0.4`.
 
-## 5 November 2026 &mdash; tifa-tune: large sizes
+## 5 November 2026 &mdash; tifa-tune: large sizes (0.4.7)
 
 `tifa-tune` can tune SIQS up to 320 bits (200 before), where a run takes
 minutes and the best parameters differ between processors (see
@@ -64,7 +85,7 @@ minutes and the best parameters differ between processors (see
   with Bernstein's batch algorithm: slower than the library, which
   trial-divides by the whole base, so `tifa-tune` underrated larger bases.
 
-## 5 November 2026 &mdash; SIQS: narrower sieves from 248 bits
+## 5 November 2026 &mdash; SIQS: narrower sieves from 248 bits (0.4.7)
 
 The sieve half widths of the fitted parameters (below) were too wide on
 most processors: at 264 bits, the AMD EPYC 9V74 (Zen 4) and 9V45 (Zen 5)
@@ -88,7 +109,7 @@ cores disagree among themselves, not by architecture, so a second table for
 x86-64 would not help. The EPYC 7763 has the smallest L2 cache per core of
 them (512 KB): a possible reason, not verified.
 
-## 5 November 2026 &mdash; Tuning tables apply near their rows only
+## 5 November 2026 &mdash; Tuning tables apply near their rows only (0.4.7)
 
 `tifa_tuning_row_for()` and `tifa_tuning_get_row()` gave the first or last
 row of a table for any size below or above it: with a SIQS table from
@@ -99,7 +120,7 @@ applies from 8 bits below its first row to 8 bits above its last, and the
 algorithm's built-in defaults beyond. `tifa_tuning_lookup()` and
 `tifa_tuning_interpolate()`, on a table, still clamp.
 
-## 5 November 2026 &mdash; SIQS: parameters from 232 bits
+## 5 November 2026 &mdash; SIQS: parameters from 232 bits (0.4.7)
 
 The SIQS parameters above 210 bits were a crude extrapolation, never
 measured past the old cap of the factor base (below), and absent above 280
@@ -124,7 +145,7 @@ over that of the two tuned rows alone, `siqs-bench` on balanced semiprimes
 Up to 225 bits the parameters stay: there, the fit's wider half widths took
 1.06 to 1.18 of their time (212 to 222 bits).
 
-## 4 November 2026 &mdash; SIQS: factor bases of up to 65536 primes
+## 4 November 2026 &mdash; SIQS: factor bases of up to 65536 primes (0.4.7)
 
 The factor base of SIQS was capped at a quarter of the 65536 tabulated
 primes, 16384, while its parameters asked for 22520 primes at 248 bits,
@@ -157,7 +178,7 @@ the code moved. `test_siqs` factors with 34000 primes in the base, past the
 table and the dense exponents; `test_matrix` checks the sparse exponents
 against dense ones.
 
-## 4 November 2026 &mdash; Security fixes
+## 4 November 2026 &mdash; Security fixes (0.4.7)
 
 A review of the library for untrusted input (certificates, tuning files,
 the tools' arguments, the Python package and its release) found these,
@@ -201,7 +222,7 @@ now fixed:
   to PyPI also waits for a maintainer's approval now, from a release tag
   only.
 
-## 4 November 2026 &mdash; Primality certificates
+## 4 November 2026 &mdash; Primality certificates (0.4.7)
 
 `tifa_factor()` tells primes from composites by a Baillie-PSW test, which no
 composite is known to pass, but which proves nothing above 2^64. The new

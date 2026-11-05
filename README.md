@@ -27,6 +27,19 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+Version 0.4.7 (November 2026) makes SIQS 1.1 to 4.1 times as fast from 232
+to 280 bits on an Apple M5 Pro (a 280-bit semiprime in 98 s rather than
+407): its factor base, capped at 16384 primes, goes to 65536, the exponents
+of its relations are kept sparse beyond 16384, and its parameters from 232
+bits are new. `tifa_prove_prime()` proves that an integer is prime, with a
+certificate anyone can check; `tifa_set_time_limit()` limits the time of a
+thread's factorizations; `tifa-tune` tunes large sizes; and the Python
+package proves primes, takes a `timeout` and reads tuning files. A review
+for untrusted input fixed the certificate checker, the tuning files, the
+factoring core and the Python wheels (see
+[readme/news.md](./readme/news.md#4-november-2026--security-fixes-047)).
+The ABI only grows (`libtifa.so.0.4`).
+
 Version 0.4.6 (November 2026) brings a Python package: `pip install
 tifa-factor`, then `tifa.factor(n)` returns the prime factorization of `n`
 as `{prime: exponent}`, in 0.24 to 0.51 of the time of PARI/GP's
