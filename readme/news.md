@@ -1,5 +1,22 @@
 # TIFA news
 
+## 5 November 2026 &mdash; Python: Ctrl-C
+
+In the main thread, Ctrl-C interrupts `tifa.factor()` and
+`tifa.prime_certificate()`: they raised `KeyboardInterrupt` only once done,
+a minute later and more from 272 bits. Now, where the factorizations check their
+time limit (every 16 chunks of SIQS's sieve, after each curve of ECM, every
+256 columns of the elimination), they also call a function that
+`tifa_set_interrupt_check()` (`time_limit.h`) sets, for the calling thread;
+once it returns true, they give up as at the time limit, and
+`tifa_interrupted()` tells so. The Python package's function takes the GIL
+at most every 50 ms to run the signal handlers (`PyErr_CheckSignals()`), which
+Python runs in the main thread only: in other threads, a `timeout` bounds a
+factorization. On an Apple M5 Pro, `KeyboardInterrupt` (or the exception
+of another handler) came 7 to 67 ms after the signal, from 240 to 256 bits,
+in SIQS as in ECM. A call took at most 1% longer (64, 100 and 160 bits).
+The ABI only grows.
+
 ## 5 November 2026 &mdash; version 0.4.7
 
 Version 0.4.7 gathers the work below since 0.4.6. SIQS is 1.1 to 4.1 times

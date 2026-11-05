@@ -36,6 +36,7 @@ import math
 import numbers
 import operator
 import os
+import threading
 import time
 from typing import Any, Iterable, Literal, Optional, SupportsIndex, Union
 
@@ -99,6 +100,11 @@ def _deadline(timeout: Optional[float]) -> Optional[float]:
     return time.monotonic() + seconds
 
 
+def _interruptible() -> bool:
+    # Python runs the signal handlers in the main thread only.
+    return threading.current_thread() is threading.main_thread()
+
+
 def _left(deadline: Optional[float]) -> float:
     # What the C functions take: 0 for no limit.
     if deadline is None:
@@ -148,6 +154,11 @@ def factor(
     >>> factor(2**128 + 1, timeout=60)
     {59649589127497217: 1, 5704689200685129054721: 1}
 
+    In the main thread, Ctrl-C interrupts ``factor`` within about a
+    twentieth of a second, raising ``KeyboardInterrupt`` (or whatever a
+    signal handler raises). Python runs no signal handlers in other threads:
+    there, ``timeout`` is the way to bound ``factor``.
+
     The GIL is released while ``n`` is factored, so that threads factor in
     parallel::
 
@@ -174,7 +185,7 @@ def factor(
     deadline = _deadline(timeout)
     if n == 1:
         return {}
-    complete, pairs, late = _factor(n, code, _left(deadline))
+    complete, pairs, late = _factor(n, code, _left(deadline), _interruptible())
     factors: dict[int, int] = {}
     for p, e in sorted(pairs):
         factors[p] = factors.get(p, 0) + e
@@ -188,7 +199,9 @@ def factor(
         for p in factors:
             if p < _SMALL:
                 continue
-            status, _, late = _prime_certificate(p, _left(deadline))
+            status, _, late = _prime_certificate(
+                p, _left(deadline), _interruptible()
+            )
             if late:
                 raise FactorizationTimeout(
                     n, factors, f"could not prove that {p} is prime in {timeout} s"
@@ -242,7 +255,7 @@ def prime_certificate(
     second on average, as parts of ``p - 1`` and ``p + 1`` have to be
     factored; beyond, it can take much longer: with ``timeout``, a number of
     seconds, ``TimeoutError`` is raised if the proof is not done within that
-    time.
+    time. In the main thread, Ctrl-C interrupts it, as it does ``factor``.
 
     Raises ``TypeError`` if ``p`` is not an integer or ``timeout`` not a
     number, ``ValueError`` if ``p`` is not prime or ``timeout`` not positive,
@@ -251,7 +264,7 @@ def prime_certificate(
     """
     p = operator.index(p)
     deadline = _deadline(timeout)
-    status, steps, late = _prime_certificate(p, _left(deadline))
+    status, steps, late = _prime_certificate(p, _left(deadline), _interruptible())
     if late and status != _PROVEN:
         raise TimeoutError(f"could not prove that {p} is prime in {timeout} s")
     if status == _NOT_PRIME:

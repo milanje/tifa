@@ -31,7 +31,7 @@
 #include "macros.h"
 #include "funcs.h"
 #include "factoring_machine.h"
-#include "time_limit.h"
+#include "stopping.h"
 
 //------------------------------------------------------------------------------
 //                 PROTOTYPES OF NON PUBLIC FUNCTION(S)
@@ -192,7 +192,7 @@ ecode_t find_some_factors(factoring_machine_t* machine) {
         if (exit_code == FATAL_INTERNAL_ERROR) {
             break;
         }
-        if (tifa_time_limit_reached()) {
+        if (tifa_should_stop()) {
             break;
         }
         exit_code = machine->update_context_func(machine);
@@ -255,7 +255,7 @@ ecode_t find_some_coprime_factors(factoring_machine_t* machine) {
         if (exit_code == FATAL_INTERNAL_ERROR) {
             break;
         }
-        if (tifa_time_limit_reached()) {
+        if (tifa_should_stop()) {
             break;
         }
         exit_code = machine->update_context_func(machine);
@@ -335,7 +335,7 @@ ecode_t find_some_prime_factors(factoring_machine_t* machine) {
         if (exit_code == FATAL_INTERNAL_ERROR) {
             break;
         }
-        if (tifa_time_limit_reached()) {
+        if (tifa_should_stop()) {
             break;
         }
         exit_code = machine->update_context_func(machine);
@@ -404,7 +404,7 @@ ecode_t find_complete_factorization(factoring_machine_t* machine) {
         if (exit_code == FATAL_INTERNAL_ERROR) {
             break;
         }
-        if (tifa_time_limit_reached()) {
+        if (tifa_should_stop()) {
             break;
         }
         exit_code = machine->update_context_func(machine);

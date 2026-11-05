@@ -17,8 +17,8 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
 
-// tifa_set_time_limit: SIQS and ECM stop soon after the limit, which is the
-// calling thread's alone.
+// tifa_set_time_limit and tifa_set_interrupt_check: SIQS and ECM stop soon
+// after the limit, or the interrupt, which are the calling thread's alone.
 
 #if !defined(_POSIX_C_SOURCE)
 #define _POSIX_C_SOURCE 200112L
@@ -67,6 +67,21 @@ static void* limit_seen(void* arg) {
     return NULL;
 }
 
+static volatile bool stop_flag = false;
+
+static bool read_flag(void* arg) {
+    (*(unsigned*) arg)++;
+    return stop_flag;
+}
+
+static void* raise_flag(void* arg) {
+    (void) arg;
+    const struct timespec wait = { 0, 50 * 1000 * 1000 };
+    nanosleep(&wait, NULL);
+    stop_flag = true;
+    return NULL;
+}
+
 int main(void) {
     TIFA_TEST_BEGIN("time limit");
 
@@ -105,6 +120,32 @@ int main(void) {
 
     tifa_set_time_limit(0.0);
     CHECK(!tifa_time_limit_reached(), "the limit is removed");
+
+    // Another thread asks SIQS to stop, through a flag.
+    random_prime(p, 100, rng);
+    random_prime(q, 100, rng);
+    mpz_mul(n, p, q);
+    unsigned ncalls = 0;
+    tifa_set_interrupt_check(read_flag, &ncalls);
+    CHECK(pthread_create(&thread, NULL, raise_flag, NULL) == 0,
+          "thread started");
+    mpz_array_t* g    = alloc_mpz_array(4);
+    uint32_array_t* h = alloc_uint32_array(4);
+    const double start = now();
+    const ecode_t e = tifa_factor_with_hint(g, h, n,
+                                            FIND_COMPLETE_FACTORIZATION,
+                                            TIFA_FACTOR_BALANCED);
+    elapsed = now() - start;
+    pthread_join(thread, NULL);
+    CHECK(e != COMPLETE_FACTORIZATION_FOUND, "SIQS stops when interrupted");
+    CHECK(elapsed < 1.0, "SIQS stops soon after the interrupt");
+    CHECK(tifa_interrupted(), "interrupted");
+    CHECK(!tifa_time_limit_reached(), "not timed out");
+    CHECK(ncalls > 1, "the check is called again and again");
+    tifa_set_interrupt_check(NULL, NULL);
+    CHECK(!tifa_interrupted(), "no longer interrupted");
+    free_mpz_array(g);
+    free_uint32_array(h);
     mpz_set_str(n, "19409887069306060631113", 10);
     mpz_array_t* f    = alloc_mpz_array(4);
     uint32_array_t* m = alloc_uint32_array(4);

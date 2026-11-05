@@ -48,7 +48,7 @@
 
 #include "messages.h"
 #include "tifa_alloc.h"
-#include "time_limit.h"
+#include "stopping.h"
 
 //------------------------------------------------------------------------------
 //                   NON PUBLIC STRUCTURE(S) AND TYPEDEF(S)
@@ -745,7 +745,7 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
 
     uint32_t ncurves = 0;
 
-    while ((ncurves < params->ncurves) && !tifa_time_limit_reached()) {
+    while ((ncurves < params->ncurves) && !tifa_should_stop()) {
 
         ncurves++;
 

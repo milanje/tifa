@@ -19,7 +19,7 @@
 
 /**
  * \file    time_limit.h
- * \brief   A time limit on the factorizations of a thread.
+ * \brief   A time limit on the factorizations of a thread, and interrupts.
  */
 
 #if !defined(_TIFA_TIME_LIMIT_H_)
@@ -56,6 +56,38 @@ TIFA_API void tifa_set_time_limit(double seconds);
     * \return true if the thread has a time limit and it has passed.
     */
 TIFA_API bool tifa_time_limit_reached(void);
+
+   /**
+    * \typedef tifa_interrupt_check_t
+    * \brief A function telling a thread's factorizations whether to stop.
+    */
+typedef bool (*tifa_interrupt_check_t)(void* arg);
+
+   /**
+    * \brief Lets a function interrupt the calling thread's factorizations.
+    *
+    * The factorizations of the calling thread call <tt>check(arg)</tt> where
+    * they check their time limit (see \c tifa_set_time_limit): every few
+    * milliseconds in SIQS and ECM. Once it returns true, they give up as at
+    * the time limit, until the next call. A program can so stop them from
+    * another thread, through a flag that \c check reads, or on a signal.
+    * \c check runs in the calling thread, and should take little time. NULL
+    * removes it.
+    *
+    * \param[in] check The function, or NULL.
+    * \param[in] arg   Its argument.
+    */
+TIFA_API void tifa_set_interrupt_check(tifa_interrupt_check_t check,
+                                       void* arg);
+
+   /**
+    * \brief Returns whether the calling thread's factorizations were
+    * interrupted.
+    *
+    * \return true if the function set by \c tifa_set_interrupt_check has
+    *         returned true since.
+    */
+TIFA_API bool tifa_interrupted(void);
 
 #ifdef __cplusplus
 }

@@ -2,6 +2,7 @@ import doctest
 import math
 import os
 import random
+import signal
 import subprocess
 import sys
 import time
@@ -202,3 +203,53 @@ def test_timeout_must_be_positive(timeout):
 def test_timeout_must_be_a_number(timeout):
     with pytest.raises(TypeError):
         tifa.factor(15, timeout=timeout)
+
+
+class Alarm(Exception):
+    pass
+
+
+def test_signal_handler_interrupts():
+    def ring(signum, frame):
+        raise Alarm
+
+    rng = random.Random(241)
+    n = random_prime(120, rng) * random_prime(120, rng)
+    old = signal.signal(signal.SIGALRM, ring)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, 0.1)
+        start = time.monotonic()
+        with pytest.raises(Alarm):
+            tifa.factor(n)
+        assert time.monotonic() - start < 2
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)
+    assert tifa.factor(2**64 + 1) == {274177: 1, 67280421310721: 1}
+
+
+def test_ctrl_c_interrupts():
+    rng = random.Random(240)
+    n = random_prime(120, rng) * random_prime(120, rng)
+    code = (
+        "import tifa\n"
+        "print('ready', flush=True)\n"
+        "try:\n"
+        f"    tifa.factor({n})\n"
+        "except KeyboardInterrupt:\n"
+        "    print('interrupted', flush=True)\n"
+    )
+    child = subprocess.Popen(
+        [sys.executable, "-c", code], stdout=subprocess.PIPE, text=True
+    )
+    try:
+        assert child.stdout.readline().strip() == "ready"
+        time.sleep(0.3)
+        start = time.monotonic()
+        child.send_signal(signal.SIGINT)
+        out, _ = child.communicate(timeout=30)
+        assert time.monotonic() - start < 5
+        assert out.strip() == "interrupted"
+    finally:
+        child.kill()
+        child.wait()

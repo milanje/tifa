@@ -32,39 +32,61 @@
 #include <time.h>
 
 #include "time_limit.h"
+#include "stopping.h"
 
 typedef struct {
-    bool            active;
-    struct timespec deadline;
-} time_limit_t;
+    bool                   limited;
+    struct timespec        deadline;
+    tifa_interrupt_check_t check;
+    void*                  arg;
+    bool                   interrupted;
+} stop_state_t;
 
-static pthread_key_t  limit_key;
-static pthread_once_t limit_once = PTHREAD_ONCE_INIT;
-static bool           limit_key_ok = false;
+static pthread_key_t  state_key;
+static pthread_once_t state_once = PTHREAD_ONCE_INIT;
+static bool           state_key_ok = false;
 
-static void make_limit_key(void) {
-    limit_key_ok = (0 == pthread_key_create(&limit_key, free));
+static void make_state_key(void) {
+    state_key_ok = (0 == pthread_key_create(&state_key, free));
+}
+
+//
+// The calling thread's state, created if asked for (NULL if it can not be).
+//
+static stop_state_t* state(const bool create) {
+    pthread_once(&state_once, make_state_key);
+    if (!state_key_ok) {
+        return NULL;
+    }
+    stop_state_t* s = pthread_getspecific(state_key);
+    if ((s == NULL) && create) {
+        s = calloc(1, sizeof(stop_state_t));
+        if ((s != NULL) && (pthread_setspecific(state_key, s) != 0)) {
+            free(s);
+            s = NULL;
+        }
+    }
+    return s;
+}
+
+static bool passed(const struct timespec* const deadline) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (now.tv_sec > deadline->tv_sec)
+           || (   (now.tv_sec == deadline->tv_sec)
+               && (now.tv_nsec >= deadline->tv_nsec));
 }
 
 //------------------------------------------------------------------------------
 void tifa_set_time_limit(double seconds) {
-    pthread_once(&limit_once, make_limit_key);
-    if (!limit_key_ok) {
+    const bool limited = isfinite(seconds) && (seconds > 0.0);
+    stop_state_t* const s = state(limited);
+    if (s == NULL) {
         return;
     }
-    time_limit_t* limit = pthread_getspecific(limit_key);
-    if (!isfinite(seconds) || (seconds <= 0.0)) {
-        if (limit != NULL) {
-            limit->active = false;
-        }
+    s->limited = limited;
+    if (!limited) {
         return;
-    }
-    if (limit == NULL) {
-        limit = malloc(sizeof(time_limit_t));
-        if ((limit == NULL) || (pthread_setspecific(limit_key, limit) != 0)) {
-            free(limit);
-            return;
-        }
     }
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -73,26 +95,53 @@ void tifa_set_time_limit(double seconds) {
         seconds = 1e9;
     }
     const double whole = floor(seconds);
-    limit->deadline.tv_sec  = now.tv_sec + (time_t) whole;
-    limit->deadline.tv_nsec = now.tv_nsec + (long) ((seconds - whole) * 1e9);
-    if (limit->deadline.tv_nsec >= 1000000000L) {
-        limit->deadline.tv_sec++;
-        limit->deadline.tv_nsec -= 1000000000L;
+    s->deadline.tv_sec  = now.tv_sec + (time_t) whole;
+    s->deadline.tv_nsec = now.tv_nsec + (long) ((seconds - whole) * 1e9);
+    if (s->deadline.tv_nsec >= 1000000000L) {
+        s->deadline.tv_sec++;
+        s->deadline.tv_nsec -= 1000000000L;
     }
-    limit->active = true;
 }
 //------------------------------------------------------------------------------
 bool tifa_time_limit_reached(void) {
-    if (!limit_key_ok) {
+    if (!state_key_ok) {
         return false;
     }
-    const time_limit_t* const limit = pthread_getspecific(limit_key);
-    if ((limit == NULL) || !limit->active) {
+    const stop_state_t* const s = pthread_getspecific(state_key);
+    return (s != NULL) && s->limited && passed(&s->deadline);
+}
+//------------------------------------------------------------------------------
+void tifa_set_interrupt_check(tifa_interrupt_check_t check, void* arg) {
+    stop_state_t* const s = state(check != NULL);
+    if (s == NULL) {
+        return;
+    }
+    s->check       = check;
+    s->arg         = arg;
+    s->interrupted = false;
+}
+//------------------------------------------------------------------------------
+bool tifa_interrupted(void) {
+    if (!state_key_ok) {
         return false;
     }
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    return (now.tv_sec > limit->deadline.tv_sec)
-           || (   (now.tv_sec == limit->deadline.tv_sec)
-               && (now.tv_nsec >= limit->deadline.tv_nsec));
+    const stop_state_t* const s = pthread_getspecific(state_key);
+    return (s != NULL) && s->interrupted;
+}
+//------------------------------------------------------------------------------
+bool tifa_should_stop(void) {
+    if (!state_key_ok) {
+        return false;
+    }
+    stop_state_t* const s = pthread_getspecific(state_key);
+    if (s == NULL) {
+        return false;
+    }
+    if (s->interrupted || (s->limited && passed(&s->deadline))) {
+        return true;
+    }
+    if ((s->check != NULL) && s->check(s->arg)) {
+        s->interrupted = true;
+    }
+    return s->interrupted;
 }

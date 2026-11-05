@@ -70,8 +70,12 @@ its `factors` hold what was found, which multiply to `n`.
 approximate: the algorithms check the time now and then (SIQS every 16
 chunks of its sieve, ECM after each curve), so that a call can end a little
 after it, by a millisecond from 240 to 280 bits on an Apple M5 Pro, a few
-tens at most. Ctrl-C does not interrupt `factor`: a time limit is the way to
-bound it.
+tens at most.
+
+In the main thread, Ctrl-C interrupts `factor` and `prime_certificate`
+within about a twentieth of a second, raising `KeyboardInterrupt` (or what
+another signal handler raises). Python runs no signal handlers in other
+threads: there, a time limit is the way to bound them.
 
 ## Tuning
 

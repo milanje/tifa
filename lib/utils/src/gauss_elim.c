@@ -31,7 +31,7 @@
 #include "gauss_elim.h"
 #include "array.h"
 #include "tifa_alloc.h"
-#include "time_limit.h"
+#include "stopping.h"
 
 //-----------------------------------------------------------------------------
 // Ref. "A compact algorithm for Gaussian elimination over GF(2)
@@ -127,7 +127,7 @@ void pw_elim(uint32_array_list_t* relations, binary_matrix_t* const matrix,
     }
     bool stopped = false;
     for (uint32_t icol = ncols - 1; icol != UINT32_MAX; icol--) {
-        if (((icol & 255) == 0) && tifa_time_limit_reached()) {
+        if (((icol & 255) == 0) && tifa_should_stop()) {
             stopped = true;
             break;
         }

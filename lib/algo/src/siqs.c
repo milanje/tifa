@@ -58,7 +58,7 @@
 #include "messages.h"
 #include "print_error.h"
 #include "tifa_alloc.h"
-#include "time_limit.h"
+#include "stopping.h"
 
 //-----------------------------------------------------------------------------
 //                         NON PUBLIC DEFINE(S)
@@ -564,7 +564,7 @@ ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
 
     for (uint32_t attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         ecode = run_machine(&machine);
-        if ((ecode != GIVING_UP) || tifa_time_limit_reached()) {
+        if ((ecode != GIVING_UP) || tifa_should_stop()) {
             break;
         }
         //
@@ -1727,7 +1727,7 @@ static ecode_t collect_relations(siqs_context_t* const context) {
             if (context->max_cofactor_bits != 0) {
                 drop_hopeless_candidates(context, ncands);
             }
-            if (((++fills & 15) == 0) && tifa_time_limit_reached()) {
+            if (((++fills & 15) == 0) && tifa_should_stop()) {
                 return GIVING_UP;
             }
             //
