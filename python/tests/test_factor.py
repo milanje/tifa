@@ -151,8 +151,8 @@ def test_docstrings():
 
 def test_giving_up_raises_factorization_error(tmp_path):
     # A tuning file with which SIQS gives up (its factor base is too small).
-    (tmp_path / "siqs.tuning").write_text("0 100 1 1 1 0 0 0\n")
     n = (2**61 - 1) * (2**89 - 1)
+    (tmp_path / "siqs.tuning").write_text(f"{n.bit_length()} 100 1 1 1 0 0 0\n")
     code = (
         "import tifa\n"
         "try:\n"
