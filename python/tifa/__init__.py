@@ -43,12 +43,15 @@ from typing import Any, Iterable, Literal, Optional, SupportsIndex, Union
 from ._tifa import (
     LIBRARY_VERSION,
     _batch_gcd,
+    _cofactor,
+    _cofactor_strategy,
     _factor,
     _prime_certificate,
     _set_tuning_dir,
 )
 
 __all__ = [
+    "Cofactorizer",
     "FactorizationError",
     "FactorizationTimeout",
     "batch_gcd",
@@ -317,6 +320,139 @@ def batch_gcd(
     if late:
         raise TimeoutError(f"could not compute the gcds in {timeout} s")
     return gcds
+
+
+class Cofactorizer:
+    """Tells which integers split into primes below ``2**lpb``.
+
+    This is the cofactorization step of a sieve (the number field sieve, or
+    a quadratic sieve with large primes): of the integers left by the sieve,
+    keep those whose prime factors are all below ``2**lpb``, and factor
+    them. It stops as soon as the answer is known, much faster than
+    ``factor``, and the work that depends only on the bounds is done once,
+    here:
+
+    >>> cofactorize = Cofactorizer(31, fb_bound=2**22, max_large_primes=3)
+    >>> cofactorize(4294967311 * 4294967357)  # two primes above 2**32
+    >>> cofactorize(2147483647 * 2147483629)
+    {2147483629: 1, 2147483647: 1}
+    >>> cofactorize.many([2147483647 * 2147483629, 4294967311 * 4294967357])
+    [{2147483629: 1, 2147483647: 1}, None]
+
+    A call returns ``{prime: exponent}``, the primes in increasing order, if
+    every prime factor is below ``2**lpb`` and, with ``max_large_primes``,
+    there are at most that many of them from ``fb_bound`` on (counted with
+    their exponents); ``None`` otherwise. ``many`` answers for a whole list
+    at once, without the per-call cost of Python (about a microsecond, when
+    the C function takes 1 to 100 microseconds on the integers a sieve
+    leaves).
+
+    ``fb_bound`` says that the integers have no prime factor below it (the
+    factor base bound of the sieve); below 1000 (0 if nothing is known), the
+    primes below 1000 are divided out first. A wrong bound gives wrong
+    answers.
+
+    With ``max_siqs_bits``, a composite of more bits than that is never
+    factored by SIQS: once ECM has searched it as long as SIQS would take,
+    without finding a factor, it is given up, and the answer is ``None``
+    even if it splits into small enough primes. With three large primes and
+    ``max_siqs_bits = 2 * lpb``, this takes 60% to 65% of the time of exact
+    answers and misses 0.25% to 0.30% of the smooth integers. 0, the
+    default, gives exact answers.
+
+    Calls release the GIL, and threads may share a ``Cofactorizer``. In the
+    main thread, Ctrl-C interrupts them, as it does ``factor``.
+
+    Raises ``TypeError`` if a bound is not an integer, and ``ValueError`` if
+    ``lpb`` is not in [1, 63] or another bound is negative or too large.
+    """
+
+    __slots__ = ("_strategy", "_bounds")
+
+    def __init__(
+        self,
+        lpb: SupportsIndex,
+        *,
+        fb_bound: SupportsIndex = 0,
+        max_large_primes: SupportsIndex = 0,
+        max_siqs_bits: SupportsIndex = 0,
+    ) -> None:
+        bounds = (
+            operator.index(lpb),
+            operator.index(fb_bound),
+            operator.index(max_large_primes),
+            operator.index(max_siqs_bits),
+        )
+        if not 1 <= bounds[0] <= 63:
+            raise ValueError(f"lpb must be in [1, 63], not {bounds[0]}")
+        if not 0 <= bounds[1] < 1 << 64:
+            raise ValueError(f"fb_bound must be in [0, 2**64), not {bounds[1]}")
+        for name, value in zip(("max_large_primes", "max_siqs_bits"), bounds[2:]):
+            if not 0 <= value < 1 << 32:
+                raise ValueError(f"{name} must be in [0, 2**32), not {value}")
+        self._bounds = bounds
+        self._strategy = _cofactor_strategy(*bounds)
+
+    @property
+    def lpb(self) -> int:
+        return self._bounds[0]
+
+    @property
+    def fb_bound(self) -> int:
+        return self._bounds[1]
+
+    @property
+    def max_large_primes(self) -> int:
+        return self._bounds[2]
+
+    @property
+    def max_siqs_bits(self) -> int:
+        return self._bounds[3]
+
+    def __reduce__(self) -> tuple[Any, tuple[int, int, int, int]]:
+        return (_cofactorizer, self._bounds)
+
+    def __repr__(self) -> str:
+        lpb, fb_bound, max_large_primes, max_siqs_bits = self._bounds
+        return (
+            f"Cofactorizer({lpb}, fb_bound={fb_bound}, "
+            f"max_large_primes={max_large_primes}, max_siqs_bits={max_siqs_bits})"
+        )
+
+    def __call__(self, n: SupportsIndex) -> Optional[dict[int, int]]:
+        """Return the factorization of ``n`` if it is smooth, else ``None``.
+
+        Raises ``TypeError`` if ``n`` is not an integer, ``ValueError`` if it
+        is not positive.
+        """
+        n = operator.index(n)
+        if n < 1:
+            raise ValueError(f"n must be positive, not {n}")
+        return _cofactor(self._strategy, [n], _interruptible())[0]
+
+    def many(self, ns: Iterable[SupportsIndex]) -> list[Optional[dict[int, int]]]:
+        """Return what calls on each of ``ns`` would, in a list.
+
+        Raises ``TypeError`` if some integer is not one, ``ValueError`` if
+        some is not positive.
+        """
+        values = [operator.index(n) for n in ns]
+        for n in values:
+            if n < 1:
+                raise ValueError(f"ns must be positive, not {n}")
+        return _cofactor(self._strategy, values, _interruptible())
+
+
+def _cofactorizer(
+    lpb: int, fb_bound: int, max_large_primes: int, max_siqs_bits: int
+) -> Cofactorizer:
+    # For pickle (multiprocessing): the strategy is rebuilt from the bounds.
+    return Cofactorizer(
+        lpb,
+        fb_bound=fb_bound,
+        max_large_primes=max_large_primes,
+        max_siqs_bits=max_siqs_bits,
+    )
 
 
 def check_certificate(p: SupportsIndex, certificate: Iterable[Any]) -> bool:

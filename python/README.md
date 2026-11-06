@@ -160,6 +160,34 @@ Product and remainder trees (Heninger et al., "Mining Your Ps and Qs",
 2012) take 30 s for 100,000 moduli of 2048 bits on an Apple M5 Pro, and
 0.8 GB; `timeout` and Ctrl-C work as for `factor`.
 
+## Cofactorization
+
+The cofactorization step of a sieve (the number field sieve, or a
+quadratic sieve with large primes) asks which of the integers it leaves
+split into primes below a bound, 2^lpb. A `Cofactorizer` answers, much
+faster than `factor`, as it stops as soon as the answer is known:
+
+```python
+>>> cofactorize = tifa.Cofactorizer(31, fb_bound=2**22, max_large_primes=3)
+>>> cofactorize(2147483647 * 2147483629)
+{2147483629: 1, 2147483647: 1}
+>>> print(cofactorize(4294967311 * 4294967357))  # primes above 2^31
+None
+```
+
+`cofactorize.many(numbers)` returns the answers for a whole list, without
+the cost of a Python call for each. `fb_bound` says that the integers have
+no prime factor below it (the factor base bound); `max_large_primes` limits
+the number of prime factors from `fb_bound` on; with `max_siqs_bits`, a
+composite of more bits than that is given up (`None`) once ECM has searched
+it as long as SIQS would take, which saves 35% to 40% of the time and
+misses 0.25% to 0.30% of the smooth integers with three large primes and
+`max_siqs_bits = 2 * lpb`. Calls release the GIL, and threads may share a
+`Cofactorizer`; it pickles, for processes. On an Apple M5 Pro, on integers
+of 33 to 64 bits without prime factors below 2^23 (lpb 32, two large
+primes), `many` takes 1.53 us per integer, 3% more than the C function, and
+calls one by one 1.92 us.
+
 ## Installing
 
 From PyPI:

@@ -294,7 +294,9 @@ The `tifa` package gives Python 3.10 and later `tifa_factor()`:
 On balanced semiprimes it takes 0.24 to 0.51 of the time of PARI/GP's
 `factorint` from 100 to 220 bits. `factor(n, proof=True)` also proves the
 primes, and `prime_certificate(p)` returns a proof that
-`check_certificate(p, cert)` checks in plain Python. `factor(n, timeout=60)`
+`check_certificate(p, cert)` checks in plain Python; `batch_gcd(moduli)` is
+`tifa_batch_gcd()`, and `Cofactorizer(lpb, ...)` gives `tifa_cofactor()`,
+for one integer or a whole list at a time. `factor(n, timeout=60)`
 gives up after about a minute (`tifa.FactorizationTimeout`, a
 `TimeoutError`), and Ctrl-C interrupts it. The package installs
 `tifa-tune` as well, and `set_tuning_dir(path)` takes the parameters from
@@ -362,6 +364,10 @@ if (tifa_cofactor(factors, multis, n, strategy) == COFACTOR_SMOOTH) {
 }
 free_cofactor_strategy(strategy);
 ```
+
+In Python, `tifa.Cofactorizer(31, fb_bound=2**22, max_large_primes=3,
+max_siqs_bits=62)` holds the strategy, and its `many(numbers)` answers for a
+list at 3% more than the time of the C function on 64-bit integers.
 
 Above `max_siqs_bits`, a composite that ECM does not split within the time SIQS
 would take is given up (`COFACTOR_GAVE_UP`). With three large primes and

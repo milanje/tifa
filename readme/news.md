@@ -1,5 +1,17 @@
 # TIFA news
 
+## 6 November 2026 &mdash; Cofactorization in Python
+
+`tifa.Cofactorizer` gives the Python package `tifa_cofactor()`, the
+cofactorization of sieves: built once from the bounds (`lpb`, `fb_bound`,
+`max_large_primes`, `max_siqs_bits`), it answers `{prime: exponent}` for an
+integer whose prime factors are all below 2^lpb, `None` otherwise, for one
+integer or, with `many`, a list at once, in C with the GIL released. On an
+Apple M5 Pro, on 3000 integers of 33 to 64 bits without prime factors below
+2^23 (lpb 32, two large primes), the C function takes 1.48 us per integer,
+`many` 1.53 us and calls one by one 1.92 us. Integers that fit in a long now
+cross between Python and C without a hexadecimal string.
+
 ## 6 November 2026 &mdash; Small sizes as fast as in 0.4.6
 
 0.4.7 took 1% to 2% more time than 0.4.6 in `tifa_factor()` at 80 bits and

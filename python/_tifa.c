@@ -19,8 +19,9 @@
 //
 
 //
-// tifa._tifa: tifa_factor_with_hint, tifa_prove_prime, tifa_tuning_set_dir,
-// tifa_set_time_limit and tifa_set_interrupt_check for Python. The argument
+// tifa._tifa: tifa_factor_with_hint, tifa_prove_prime, tifa_batch_gcd,
+// tifa_cofactor, tifa_tuning_set_dir, tifa_set_time_limit and
+// tifa_set_interrupt_check for Python. The argument
 // checks and the shape of the results are left to tifa/__init__.py.
 //
 #if !defined(Py_LIMITED_API)
@@ -29,6 +30,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
+#include <limits.h>
 #include <string.h>
 #include <time.h>
 
@@ -37,6 +39,7 @@
 #include "tifa_config.h"
 #include "array.h"
 #include "batch_gcd.h"
+#include "cofactor.h"
 #include "exit_codes.h"
 #include "factoring_machine.h"
 #include "prime_cert.h"
@@ -71,10 +74,20 @@ static bool check_signals(void* const arg) {
 }
 
 //
-// Integers cross the boundary as hexadecimal strings: a few hundred
-// nanoseconds, against microseconds for the smallest factorization.
+// Integers cross the boundary as hexadecimal strings, a few hundred
+// nanoseconds, unless they fit in a long: a cofactorization can take a
+// microsecond.
 //
 static int mpz_from_pylong(mpz_t z, PyObject* const n) {
+    int overflow;
+    const long long value = PyLong_AsLongLongAndOverflow(n, &overflow);
+    if ((value == -1) && PyErr_Occurred()) {
+        return -1;
+    }
+    if ((overflow == 0) && (value >= LONG_MIN) && (value <= LONG_MAX)) {
+        mpz_set_si(z, (long) value);
+        return 0;
+    }
     PyObject* const hex = PyNumber_ToBase(n, 16);
     if (hex == NULL) {
         return -1;
@@ -89,6 +102,9 @@ static int mpz_from_pylong(mpz_t z, PyObject* const n) {
 }
 
 static PyObject* pylong_from_mpz(const mpz_t z) {
+    if (mpz_fits_slong_p(z)) {
+        return PyLong_FromLong(mpz_get_si(z));
+    }
     char* const digits = PyMem_Malloc(mpz_sizeinbase(z, 16) + 2);
     if (digits == NULL) {
         return PyErr_NoMemory();
@@ -97,6 +113,34 @@ static PyObject* pylong_from_mpz(const mpz_t z) {
     PyObject* const n = PyLong_FromString(digits, NULL, 16);
     PyMem_Free(digits);
     return n;
+}
+
+//
+// The ints of a list, all positive (what = "moduli": "moduli must be ...").
+//
+static mpz_array_t* positive_ints(PyObject* const list,
+                                  const char* const what) {
+    const Py_ssize_t count = PyList_Size(list);
+    if (count > (Py_ssize_t) UINT32_MAX - ELONGATION) {
+        PyErr_Format(PyExc_OverflowError, "too many %s", what);
+        return NULL;
+    }
+    mpz_array_t* const ints = alloc_mpz_array((uint32_t) count);
+    for (Py_ssize_t i = 0; i < count; i++) {
+        PyObject* const n = PyList_GetItem(list, i);
+        if (   !PyLong_Check(n)
+            || (mpz_from_pylong(ints->data[i], n) != 0)
+            || (mpz_sgn(ints->data[i]) <= 0)) {
+            if (!PyErr_Occurred()) {
+                PyErr_Format(PyExc_ValueError, "%s must be positive ints",
+                             what);
+            }
+            free_mpz_array(ints);
+            return NULL;
+        }
+        ints->length++;
+    }
+    return ints;
 }
 
 static PyObject* pairs_from_arrays(const mpz_array_t* const factors,
@@ -327,27 +371,11 @@ static PyObject* batch_gcd(PyObject* const self, PyObject* const args) {
                           &timeout, &interruptible)) {
         return NULL;
     }
-    const Py_ssize_t count = PyList_Size(list);
-    if (count > (Py_ssize_t) UINT32_MAX - ELONGATION) {
-        PyErr_SetString(PyExc_OverflowError, "too many moduli");
+    mpz_array_t* const moduli = positive_ints(list, "moduli");
+    if (moduli == NULL) {
         return NULL;
     }
-    mpz_array_t* const moduli = alloc_mpz_array((uint32_t) count);
-    for (Py_ssize_t i = 0; i < count; i++) {
-        PyObject* const n = PyList_GetItem(list, i);
-        if (   !PyLong_Check(n)
-            || (mpz_from_pylong(moduli->data[i], n) != 0)
-            || (mpz_sgn(moduli->data[i]) <= 0)) {
-            if (!PyErr_Occurred()) {
-                PyErr_SetString(PyExc_ValueError,
-                                "moduli must be positive ints");
-            }
-            free_mpz_array(moduli);
-            return NULL;
-        }
-        moduli->length++;
-    }
-    mpz_array_t* const gcds = alloc_mpz_array((uint32_t) count);
+    mpz_array_t* const gcds = alloc_mpz_array(moduli->length);
     ecode_t ecode;
     bool timed_out;
     bool interrupted;
@@ -389,6 +417,198 @@ static PyObject* batch_gcd(PyObject* const self, PyObject* const args) {
                                             timed_out ? Py_True : Py_False);
 }
 
+#define STRATEGY_NAME "tifa._tifa.cofactor_strategy"
+
+static void free_strategy(PyObject* const capsule) {
+    free_cofactor_strategy(PyCapsule_GetPointer(capsule, STRATEGY_NAME));
+}
+
+PyDoc_STRVAR(cofactor_strategy_doc,
+"_cofactor_strategy(lpb, fb_bound, max_large_primes, max_siqs_bits, /)\n--\n\n"
+"alloc_cofactor_strategy for these bounds (unchecked but lpb), in a capsule.");
+
+static PyObject* cofactor_strategy(PyObject* const self, PyObject* const args) {
+    (void) self;
+    cofactor_params_t params;
+    unsigned long long fb_bound;
+    if (!PyArg_ParseTuple(args, "IKII:_cofactor_strategy", &params.lpb,
+                          &fb_bound, &params.max_large_primes,
+                          &params.max_siqs_bits)) {
+        return NULL;
+    }
+    params.fb_bound = (uint64_t) fb_bound;
+    cofactor_strategy_t* strategy;
+    Py_BEGIN_ALLOW_THREADS
+    strategy = alloc_cofactor_strategy(&params);
+    Py_END_ALLOW_THREADS
+    if (strategy == NULL) {
+        PyErr_SetString(PyExc_ValueError, "lpb must be in [1, 63]");
+        return NULL;
+    }
+    PyObject* const capsule = PyCapsule_New(strategy, STRATEGY_NAME,
+                                            free_strategy);
+    if (capsule == NULL) {
+        free_cofactor_strategy(strategy);
+    }
+    return capsule;
+}
+
+//
+// The primes of all the smooth numbers of a call, appended in turn: their
+// number per smooth number is kept apart.
+//
+typedef struct {
+    mpz_array_t*    primes;
+    uint32_array_t* exponents;
+} found_t;
+
+static void keep_found(found_t* const found, const mpz_array_t* const primes,
+                       const uint32_array_t* const exponents) {
+    const uint32_t needed = found->primes->length + primes->length;
+    if (needed > found->primes->alloced) {
+        const uint32_t alloced = (needed > UINT32_MAX / 2) ? needed
+                                                           : 2 * needed;
+        resize_mpz_array(found->primes, alloced);
+        resize_uint32_array(found->exponents, alloced);
+    }
+    for (uint32_t k = 0; k < primes->length; k++) {
+        mpz_set(found->primes->data[found->primes->length++],
+                primes->data[k]);
+        found->exponents->data[found->exponents->length++] =
+            exponents->data[k];
+    }
+}
+
+//
+// {prime: exponent} of the count primes from first, in increasing order.
+//
+static PyObject* factor_dict(const found_t* const found, const uint32_t first,
+                             const uint32_t count) {
+    uint32_t order[64];
+    uint32_t* const index = (count <= 64)
+                          ? order : PyMem_Malloc(count * sizeof(uint32_t));
+    if (index == NULL) {
+        return PyErr_NoMemory();
+    }
+    for (uint32_t k = 0; k < count; k++) {
+        uint32_t j = k;
+        while (   (j > 0)
+               && (mpz_cmp(found->primes->data[first + index[j - 1]],
+                           found->primes->data[first + k]) > 0)) {
+            index[j] = index[j - 1];
+            j--;
+        }
+        index[j] = k;
+    }
+    PyObject* dict = PyDict_New();
+    for (uint32_t k = 0; (dict != NULL) && (k < count); k++) {
+        PyObject* const p = pylong_from_mpz(
+                                found->primes->data[first + index[k]]
+                            );
+        PyObject* const e = (p == NULL)
+                          ? NULL
+                          : PyLong_FromUnsignedLong(
+                                found->exponents->data[first + index[k]]
+                            );
+        if ((e == NULL) || (PyDict_SetItem(dict, p, e) != 0)) {
+            Py_CLEAR(dict);
+        }
+        Py_XDECREF(p);
+        Py_XDECREF(e);
+    }
+    if (index != order) {
+        PyMem_Free(index);
+    }
+    return dict;
+}
+
+PyDoc_STRVAR(cofactor_doc,
+"_cofactor(strategy, ns, interruptible, /)\n--\n\n"
+"tifa_cofactor on each int of the list ns, all positive, with the strategy\n"
+"of _cofactor_strategy, stopping for the exception of a signal handler if\n"
+"interruptible. Return a list of {prime: exponent} (primes in increasing\n"
+"order) for the smooth ints, None for the others.");
+
+static PyObject* cofactor(PyObject* const self, PyObject* const args) {
+    (void) self;
+    PyObject* capsule;
+    PyObject* list;
+    int interruptible;
+    if (!PyArg_ParseTuple(args, "OO!p:_cofactor", &capsule, &PyList_Type,
+                          &list, &interruptible)) {
+        return NULL;
+    }
+    const cofactor_strategy_t* const strategy =
+        PyCapsule_GetPointer(capsule, STRATEGY_NAME);
+    if (strategy == NULL) {
+        return NULL;
+    }
+    mpz_array_t* const ns = positive_ints(list, "ns");
+    if (ns == NULL) {
+        return NULL;
+    }
+    const uint32_t count = ns->length;
+    //
+    // Number of primes of each n, or UINT32_MAX if it is not smooth.
+    //
+    uint32_t* const nprimes = PyMem_Malloc((count + 1) * sizeof(uint32_t));
+    if (nprimes == NULL) {
+        free_mpz_array(ns);
+        return PyErr_NoMemory();
+    }
+    found_t found;
+    found.primes    = alloc_mpz_array(ELONGATION);
+    found.exponents = alloc_uint32_array(ELONGATION);
+    mpz_array_t*    const primes    = alloc_mpz_array(ELONGATION);
+    uint32_array_t* const exponents = alloc_uint32_array(ELONGATION);
+    bool interrupted = false;
+    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
+
+    Py_BEGIN_ALLOW_THREADS
+    if (interruptible) {
+        tifa_set_interrupt_check(check_signals, &next_poll);
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        nprimes[i] = UINT32_MAX;
+        if (tifa_cofactor(primes, exponents, ns->data[i], strategy)
+                == COFACTOR_SMOOTH) {
+            keep_found(&found, primes, exponents);
+            nprimes[i] = primes->length;
+        }
+        if (   tifa_interrupted()
+            || (interruptible && check_signals(&next_poll))) {
+            interrupted = true;
+            break;
+        }
+    }
+    tifa_set_interrupt_check(NULL, NULL);
+    Py_END_ALLOW_THREADS
+
+    free_mpz_array(primes);
+    free_uint32_array(exponents);
+    free_mpz_array(ns);
+
+    PyObject* result = interrupted ? NULL : PyList_New(count);
+    uint32_t first = 0;
+    for (uint32_t i = 0; (result != NULL) && (i < count); i++) {
+        PyObject* item;
+        if (nprimes[i] == UINT32_MAX) {
+            item = Py_None;
+            Py_INCREF(item);
+        } else {
+            item = factor_dict(&found, first, nprimes[i]);
+            first += nprimes[i];
+        }
+        if ((item == NULL) || (PyList_SetItem(result, i, item) != 0)) {
+            Py_CLEAR(result);
+        }
+    }
+    PyMem_Free(nprimes);
+    free_mpz_array(found.primes);
+    free_uint32_array(found.exponents);
+    return result;
+}
+
 PyDoc_STRVAR(set_tuning_dir_doc,
 "_set_tuning_dir(path, /)\n--\n\n"
 "tifa_tuning_set_dir(path), path being bytes without NUL, or None.");
@@ -418,6 +638,9 @@ static PyMethodDef methods[] = {
      prime_certificate_doc},
     {"_set_tuning_dir", set_tuning_dir, METH_O, set_tuning_dir_doc},
     {"_batch_gcd", batch_gcd, METH_VARARGS, batch_gcd_doc},
+    {"_cofactor_strategy", cofactor_strategy, METH_VARARGS,
+     cofactor_strategy_doc},
+    {"_cofactor", cofactor, METH_VARARGS, cofactor_doc},
     {NULL, NULL, 0, NULL}
 };
 
