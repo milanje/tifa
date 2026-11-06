@@ -25,6 +25,20 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 <br clear="left">
 
+## Contents
+
+- [What's new](#whats-new)
+- [What's in there](#whats-in-there)
+- [Building](#building)
+- [Python](#python)
+  - [Wheels for PyPI](#wheels-for-pypi)
+- [Cofactorization](#cofactorization)
+- [Parameter tuning](#parameter-tuning)
+  - [Generating tuning files](#generating-tuning-files)
+  - [Baking tuned values into the library](#baking-tuned-values-into-the-library)
+- [Measuring performance](#measuring-performance)
+- [Licence](#licence)
+
 ## What's new
 
 Version 0.4.7 (November 2026) makes SIQS 1.1 to 4.1 times as fast from 232
