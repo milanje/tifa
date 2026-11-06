@@ -27,7 +27,7 @@ test = ["pytest"]
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 cmake.version = ">=3.26"
-build.targets = ["_tifa", "tifa_tune"]
+build.targets = ["_tifa", "tifa_tune", "tifa_factor", "batch_gcd"]
 install.components = ["python"]
 wheel.packages = ["python/tifa"]
 wheel.py-api = "cp310"

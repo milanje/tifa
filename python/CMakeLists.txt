@@ -18,6 +18,6 @@ endif()
 
 install(TARGETS _tifa LIBRARY DESTINATION tifa COMPONENT python)
 if(DEFINED SKBUILD_SCRIPTS_DIR)
-    install(TARGETS tifa_tune RUNTIME DESTINATION "${SKBUILD_SCRIPTS_DIR}"
-            COMPONENT python)
+    install(TARGETS tifa_tune tifa_factor batch_gcd
+            RUNTIME DESTINATION "${SKBUILD_SCRIPTS_DIR}" COMPONENT python)
 endif()

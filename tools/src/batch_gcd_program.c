@@ -55,7 +55,8 @@ static void print_usage(const char* const name) {
         "--hex: the integers are hexadecimal (with or without 0x), and so\n"
         "       are the gcds printed.\n"
         "--all: prints the gcd of every integer instead, one per line, in\n"
-        "       order (1 for those sharing no prime).\n\n"
+        "       order (1 for those sharing no prime).\n"
+        "--version: prints the version.\n\n"
         "Exit status: %d some integers share primes, %d none do, "
         "%d invalid input.\n\n",
         TIFA_EXIT_COMPLETE, TIFA_EXIT_NO_FACTOR, TIFA_EXIT_USAGE);
@@ -151,6 +152,9 @@ int main(int argc, char** argv) {
         } else if (   (0 == strcmp(argv[i], "--help"))
                    || (0 == strcmp(argv[i], "-h"))) {
             print_usage(argv[0]);
+            return TIFA_EXIT_COMPLETE;
+        } else if (0 == strcmp(argv[i], "--version")) {
+            printf("tifa-batch-gcd (TIFA) %s\n", TIFA_VERSION);
             return TIFA_EXIT_COMPLETE;
         } else if ((argv[i][0] == '-') && (argv[i][1] != '\0')) {
             fprintf(stderr, "Unknown option: %s\n\n", argv[i]);

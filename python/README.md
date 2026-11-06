@@ -188,6 +188,25 @@ of 33 to 64 bits without prime factors below 2^23 (lpb 32, two large
 primes), `many` takes 1.53 us per integer, 3% more than the C function, and
 calls one by one 1.92 us.
 
+## Command line
+
+`python -m tifa` prints the prime factors of the integers of its command
+line, or else of its standard input, as GNU `factor` does:
+
+```console
+$ python -m tifa 360 0x10001
+360: 2 2 2 3 3 5
+65537: 65537
+$ python -m tifa --exponents 360
+360: 2^3 3^2 5
+```
+
+`--proof`, `--hint` and `--timeout` are those of `factor`; an integer that
+is invalid or not factored is reported on the standard error, and makes the
+exit status 1. The package also installs the programs of the C library
+`tifa-factor`, `tifa-batch-gcd` (see [Shared primes](#shared-primes)) and
+`tifa-tune` (see [Tuning](#tuning)).
+
 ## Installing
 
 From PyPI:

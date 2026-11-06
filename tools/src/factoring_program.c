@@ -115,6 +115,13 @@ int run_program(factoring_program_t* const program) {
         mpz_init(program->n);   // the caller clears it
         return TIFA_EXIT_COMPLETE;
     }
+    if ((program->argc == 2) && (0 == strcmp(program->argv[1], "--version"))) {
+        const char* const slash = strrchr(program->argv[0], '/');
+        printf("%s (TIFA) %s\n",
+               (slash != NULL) ? slash + 1 : program->argv[0], TIFA_VERSION);
+        mpz_init(program->n);
+        return TIFA_EXIT_COMPLETE;
+    }
     //
     // Reads arguments given on the command line (if any) and initializes
     // all the needed parameters.

@@ -407,13 +407,13 @@
 
       prompt> tifa-factor --prove 340282366920938463463374607431768211457
 
-  The other programs run one algorithm each: tifa-cfrac, tifa-ecm,
-  tifa-fermat, tifa-siqs, tifa-squfof, tifa-rho, tifa-tdiv, tifa-p-minus-1
-  and tifa-p-plus-1 (the Continued FRACtion, Elliptic Curve Method,
-  McKee-Fermat, Self-Initializing Quadratic Sieve, SQUare FOrm Factorization,
-  Pollard's rho, trial division, Pollard's p-1 and Williams' p+1
-  algorithms). Given only the number, they use the algorithm's default
-  parameters:
+  Every program prints its version with --version. The other programs run
+  one algorithm each: tifa-cfrac, tifa-ecm, tifa-fermat, tifa-siqs,
+  tifa-squfof, tifa-rho, tifa-tdiv, tifa-p-minus-1 and tifa-p-plus-1 (the
+  Continued FRACtion, Elliptic Curve Method, McKee-Fermat, Self-Initializing
+  Quadratic Sieve, SQUare FOrm Factorization, Pollard's rho, trial division,
+  Pollard's p-1 and Williams' p+1 algorithms). Given only the number, they
+  use the algorithm's default parameters:
 
       prompt> tifa-siqs 23283795980376989165117
 

@@ -18,6 +18,8 @@ say otherwise.
   the integers (RSA moduli) sharing a prime with another.
 - Python: `tifa.Cofactorizer`, `tifa_cofactor()` for one integer or a list.
 - `tifa_factor()` 1% to 2% faster at 70 and 80 bits (0.4.6's speed back).
+- `python -m tifa`, as GNU `factor`; the wheels install `tifa-factor` and
+  `tifa-batch-gcd`; `--version` for every program.
 
 [Release notes](./releases/unreleased.md)
 

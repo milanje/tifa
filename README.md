@@ -172,7 +172,8 @@ The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 use the algorithm's default parameters (`-h` or `--help` lists the others,
 which come before the number). All the factorization programs exit with
 status 0 for a complete factorization (or a prime, or 1), 1 for a partial one,
-2 if no factor was found, and 3 for invalid input.
+2 if no factor was found, and 3 for invalid input. Every program prints its
+version with `--version`.
 
 `tifa-batch-gcd` reads positive integers (RSA moduli, say) from files, or
 from its standard input, and prints the position (from 1) and the gcd of
@@ -232,9 +233,11 @@ primes, and `prime_certificate(p)` returns a proof that
 `tifa_batch_gcd()`, and `Cofactorizer(lpb, ...)` gives `tifa_cofactor()`,
 for one integer or a whole list at a time. `factor(n, timeout=60)`
 gives up after about a minute (`tifa.FactorizationTimeout`, a
-`TimeoutError`), and Ctrl-C interrupts it. The package installs
-`tifa-tune` as well, and `set_tuning_dir(path)` takes the parameters from
-the files it writes (see [Parameter tuning](#parameter-tuning)).
+`TimeoutError`), and Ctrl-C interrupts it. `python -m tifa 360 97`
+factors from the command line, as GNU `factor` does. The package installs
+the `tifa-factor`, `tifa-batch-gcd` and `tifa-tune` programs as well, and
+`set_tuning_dir(path)` takes the parameters from the files `tifa-tune`
+writes (see [Parameter tuning](#parameter-tuning)).
 
 From version 0.4.6 on, `pip install tifa-factor` installs it from PyPI, with
 wheels for Linux and macOS. From this tree, at its top:

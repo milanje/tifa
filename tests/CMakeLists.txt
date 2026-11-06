@@ -145,4 +145,12 @@ tifa_add_exit_test(exit_batch_gcd_bad     3 batch_gcd "${_fixtures}/batch_gcd_ba
 tifa_add_exit_test(exit_batch_gcd_missing 3 batch_gcd "${_fixtures}/no_such_file")
 tifa_add_exit_test(exit_batch_gcd_option  3 batch_gcd --decimal)
 tifa_add_exit_test(exit_batch_gcd_help    0 batch_gcd --help)
+
+# --version: "<program> (TIFA) <version>".
+foreach(_prog tifa_factor siqs batch_gcd tifa_tune)
+    add_test(NAME version_${_prog} COMMAND ${_prog} --version)
+    set_tests_properties(version_${_prog} PROPERTIES
+        TIMEOUT 60
+        PASS_REGULAR_EXPRESSION "^tifa-[a-z-]+ \\(TIFA\\) ${PROJECT_VERSION}\n$")
+endforeach()
 tifa_add_exit_test(exit_help_h    0 siqs -h)

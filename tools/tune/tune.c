@@ -388,6 +388,7 @@ static void usage(FILE* out, const char* prog) {
         "  --emit-h <file>     Header path to write alongside --emit-c\n"
         "  --in <dir>          Directory of tuning files to bake (default: --out)\n"
         "  --help              Print this message\n"
+        "  --version           Print the version\n"
         "\n"
         "The requested [min,max] range is intersected with each algorithm's own\n"
         "supported range. Composites are products of similar-size primes; the\n"
@@ -1250,6 +1251,9 @@ int main(int argc, char** argv) {
 
         if (strcmp(a, "--help") == 0) {
             usage(stdout, argv[0]);
+            return 0;
+        } else if (strcmp(a, "--version") == 0) {
+            printf("tifa-tune (TIFA) %s\n", TIFA_VERSION);
             return 0;
         } else if (strcmp(a, "--quick") == 0) {
             // A deliberately coarse, fast preset for a first pass. Widen the

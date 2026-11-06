@@ -55,6 +55,7 @@ bool is_a_number(const char* const str_n, uint32_t length) {
 }
 //------------------------------------------------------------------------------
 void print_exit_statuses(void) {
+    fprintf(stderr, "-h or --help prints this message, --version the version.\n");
     fprintf(stderr, "Exit status: %d complete factorization (or a prime, or 1), "
                     "%d partial,\n             %d no factor found, "
                     "%d invalid input.\n\n",

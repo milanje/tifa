@@ -3,6 +3,18 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 6 November 2026 &mdash; python -m tifa, the programs in the wheels, --version
+
+`python -m tifa` factors the integers of its command line, or else of its
+standard input, and prints them as GNU `factor` does (`360: 2 2 2 3 3 5`,
+or `360: 2^3 3^2 5` with `--exponents`), with the `--proof`, `--hint` and
+`--timeout` of `tifa.factor()`; an invalid integer, or one not factored,
+goes to the standard error and makes the exit status 1. The wheels install
+`tifa-factor` and `tifa-batch-gcd` beside `tifa-tune`, so that
+`pip install tifa-factor` gives a `tifa-factor` command. Every program
+prints its version with `--version` (`tifa-factor (TIFA) 0.4.7`). On
+GitHub, a push to a branch cancels the CI run of the one before.
+
 ## 6 November 2026 &mdash; ECM above 512 bits
 
 Above 512 bits, where the Montgomery ECM stops (eight limbs), `tifa_factor()`
