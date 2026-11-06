@@ -97,8 +97,8 @@
  *
  * Apart from this Doxygen documentation, see the \c README.md file at the top
  * of the source tree, and, in the \c readme directory, \c readme.txt (building,
- * installing, source layout) and \c news.md (the 2026 rework and its
- * measurements).
+ * installing, source layout), \c news.md (the releases) and \c releases/
+ * (the notes of each, with the measurements of the 2026 rework).
  *
  */
 

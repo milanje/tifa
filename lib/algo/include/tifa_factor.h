@@ -128,10 +128,10 @@ typedef enum tifa_factor_hint_enum tifa_factor_hint_t;
     *
     * Same as \c tifa_factor, with the methods tried before SIQS chosen
     * according to <tt>hint</tt>. On numbers of the shape it names, a hint
-    * saves time; on others, it can cost much more (readme/news.md). The
-    * hint carries over to what is left of n after trial division, and to
-    * the root of a perfect power, but the parts of n split by the other
-    * methods are factored as by \c tifa_factor.
+    * saves time; on others, it can cost much more
+    * (readme/releases/0.4.1.md). The hint carries over to what is left of n
+    * after trial division, and to the root of a perfect power, but the parts
+    * of n split by the other methods are factored as by \c tifa_factor.
     *
     * \param[out] factors Pointer to the found factors of <tt>n</tt>.
     * \param[out] multis Pointer to the multiplicities of the found factors

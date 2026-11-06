@@ -37,7 +37,7 @@ thread's factorizations; `tifa-tune` tunes large sizes; and the Python
 package proves primes, takes a `timeout` and reads tuning files. A review
 for untrusted input fixed the certificate checker, the tuning files, the
 factoring core and the Python wheels (see
-[readme/news.md](./readme/news.md#4-november-2026--security-fixes-047)).
+[readme/releases/0.4.7.md](./readme/releases/0.4.7.md#4-november-2026--security-fixes)).
 The ABI only grows (`libtifa.so.0.4`).
 
 Version 0.4.6 (November 2026) brings a Python package: `pip install
@@ -49,109 +49,10 @@ SIQS takes sixteen primes at a time: `siqs()` takes 0.84 to 0.87 of the
 time of 0.4.5 at 220 bits (EPYC 9V45 and 9V74, Xeon 6975P-C). The ABI is
 unchanged (`libtifa.so.0.4`).
 
-Version 0.4.5 (November 2026) makes SIQS 0.94 to 0.98 of the time of 0.4.4
-from 140 to 220 bits on an Apple M5 Pro, and 0.96 to 0.99 on x86-64 (EPYC
-7763 and 9V74, Xeon 8370C): the candidate pre-check finds the small primes
-of each candidate with doubles and a mask, rather than 128-bit reductions,
-random branches and GMP calls, and a new linear-algebra method,
-`FILTERED_GAUSS_ELIM`, filters the matrix before the elimination (0.29 to
-0.46 of the time of
-`SMART_GAUSS_ELIM` from 180 to 220 bits). The table of primes is generated
-by a Python 3 script: TIFA no longer has any Perl. The ABI is unchanged
-(`libtifa.so.0.4`).
-
-Version 0.4.4 (November 2026) makes SIQS 1.25 to 1.35 times faster at 200
-and 220 bits, on an Apple M5 Pro as on x86-64 (EPYC 7763 and Xeon 8370C):
-the candidates with no chance of a relation are dropped before the batch
-smoothness test, 40 small primes are left out of the sieve, the polynomial
-switch takes no divisions, and on x86-64 the scan uses SSE2 and the bucket
-fill no longer the branches GCC made. `tifa_factor()` is 2% to 18% faster on
-balanced semiprimes from 80 to 180 bits. The ABI is unchanged
-(`libtifa.so.0.4`).
-
-Version 0.4.3 (November 2026) makes SIQS 1.5 to 1.6 times faster at 200
-and 220 bits on x86-64 (EPYC 7763 and 9V74) and up to 1.3 times on an Apple
-M5 Pro: GCC no longer turns the sieve's branch-free code into branches, the
-primes from 8192 are sieved eight at a time with SSE2 on x86-64, Q2
-polynomials are used when kn = 1 mod 8, and the parameters from 160 to 220
-bits are retuned. `tifa_factor()` is 5% to 30% faster on balanced semiprimes
-from 80 to 180 bits. The ABI is unchanged (`libtifa.so.0.4`).
-
-Version 0.4.2 (November 2026) makes `tifa_factor()` search 74- to 83-bit
-numbers with ECM before SIQS again: those with a factor of 20 to 26 bits take
-0.50 to 0.86 of 0.4.1's time on an Apple M5 Pro and on x86-64 (an EPYC 9V74,
-Zen 4), while balanced semiprimes of these sizes take 1.17 to 1.28. `ecm()`
-keeps the plans of its levels from one call to the next: 2% to 6% faster from
-70 to 120 bits on the M5, 4% to 10% on x86-64. The ABI is unchanged
-(`libtifa.so.0.4`).
-
-Version 0.4.1 (November 2026) makes SQUFOF 4 to 8 times faster on an Apple
-M5 Pro (2.5 to 4 times on x86-64, an EPYC 7763, Zen 3) and p+1 12% to 32%
-faster; `tifa_factor()` is 5% to 19% faster on random composites from 100 to
-160 bits, and 3 to 10 times faster on numbers with a factor of 26 to 40 bits
-from 120 to 160 bits. The new `tifa_factor_with_hint()` takes what is known
-of the number to factor (two factors of about the same size, or a small
-one). The ABI only grows: the shared library is still `libtifa.so.0.4`.
-
-Version 0.4.0 (October 2026) makes ECM 19% to 33% faster on an Apple M5 Pro
-and 9% to 19% on x86-64 (an EPYC 7763, Zen 3), and SIQS 10% to 14% faster
-from 110 to 130 bits on the M5 (7% to 11% on x86-64) and 3% to 9% above;
-`tifa_factor()` is 7% to 11% faster from 128 to 160 bits on the M5 (3% to 8%
-on x86-64). The ABI changes (`libtifa.so.0.4`): the shared library exports
-the public API alone, and only its headers are installed.
-
-Version 0.3.4 (October 2026) makes SIQS 15% to 20% faster from 135 to 190
-bits on x86-64 (an EPYC 9V74, Zen 4), whose 32 KiB sieve chunks the default
-half widths no longer overflow, and 3% to 6% faster on x86-64 from 100 to 130
-bits; on an Apple M5 Pro, 4% to 8% faster from 150 to 200 bits. `tifa_factor()`
-is 17% to 18% faster at 140 and 160 bits on x86-64. The ABI is unchanged
-(`libtifa.so.0.3`).
-
-Version 0.3.3 (October 2026) makes SIQS 14% to 18% faster from 66 to 90 bits
-and 22% to 30% from 95 to 200, against 0.3.2 on one thread of an Apple M5 Pro;
-`tifa_factor()` is 14% to 15% faster at 66 and 80 bits, 26% to 28% from 100 to
-160. SIQS tests its candidates for smoothness eight at a time in machine
-integers and sieves without unpredictable branches; the benchmark programs are
-in `bench/`. The ABI is unchanged (`libtifa.so.0.3`).
-
-Version 0.3.2 (October 2026) makes SIQS 32% faster at 66 and 70 bits, 21% to
-25% from 75 to 85, 11% to 18% from 90 to 110 and 1% to 10% above, against
-0.3.1 on one thread of an Apple M5 Pro; `tifa_factor()` is 12% to 26% faster
-from 66 to 100 bits. SIQS keeps its largest arrays from one run to the next
-in each thread, uses fewer GMP calls outside its sieve, and sieves faster on
-small factor bases. The ABI is unchanged (`libtifa.so.0.3`).
-
-Version 0.3.1 (October 2026) makes SIQS 31% faster from 66 to 75 bits, 18% to
-28% from 80 to 100 and 3% to 13% above, against 0.3.0 on one thread of an
-Apple M5 Pro; `tifa_factor()` is 14% to 28% faster from 66 to 100 bits. SIQS
-spends less time outside its sieve (Gaussian elimination, trial division, the
-setup of each new `a`) and collects 8 extra relations instead of 24, more
-only when none splits the number. The programs take `-h` and `--help`. The ABI
-is unchanged (`libtifa.so.0.3`).
-
-Version 0.3.0 (October 2026) makes SIQS faster and fixes latent defects found
-in a review of the whole library. Against 0.2.0, on one thread of an Apple M5
-Pro:
-
-- SIQS is 7% to 20% faster from 66 to 110 bits (a faster setup, retuned
-  defaults and number of primes in `a`), 1% to 10% above; `tifa_factor()`
-  is 10% to 15% faster from 66 to 100 bits.
-- `tifa_factor()` takes apart any perfect power (p^3 gave up), `cfrac()` and
-  `squfof()` no longer hang on some inputs, and Fermat's square roots modulo
-  p^2 are right for p above 65535.
-- ECM, p+1 and p-1 split small composites they gave up on (up to 25% of them
-  near 10^5) when a stage caught every prime factor at once.
-- The programs are named `tifa-<name>` (`tifa-factor`, `tifa-ecm`, ...) and
-  exit with 0, 1, 2 or 3 for a complete, partial, failed factorization or
-  invalid input. The ABI changes: `libtifa.so.0.3`.
-
-Version 0.2.0 (October 2026) reworked most of the library for speed,
-correctness and thread safety: `tifa_factor()` became 6x to 100x faster from
-32 to 110 bits, `tifa_cofactor()` appeared, and the factorization functions
-can be called from several threads at once.
-
-[readme/news.md](./readme/news.md) has all the measurements and the list of
-changes.
+[readme/news.md](./readme/news.md) lists every release, with a link to its
+notes in [readme/releases/](./readme/releases/), which have all the
+changes and their measurements; the changes on master since 0.4.7 are in
+[readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there
 
@@ -395,7 +296,7 @@ Above `max_siqs_bits`, a composite that ECM does not split within the time SIQS
 would take is given up (`COFACTOR_GAVE_UP`). With three large primes and
 `max_siqs_bits = 2 lpb`, that takes 60% to 65% of the time of exact answers and
 misses 0.25% to 0.30% of the smooth cofactors (see
-[readme/news.md](./readme/news.md#cofactorization)).
+[readme/releases/0.2.0.md](./readme/releases/0.2.0.md#cofactorization)).
 
 ## Parameter tuning
 
@@ -513,8 +414,9 @@ the shipped baseline is intentionally empty.
 
 ## Measuring performance
 
-The timings of [news.md](./readme/news.md) come from the programs of `bench/`,
-built with `-DTIFA_BUILD_BENCH=ON` (they are never installed):
+The timings of the release notes ([readme/releases/](./readme/releases/))
+come from the programs of `bench/`, built with `-DTIFA_BUILD_BENCH=ON` (they
+are never installed):
 
 - `siqs-bench <bits> [<count> [<seconds>]]` times `siqs()` on `<count>`
   balanced semiprimes of `<bits>` bits (`<lo>-<hi>` for random sizes), factored
@@ -540,7 +442,7 @@ bench/ab.sh old/bench/siqs-bench new/bench/siqs-bench 70 100 3
 ```
 
 where `old` is a build of the reference version (from a `git worktree`, say).
-The older tables of news.md use 100 numbers per size up to 120 bits (3
+The older tables of the release notes use 100 numbers per size up to 120 bits (3
 seconds), 30 up to 150 (6 seconds) and 8 above (12 seconds), on one thread. A
 build compared with itself stays within 1% of 1 on an idle machine, a few
 percent under load: smaller differences are noise.

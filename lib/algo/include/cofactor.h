@@ -101,9 +101,9 @@ struct struct_cofactor_params_t {
          * finding a factor, it is given up (\c COFACTOR_GAVE_UP). With
          * three large primes and <tt>max_siqs_bits = 2 lpb</tt>, this takes
          * 60% to 65% of the time of exact answers and misses 0.25% to 0.30%
-         * of the smooth numbers (readme/news.md). 0 for no limit: every
-         * answer is then exact. Ignored without 128-bit integers (the ECM
-         * used here needs them).
+         * of the smooth numbers (readme/releases/0.2.0.md). 0 for no limit:
+         * every answer is then exact. Ignored without 128-bit integers (the
+         * ECM used here needs them).
          */
     uint32_t max_siqs_bits;
 };
