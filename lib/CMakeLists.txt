@@ -50,6 +50,7 @@ set(TIFA_SOURCES
     utils/src/time_limit.c
     utils/src/mont_ecm_wide.c
     algo/src/batch_gcd.c
+    utils/src/block_lanczos.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the

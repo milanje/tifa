@@ -53,7 +53,17 @@ enum linalg_method_enum {
         * by decreasing weight, with the lightest pivots. It finds at least
         * <tt>nrows - ncols</tt> dependencies, not necessarily all of them.
         */
-    FILTERED_GAUSS_ELIM = 1
+    FILTERED_GAUSS_ELIM = 1,
+       /**
+        * Montgomery's block Lanczos ("A block Lanczos algorithm for finding
+        * dependencies over GF(2)", Eurocrypt 1995) on the matrix stored
+        * sparse, after the filtering of <tt>FILTERED_GAUSS_ELIM</tt>: memory
+        * in the number of ones of the matrix rather than its size, time in
+        * that number times the number of rows. It finds up to 64
+        * dependencies, fewer when the matrix has less excess (nrows minus
+        * the number of columns used).
+        */
+    BLOCK_LANCZOS = 2
 };
 
    /**

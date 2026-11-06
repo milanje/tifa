@@ -40,6 +40,7 @@
 #include "funcs.h"
 #include "lindep.h"
 #include "gauss_elim.h"
+#include "block_lanczos.h"
 #include "first_primes.h"
 #include "print_error.h"
 #include "tifa_alloc.h"
@@ -357,15 +358,15 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
                          mpz_array_t* const partially_factored,
                          const mpz_array_t* const to_factor,
                          const uint32_array_t* const factor_base,
-                         const bool sparse) {
+                         const bool sparse, const bool flips) {
 
     unsigned char** const dense = sparse ? NULL : decomp->dense->data;
     bool flip_bit = false;
 
-    uint32_t nrows        = matrix->nrows;
+    uint32_t nrows        = flips ? matrix->nrows : 0;
     uint32_t nrows_to_add = to_factor->length;
 
-    if ((nrows_to_add + nrows) > matrix->nrows_alloced) {
+    if (flips && ((nrows_to_add + nrows) > matrix->nrows_alloced)) {
         nrows_to_add = matrix->nrows_alloced - nrows;
     }
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
@@ -387,7 +388,9 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
         mpz_set(v, to_factor->data[i]);
 
         if (mpz_sgn(v) == -1) {
-            flip_matrix_bit(nrows, 0, matrix);
+            if (flips) {
+                flip_matrix_bit(nrows, 0, matrix);
+            }
             mpz_neg(v, v);
         }
 #if (GMP_LIMB_BITS == 64) && defined(__SIZEOF_INT128__)
@@ -411,7 +414,7 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
                     e = remove_twos(l, &n);
                 }
                 add_exponent(dense, decomp, sparse, i, 0, e);
-                if (e & 1) {
+                if (flips && (e & 1)) {
                     flip_matrix_bit(nrows, 1, matrix);
                 }
                 j = 1;
@@ -433,7 +436,9 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
                                        );
                     if ((l[0] <= UINT32_MAX) && (t != NOT_IN_ARRAY)) {
                         add_exponent(dense, decomp, sparse, i, t, 1);
-                        flip_matrix_bit(nrows, t + 1, matrix);
+                        if (flips) {
+                            flip_matrix_bit(nrows, t + 1, matrix);
+                        }
                         l[0] = 1;
                     }
                     break;
@@ -478,7 +483,7 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
                         } while (divisible_odd(l, n, q, pinv[k], plim[k]));
                     }
                     add_exponent(dense, decomp, sparse, i, k, e);
-                    if (e & 1) {
+                    if (flips && (e & 1)) {
                         flip_matrix_bit(nrows, k + 1, matrix);
                     }
                 }
@@ -502,10 +507,10 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
                 flip_bit = !flip_bit;
             }
             add_exponent(dense, decomp, sparse, i, j, e);
-            if (flip_bit) {
+            if (flips && flip_bit) {
                 flip_matrix_bit(nrows, j + 1, matrix);
-                flip_bit = false;
             }
+            flip_bit = false;
         }
         nrows++;
     }
@@ -514,7 +519,9 @@ void fill_trial_div_rows(binary_matrix_t* const matrix,
     free(plim);
 #endif
     partially_factored->length = to_factor->length;
-    matrix->nrows = nrows;
+    if (flips) {
+        matrix->nrows = nrows;
+    }
 }
 //-----------------------------------------------------------------------------
 void fill_trial_div_decomp(binary_matrix_t* const matrix,
@@ -523,12 +530,15 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                            const mpz_array_t* const to_factor,
                            const uint32_array_t* const factor_base
                           ) {
-    if (decomp->dense != NULL) {
+    if (matrix == NULL) {
         fill_trial_div_rows(matrix, decomp, partially_factored, to_factor,
-                            factor_base, false);
+                            factor_base, true, false);
+    } else if (decomp->dense != NULL) {
+        fill_trial_div_rows(matrix, decomp, partially_factored, to_factor,
+                            factor_base, false, true);
     } else {
         fill_trial_div_rows(matrix, decomp, partially_factored, to_factor,
-                            factor_base, true);
+                            factor_base, true, true);
     }
 }
 //-----------------------------------------------------------------------------
@@ -625,10 +635,10 @@ void fill_matrix_from_list_decomp(binary_matrix_t* const matrix,
                 if (e != 0) {
                     add_to_decomp(decomp, i, ind_p, e);
                 }
-                if (flip_bit) {
+                if (flip_bit && (matrix != NULL)) {
                     flip_matrix_bit(i, ind_p+1, matrix);
-                    flip_bit = false;
                 }
+                flip_bit = false;
             }
         }
     }
@@ -655,6 +665,12 @@ find_dependencies(binary_matrix_t* const matrix, linalg_method_t method) {
         case FILTERED_GAUSS_ELIM:
             filtered_gaussian_elim(relations, matrix);
             break;
+        case BLOCK_LANCZOS: {
+            sparse_gf2_t* const sparse = sparse_gf2_from_relations(matrix);
+            block_lanczos(sparse, relations);
+            free_sparse_gf2(sparse);
+            break;
+        }
         default:
             gaussian_elim(relations, matrix);
     }

@@ -61,6 +61,30 @@ static ecode_t siqs_with(const mpz_t n, uint32_t fb, uint32_t th, uint32_t hw,
     return rc;
 }
 
+//
+// A complete factorization with block Lanczos, whatever the size: without
+// the dense matrix, from sparse decompositions.
+//
+static int siqs_lanczos(const mpz_t n, const uint32_t fb) {
+    mpz_array_t*    f = alloc_mpz_array(8);
+    uint32_array_t* m = alloc_uint32_array(8);
+    siqs_params_t params;
+    set_siqs_params_to_default(n, &params);
+    if (fb != 0) {
+        params.nprimes_in_base = fb;
+        params.nprimes_tdiv    = fb;
+    }
+    params.linalg_method = BLOCK_LANCZOS;
+
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    int ok = (rc == COMPLETE_FACTORIZATION_FOUND)
+             && tifa_is_complete_factorization(n, f, m);
+
+    free_mpz_array(f);
+    free_uint32_array(m);
+    return ok;
+}
+
 static void check_siqs(const char* label, const char* decimal) {
     mpz_t n;
     mpz_init_set_str(n, decimal, 10);
@@ -161,10 +185,37 @@ int main(void) {
         CHECK((rc == COMPLETE_FACTORIZATION_FOUND)
               && tifa_is_complete_factorization(n, f, m),
               "34000 primes in the base: factored");
+        CHECK(siqs_lanczos(n, 34000),
+              "34000 primes in the base, block Lanczos: factored");
         free_mpz_array(f);
         free_uint32_array(m);
         mpz_clear(n);
         mpz_clear(p);
+    }
+    //
+    // Block Lanczos at small sizes too (SIQS picks it from 30000 primes).
+    //
+    {
+        gmp_randstate_t state;
+        gmp_randinit_default(state);
+        gmp_randseed_ui(state, 30);
+        static const unsigned long sizes[] = { 64, 100, 150 };
+        for (uint32_t i = 0; i < 3; i++) {
+            mpz_t n;
+            mpz_t p;
+            mpz_init(n);
+            mpz_init(p);
+            random_prime(n, state, sizes[i] / 2);
+            random_prime(p, state, sizes[i] / 2);
+            mpz_mul(n, n, p);
+            char label[64];
+            snprintf(label, sizeof(label),
+                     "%lu bits, block Lanczos: factored", sizes[i]);
+            CHECK(siqs_lanczos(n, 0), label);
+            mpz_clear(n);
+            mpz_clear(p);
+        }
+        gmp_randclear(state);
     }
 
     TIFA_TEST_END();

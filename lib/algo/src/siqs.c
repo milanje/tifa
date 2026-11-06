@@ -51,6 +51,7 @@
 #include "factoring_machine.h"
 #include "siqs.h"
 #include "lindep.h"
+#include "block_lanczos.h"
 #include "tuning.h"
 #include "tifa_factor.h"
 #include "siqs_poly.h"
@@ -155,6 +156,14 @@
 // bits, where the elimination costs less than the filtering saves.
 //
 #define FILTERED_GAUSS_MIN_BASE 3000
+//
+// From BLOCK_LANCZOS_MIN_BASE primes in the base (about 230 bits), block
+// Lanczos on a sparse matrix (see BLOCK_LANCZOS) rather than the dense one.
+// The linear algebra took the same time at 220 bits on an Apple M5 Pro,
+// 0.61 of it at 240, 0.26 at 264, 0.15 at 280 (1.1 s rather than 7.5), and
+// the run's peak memory 0.09 to 0.20 of it from 240 to 280 bits.
+//
+#define BLOCK_LANCZOS_MIN_BASE 12000
 //
 // With SKIP_LARGE_MIN_BASE primes or more, the sieve skips NPRIMES_TO_SKIP_LARGE
 // of them (see siqs_sieve.h): the threshold is SKIP_LARGE_THRESHOLD_DROP lower
@@ -649,7 +658,9 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->nprimes_tdiv     = params->nprimes_in_base;
     params->nrelations       = SIQS_DFLT_NRELATIONS;
     params->extra_primes_in_a = best_params[i].extra;
-    params->linalg_method    = (params->nprimes_in_base >= FILTERED_GAUSS_MIN_BASE)
+    params->linalg_method    = (params->nprimes_in_base >= BLOCK_LANCZOS_MIN_BASE)
+                             ? BLOCK_LANCZOS
+                             : (params->nprimes_in_base >= FILTERED_GAUSS_MIN_BASE)
                              ? FILTERED_GAUSS_ELIM : SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = (mpz_sizeinbase(n, 2)
                                 >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
@@ -851,11 +862,17 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     context->matrix_nrows  = context->matrix_ncols;
     context->matrix_nrows += params->nrelations;
 
-    context->matrix = alloc_binary_matrix(
-                          context->matrix_nrows,
-                          context->matrix_ncols
-                      );
-    context->matrix->nrows = 0;
+    //
+    // Block Lanczos builds its own sparse matrix from the decompositions.
+    //
+    context->matrix = NULL;
+    if (params->linalg_method != BLOCK_LANCZOS) {
+        context->matrix = alloc_binary_matrix(
+                              context->matrix_nrows,
+                              context->matrix_ncols
+                          );
+        context->matrix->nrows = 0;
+    }
 
     context->npairs_wanted = context->matrix_nrows;
     uint32_t e             = most_significant_bit(context->npairs_wanted);
@@ -954,7 +971,9 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
 
         free_byte_array(context->log_factor_base);
 
-        free_binary_matrix(context->matrix);
+        if (context->matrix != NULL) {
+            free_binary_matrix(context->matrix);
+        }
 
         mpz_clear(context->n);
         mpz_clear(context->kn);
@@ -999,8 +1018,10 @@ static ecode_t update_siqs_context(factoring_machine_t* const machine) {
     if (context->u->length == nrels) {
         return GIVING_UP;
     }
-    reset_binary_matrix(context->matrix);
-    context->matrix->nrows = 0;
+    if (context->matrix != NULL) {
+        reset_binary_matrix(context->matrix);
+        context->matrix->nrows = 0;
+    }
 
     return SUCCESS;
 }
@@ -1051,10 +1072,12 @@ static bool want_more_relations(siqs_context_t* const context) {
         resize_mpz_array(context->cand_u, nrows);
     }
 
-    free_binary_matrix(context->matrix);
-    context->matrix = alloc_binary_matrix(context->matrix_nrows,
-                                          context->matrix_ncols);
-    context->matrix->nrows = 0;
+    if (context->matrix != NULL) {
+        free_binary_matrix(context->matrix);
+        context->matrix = alloc_binary_matrix(context->matrix_nrows,
+                                              context->matrix_ncols);
+        context->matrix->nrows = 0;
+    }
 
     return true;
 }
@@ -1109,11 +1132,16 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     primes_array.length  = params->nprimes_tdiv;
     primes_array.data    = (uint32_t*)(context->factor_base->data);
 
+    //
+    // Without a dense matrix (block Lanczos), the decompositions are sparse
+    // whatever the size of the base: fill_trial_div_decomp wants them so.
+    //
     decomp_t* const decomp = alloc_decomp(
                                  context->matrix_nrows,
                                  context->factor_base->length,
-                                 context->factor_base->length
-                                 > DENSE_DECOMP_MAX_BASE
+                                    (context->matrix == NULL)
+                                 || (context->factor_base->length
+                                     > DENSE_DECOMP_MAX_BASE)
                              );
 
     //
@@ -1121,7 +1149,8 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     // the primes of their 'a', known: smaller numbers to divide (one limb
     // instead of two at 70 bits), and no prime of 'a' to find again.
     //
-    const uint32_t first_row = context->matrix->nrows;
+    const uint32_t first_row = (context->matrix != NULL)
+                             ? context->matrix->nrows : 0;
     fill_trial_div_decomp(
         context->matrix,
         decomp,
@@ -1174,7 +1203,16 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     // Q^2  = prod(g_{a,b}(xi)).
     //
     uint32_array_list_t *relations;
-    relations = find_dependencies(context->matrix, params->linalg_method);
+    if (context->matrix != NULL) {
+        relations = find_dependencies(context->matrix, params->linalg_method);
+    } else {
+        sparse_gf2_t* const sparse = sparse_gf2_from_decomp(
+                                         decomp, context->smooth_redgx
+                                     );
+        relations = alloc_uint32_array_list(64);
+        block_lanczos(sparse, relations);
+        free_sparse_gf2(sparse);
+    }
 
     STOP_TIMER;
     PRINT_TIMING;
@@ -1675,6 +1713,16 @@ static void add_primes_of_a(siqs_context_t* const context,
     const uint32_t        npa      = context->sieve->poly->nprimes_in_a;
     const uint32_t* const a_primes = context->a_primes->data;
     const uint32_t* const a_idx    = context->a_idx_for_smooth->data;
+    if (context->matrix == NULL) {
+        const uint32_t nrels = context->smooth_redgx->length;
+        for (uint32_t i = 0; i < nrels; i++) {
+            const uint32_t* const q = &a_primes[a_idx[i] * npa];
+            for (uint32_t k = 0; k < npa; k++) {
+                append_to_decomp(decomp, i, q[k], 1);
+            }
+        }
+        return;
+    }
     const uint32_t        nrels    = context->matrix->nrows - first_row;
     unsigned char** const dense    = (decomp->dense != NULL)
                                    ? decomp->dense->data : NULL;

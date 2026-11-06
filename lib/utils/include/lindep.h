@@ -193,7 +193,8 @@ void sort_decomp(decomp_t* decomp);
     * \li In all other cases, the (i-th row, j-th col) position in the matrix
     * contains a 0.
     *
-    * \param[out] matrix        A pointer to the binary matrix to fill.
+    * \param[out] matrix        A pointer to the binary matrix to fill, or
+    *                          NULL for none (\c decomp then sparse).
     * \param[out] decomp        The decompositions to add to.
     * \param[out] partially_factored A pointer to the partially factored
     *                                integers.
@@ -274,7 +275,8 @@ void fill_matrix_from_list(
     * \li In all other cases, the (i-th row, j-th col) position in the matrix
     * contains a 0.
     *
-    * \param[out] matrix        A pointer to the binary matrix to fill.
+    * \param[out] matrix        A pointer to the binary matrix to fill, or
+    *                          NULL for none.
     * \param[out] decomp        The decompositions to add to.
     * \param[in] smooth_array  A pointer to the array giving the integers
     *                           to factor.

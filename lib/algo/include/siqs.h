@@ -98,7 +98,9 @@ struct struct_siqs_params_t {
         */
     uint32_t nrelations;
        /**
-        * Linear system resolution method to use.
+        * Linear system resolution method to use: by default the Gaussian
+        * elimination, filtered from 3000 primes in the base, and block
+        * Lanczos from 12000 (about 230 bits), without any dense matrix.
         */
     linalg_method_t linalg_method;
        /**

@@ -105,7 +105,9 @@ changes and their measurements; the changes on master since 0.4.8 are in
   (`siqs.h`), CFRAC (`cfrac.h`), ECM (`ecm.h`), Pollard's p-1 (`p_minus_1.h`),
   Williams' p+1 (`p_plus_1.h`), Pollard's rho (`rho.h`), SQUFOF (`squfof.h`),
   McKee's variant of Fermat's method (`fermat.h`) and trial division
-  (`tdiv.h`).
+  (`tdiv.h`). Their linear algebra over GF(2) (`methods.h`): Gaussian
+  elimination, filtered or not, or Montgomery's block Lanczos on a sparse
+  matrix, which SIQS uses from about 230 bits.
 - Below 2^64, deterministic primality testing and factorization in machine
   words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
   eight words, up to 512 bits (`mont_ecm.h`).

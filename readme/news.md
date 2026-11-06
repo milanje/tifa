@@ -9,7 +9,9 @@ say otherwise.
 
 ## Unreleased
 
-Nothing yet.
+- Block Lanczos (`BLOCK_LANCZOS`), for SIQS from about 230 bits: its linear
+  algebra 0.15 of the time at 280 bits, its peak memory 124 MB rather
+  than 731.
 
 [Release notes](./releases/unreleased.md)
 

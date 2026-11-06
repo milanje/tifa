@@ -18,10 +18,11 @@ Here are some short term objectives:
     reason not known (its 512 KB L2 cache?). tifa-tune --search descent
     --fit tunes these sizes on a machine.
 
-  - SIQS above 280 bits: the binary matrix of the elimination is dense,
-    about 530 MB at 65536 primes, the cap of the factor base, reached at
-    288 bits; a sparse method (block Lanczos or Wiedemann) would be needed
-    beyond. Above 512 bits, tifa_factor() searches with ecm() in GMP
+  - SIQS above 288 bits: the factor base stops at 65536 primes (16-bit
+    indices, in the bucket entries too), reached at 288 bits, and its
+    parameters are fitted, not tuned, above 288. Block Lanczos (November
+    2026) took away the dense matrix of the elimination (530 MB at 65536
+    primes), the other limit. Above 512 bits, tifa_factor() searches with ecm() in GMP
     arithmetic up to factors of 85 bits (about 12 minutes at 520 bits, 30 at
     1024, when it finds nothing), then runs SIQS, which takes forever there:
     ECM with ever larger bounds would at least find larger factors.
