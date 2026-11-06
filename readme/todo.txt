@@ -47,7 +47,17 @@ Here are some short term objectives:
       - The levels of ecm_schedule.c (tifa_cofactor, tifa_factor's ECM
         search) were tuned for Suyama's curves; they run the Z/2 x Z/8 ones
         first since November 2026 (1% to 2.4% less work on sets of
-        cofactors), and might take fewer curves for them.
+        cofactors). Retuned for them (November 2026: mean curves to find a
+        factor of exactly fbits bits, starting from curve 0, times the time
+        of a curve on two limbs), every level from 25 to 60 bits is
+        fastest at half to a third of its B1, 10% to 33% less expected time
+        per level. Neither that table nor one keeping each level's time
+        with the lower B1 (more curves) helped: on 20000 and 12000
+        cofactors, 0.997 to 1.017 of the instructions exactly, and the
+        first 1.08 to 1.26 when giving up (it spends more of the budget and
+        gives up less); tifa_factor 0.86 to 1.03 over three seeds, within
+        the spread of the curves' luck. Failures, bounded by the budget,
+        and SIQS dominate these runs, not the levels' expected times.
 
   - SIQS, in shares of a run (November 2026, after 0.4.4): the sieve's fill
     55% to 75% from 160 to 220 bits, at about one cycle per hit on the M5;
