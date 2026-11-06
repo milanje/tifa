@@ -184,12 +184,22 @@ def test_timeout():
 
 
 def test_small_factors_of_large_numbers():
-    # ECM finds them up to 512 bits; SIQS would take minutes, or forever.
+    # ECM finds them (in GMP arithmetic above 512 bits); SIQS would take
+    # minutes, or forever.
     rng = random.Random(512)
-    for sizes in ([45, 235], [40, 50, 300], [30, 40, 45, 385]):
+    for sizes in ([45, 235], [40, 50, 300], [30, 40, 45, 385], [35, 40, 560]):
         primes = [random_prime(bits, rng) for bits in sizes]
         expected = {p: 1 for p in primes}
         assert tifa.factor(math.prod(primes), timeout=60) == expected
+
+
+def test_timeout_above_512_bits():
+    rng = random.Random(600)
+    n = random_prime(300, rng) * random_prime(300, rng)
+    start = time.monotonic()
+    with pytest.raises(tifa.FactorizationTimeout):
+        tifa.factor(n, timeout=0.2)
+    assert time.monotonic() - start < 2
 
 
 def test_timeout_proof():

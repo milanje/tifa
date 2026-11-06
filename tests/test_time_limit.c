@@ -28,6 +28,8 @@
 #include <time.h>
 
 #include "tifa_test.h"
+#include "ecm.h"
+#include "mont_ecm.h"
 #include "tifa_factor.h"
 #include "time_limit.h"
 
@@ -118,6 +120,33 @@ int main(void) {
     CHECK(!complete, "ECM stops at the limit");
     CHECK(elapsed < 1.0, "ECM stops soon after the limit");
 
+    // The longest curves stop within themselves: in GMP arithmetic above
+    // 512 bits (2.5 s each at 600 bits on an Apple M5 Pro), and on eight
+    // limbs (0.7 s).
+    random_prime(p, 300, rng);
+    random_prime(q, 300, rng);
+    mpz_mul(n, p, q);
+    ecm_params_t ecm_params = { 576000, 50 * 576000, 4, 1 };
+    mpz_array_t* found = alloc_mpz_array(4);
+    double start = now();
+    tifa_set_time_limit(0.05);
+    ecm(found, NULL, n, &ecm_params, SINGLE_RUN);
+    elapsed = now() - start;
+    CHECK(elapsed < 0.5, "a GMP curve stops soon after the limit");
+#if TIFA_HAVE_MONT_ECM
+    random_prime(p, 250, rng);
+    random_prime(q, 250, rng);
+    mpz_mul(n, p, q);
+    mont_ecm_plan_t* const plan = alloc_mont_ecm_plan(819200, 50 * 819200);
+    start = now();
+    tifa_set_time_limit(0.05);
+    mont_ecm_curve(p, n, 6, plan);
+    elapsed = now() - start;
+    CHECK(elapsed < 0.3, "an eight-limb curve stops soon after the limit");
+    free_mont_ecm_plan(plan);
+#endif
+    free_mpz_array(found);
+
     tifa_set_time_limit(0.0);
     CHECK(!tifa_time_limit_reached(), "the limit is removed");
 
@@ -131,7 +160,7 @@ int main(void) {
           "thread started");
     mpz_array_t* g    = alloc_mpz_array(4);
     uint32_array_t* h = alloc_uint32_array(4);
-    const double start = now();
+    start = now();
     const ecode_t e = tifa_factor_with_hint(g, h, n,
                                             FIND_COMPLETE_FACTORIZATION,
                                             TIFA_FACTOR_BALANCED);

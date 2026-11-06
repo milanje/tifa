@@ -303,6 +303,22 @@ int main(void) {
         factor_and_check(labels[i], n);
     }
 #endif
+    // Above 512 bits, ECM in GMP arithmetic: factors of 30 to 40 bits, the
+    // last cofactor prime.
+    static const uint32_t wide_bits[][3] = { { 35, 40, 560 }, { 30, 1000, 0 } };
+    static const char* const wide_labels[] = {
+        "35- and 40-bit factors (635 bits)", "30-bit factor (1030 bits)"
+    };
+    for (uint32_t i = 0; i < 2; i++) {
+        mpz_set_ui(n, 1UL);
+        for (uint32_t j = 0; (j < 3) && (wide_bits[i][j] != 0); j++) {
+            mpz_urandomb(p, state, wide_bits[i][j]);
+            mpz_setbit(p, wide_bits[i][j] - 1);
+            mpz_nextprime(p, p);
+            mpz_mul(n, n, p);
+        }
+        factor_and_check(wide_labels[i], n);
+    }
 
     gmp_randclear(state);
 

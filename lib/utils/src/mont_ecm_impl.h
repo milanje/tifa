@@ -247,6 +247,14 @@ static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const x0,
         } else {
             FN(ladder_step)(&r0, &r1, x0, a24, m);
         }
+#if defined(MONT_ECM_STOP_CHECKS)
+        //
+        // r0 stays a multiple of (x0 : 1): a factor found is still one.
+        //
+        if (((b & 4095) == 0) && tifa_should_stop()) {
+            break;
+        }
+#endif
     }
     *p = r0;
 }
@@ -385,6 +393,11 @@ FN(stage2_body)(uint64_t* const acc, const FN(pt_t)* const p,
     }
     bool ok = true;
     for (uint32_t k0 = 0; ok && (k0 < plan->nm); k0 += blk) {
+#if defined(MONT_ECM_STOP_CHECKS)
+        if ((k0 != 0) && tifa_should_stop()) {
+            break;
+        }
+#endif
         const uint32_t cnt = (plan->nm - k0 < blk) ? plan->nm - k0 : blk;
         for (uint32_t i = 0; i < cnt; i++) {
             const uint32_t k = k0 + i;

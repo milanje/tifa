@@ -1,5 +1,40 @@
 # TIFA news
 
+## 6 November 2026 &mdash; ECM above 512 bits
+
+Above 512 bits, where the Montgomery ECM stops (eight limbs), `tifa_factor()`
+ran single p-1 and p+1 runs, then SIQS, which takes years there, whatever the
+size of the factors. After those runs, it now searches with `ecm()` in GMP
+arithmetic, up its levels to factors of 85 bits, without a budget, then runs
+SIQS as before. On an Apple M5 Pro, with n = p.q, q prime:
+
+| `tifa_factor()`, bits of n, of p | 520, 40 | 600, 50 | 1024, 40 |
+|---|---:|---:|---:|
+| before | endless | endless | endless |
+| after | 31 ms | 0.57 s | 92 ms |
+
+A curve takes up to 2.1 s at 520 bits and 5.2 s at 1024 (B1 = 576000), and
+when nothing is found the search takes about 12 minutes at 520 bits and 30 at
+1024, from the time of its curves. The stage 2 table of the GMP curves came
+from a primality test of each number up to B2, 0.8 s at the largest B2; it
+now comes from a sieve, in milliseconds.
+
+The time limit and the interrupt check (Ctrl-C in Python) stopped a
+factorization only between curves, which take up to 0.7 s on eight limbs
+since ECM went up to 512 bits. The curves in GMP arithmetic and on five to
+eight limbs now check them every 4096 bits of the stage 1 product, and
+every 64 (GMP) or 256 (Montgomery) giant steps of stage 2: `ecm()` on 600
+bits stops 6 ms after its limit, inside a curve of 2 s. The kernels on one
+to four limbs are compiled without these checks.
+
+The kernels' loops are now aligned on 64 bytes with Clang on arm64: without
+that, the 412 bytes of code added before them took p+1 at 160 bits to 1.04
+of its time on the M5, with the same instructions. Against the code before,
+on the M5: SIQS 0.99 to 1.00 from 70 to 140 bits, `tifa_factor()` 0.99 to
+1.00 from 70 to 300 bits, `ecm()` 1.00 from 100 to 400 bits, p-1 and p+1 at
+160 bits 0.99 to 1.03 (noise: the same instructions, and cycles 0.98 of
+those before on average).
+
 ## 6 November 2026 &mdash; tifa-batch-gcd
 
 The `tifa-batch-gcd` program runs `tifa_batch_gcd()` on files of integers

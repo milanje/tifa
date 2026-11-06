@@ -60,8 +60,10 @@ extern "C" {
     * other algorithm runs. The composites left go to SQUFOF up to 58 bits;
     * above, a short ECM search (see ecm_schedule.h, up to 512 bits) looks
     * for a factor of up to 60 bits (85 bits above 256), or, where it can not
-    * run, single p-1 and p+1 runs from 90 bits, before SIQS. \c tifa_factor_with_hint changes this when
-    * more is known of <tt>n</tt>.
+    * run, single p-1 and p+1 runs from 90 bits, before SIQS. Above 512 bits,
+    * those p-1 and p+1 runs, then \c ecm up to factors of 85 bits, without a
+    * budget (SIQS would take years). \c tifa_factor_with_hint changes this
+    * when more is known of <tt>n</tt>.
     *
     * \note If the factoring mode used is different from
     * \c FIND_COMPLETE_FACTORIZATION, \c multis is allowed to be a NULL
@@ -110,8 +112,8 @@ enum tifa_factor_hint_enum {
     TIFA_FACTOR_BALANCED,
         /**
          * n has a prime factor of less than about a third of its size: ECM
-         * searches for as long as SIQS would take (up to 512 bits, with
-         * 128-bit integers; otherwise as \c TIFA_FACTOR_RANDOM).
+         * searches for as long as SIQS would take (with 128-bit integers,
+         * up to 512 bits; otherwise, and above, as \c TIFA_FACTOR_RANDOM).
          */
     TIFA_FACTOR_UNBALANCED
 };

@@ -36,6 +36,7 @@
 #include "squfof.h"
 #include "p_minus_1.h"
 #include "p_plus_1.h"
+#include "ecm.h"
 #include "tifa_factor.h"
 #include "ecm_schedule.h"
 
@@ -94,6 +95,11 @@
 #define TFACTOR_ECM_FBITS 60
 #define TFACTOR_WIDE_ECM_FBITS 85
 #define TFACTOR_WIDE_ECM_BITS 256
+//
+// Above this size (that of mont_ecm), ecm() in GMP arithmetic searches for
+// factors of up to 85 bits, without a budget: SIQS would take years.
+//
+#define TFACTOR_GMP_ECM_BITS 512
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -235,6 +241,26 @@ static ecode_t run_prestages(mpz_array_t* const factors,
     return ecode;
 }
 //-----------------------------------------------------------------------------
+static ecode_t run_gmp_ecm(mpz_array_t* const factors,
+                           uint32_array_t* const multis,
+                           const mpz_t n,
+                           const factoring_mode_t mode) {
+    mpz_array_t* found = alloc_mpz_array(4);
+
+    ecm_params_t params;
+    set_ecm_params_to_default(n, &params);
+    ecode_t ecode = ecm(found, NULL, n, &params, FIND_SOME_FACTORS);
+
+    if (ecode == SOME_FACTORS_FOUND) {
+        ecode = add_found(factors, multis, found, n, mode);
+    } else {
+        ecode = NO_FACTOR_FOUND;
+    }
+    free_mpz_array(found);
+
+    return ecode;
+}
+//-----------------------------------------------------------------------------
 //
 // Factors an n > 2^TFACTOR_TDIV_THRESH with no prime factor below 1000.
 //
@@ -327,6 +353,10 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
 #endif
     if (!ecm && prepass && (sizen >= TFACTOR_PRESTAGE_THRESH)) {
         ecode = run_prestages(factors, multis, n, mode);
+    }
+    if (   !ecm && prepass && (ecode == NO_FACTOR_FOUND)
+        && (sizen > TFACTOR_GMP_ECM_BITS)) {
+        ecode = run_gmp_ecm(factors, multis, n, mode);
     }
     if (ecode != NO_FACTOR_FOUND) {
         return ecode;

@@ -141,7 +141,8 @@ def factor(
     ``n`` is a positive integer: an ``int``, or any integer type with
     ``__index__`` (NumPy's, gmpy2's ``mpz``). Up to about 220 bits, ``n`` is
     factored in seconds at most, and up to about 280 bits in minutes; beyond,
-    the time keeps growing quickly.
+    the time keeps growing quickly, and only numbers whose prime factors but
+    the largest have up to about 85 bits (ECM finds those) can be factored.
 
     ``hint`` says what is known of ``n``, to save time: ``"balanced"`` if it
     is the product of two primes of about the same size (an RSA modulus),

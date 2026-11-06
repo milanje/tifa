@@ -21,10 +21,10 @@ Here are some short term objectives:
   - SIQS above 280 bits: the binary matrix of the elimination is dense,
     about 530 MB at 65536 primes, the cap of the factor base, reached at
     288 bits; a sparse method (block Lanczos or Wiedemann) would be needed
-    beyond. tifa_factor() searches with ECM up to 512 bits only (mont_ecm
-    stops at eight limbs): above, single p-1 and p+1 runs come before SIQS,
-    which takes forever there; ECM in GMP arithmetic (ecm.c's) could search
-    instead.
+    beyond. Above 512 bits, tifa_factor() searches with ecm() in GMP
+    arithmetic up to factors of 85 bits (about 12 minutes at 520 bits, 30 at
+    1024, when it finds nothing), then runs SIQS, which takes forever there:
+    ECM with ever larger bounds would at least find larger factors.
 
   - ECM on one to four limbs (mont_ecm.c), measured on 30 October 2026:
       - The setup of a curve takes 0.3 us (Z/2 x Z/8) to 0.6 us (Suyama),

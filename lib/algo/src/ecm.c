@@ -784,7 +784,7 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
         if (exit_code == SOME_FACTORS_FOUND) {
             break;
         }
-        if (params->b2 == 0) {
+        if ((params->b2 == 0) || tifa_should_stop()) {
             //
             // No second phase is performed if b2 is set to 0.
             //
@@ -1011,6 +1011,9 @@ static ecode_t phase_2(factoring_machine_t* const machine, bool check) {
 
     for (unsigned int im = 0; im <= (m_max - m_min); im++) {
 
+        if (((im & 63) == 63) && tifa_should_stop()) {
+            break;
+        }
         unsigned int m = m_min + im;
 
         for (unsigned int ij = 0; ij < njs; ij++) {
@@ -1271,6 +1274,13 @@ static void multiply_point(mpz_t xk, mpz_t zk,
     int s = mpz_sizeinbase(k, 2) - 2;
 
     while (s >= 0) {
+        //
+        // Stage 1 takes seconds above 512 bits. Stopped early, (qx : qz) is
+        // still a multiple of (x0 : z0): a gcd with n stays a factor.
+        //
+        if (((s & 4095) == 4095) && tifa_should_stop()) {
+            break;
+        }
         if (mpz_tstbit(k, s) == 1) {
             add_points(qx, qz, px, pz, qx, qz, x0, z0, context);
             double_point(px, pz, px, pz, context);
@@ -1363,18 +1373,34 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
         context->prime_table[i] = tifa_malloc(ncols * sizeof(unsigned int));
     }
     unsigned int deltam = m_max - m_min;
-
-    for (unsigned int im = 0; im <= deltam; im++) {
-        unsigned int m = m_min + im;
-        for (unsigned int j = 1; j <= DO2; j++) {
-            if (is_prime(m * D + j)
-                || is_prime((m * D >= j) ? (m * D - j) : (j - m * D))) {
-                context->prime_table[im][j] = 1;
-                continue;
-            }
-            context->prime_table[im][j] = 0;
+    //
+    // The odd primes up to m_max.D + DO2, from a sieve: a primality test of
+    // each number took 0.8 s at the largest B2, without a check of the time
+    // limit.
+    //
+    const unsigned long int top = m_max * D + DO2;
+    uint64_t* const odd_composite = tifa_calloc(top / 128 + 1,
+                                                sizeof(uint64_t));
+    for (unsigned long int p = 3; p * p <= top; p += 2) {
+        if ((odd_composite[p / 128] >> ((p / 2) % 64)) & 1) {
+            continue;
+        }
+        for (unsigned long int q = p * p; q <= top; q += 2 * p) {
+            odd_composite[q / 128] |= UINT64_C(1) << ((q / 2) % 64);
         }
     }
+#define ODD_PRIME(x) (   (((x) & 1) != 0) && ((x) > 1) \
+                      && !((odd_composite[(x) / 128] >> (((x) / 2) % 64)) & 1))
+    for (unsigned int im = 0; im <= deltam; im++) {
+        const unsigned long int md = (unsigned long int) (m_min + im) * D;
+        for (unsigned int j = 1; j <= DO2; j++) {
+            const unsigned long int below = (md >= j) ? (md - j) : (j - md);
+            context->prime_table[im][j] =
+                (ODD_PRIME(md + j) || ODD_PRIME(below)) ? 1 : 0;
+        }
+    }
+#undef ODD_PRIME
+    free(odd_composite);
     context->precomputations_done = true;
 
     STOP_TIMER;

@@ -158,8 +158,10 @@ changes.
 - `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
   methods by size: machine-word arithmetic below 2^64; above, trial division by
   the primes below 1000, a short ECM search for factors of up to 60 bits (85
-  above 256 bits; single p-1 and p+1 runs above 512 bits or without 128-bit
-  integers), then SIQS.
+  above 256 bits; without 128-bit integers, single p-1 and p+1 runs up to 512
+  bits), then SIQS. Above 512 bits, where SIQS would take years, single p-1
+  and p+1 runs and ECM in GMP arithmetic look for factors of up to 85 bits,
+  for as long as that takes (about 12 minutes at 520 bits on an Apple M5 Pro).
   `tifa_factor_with_hint()` does the same, told what is known of the number:
   two prime factors of about the same size (SIQS runs right away), or one
   below a third of its size (ECM searches for longer).

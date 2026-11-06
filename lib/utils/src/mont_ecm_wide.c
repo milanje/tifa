@@ -29,6 +29,12 @@
 
 #define MONT_MOD_LIMBS MONT_ECM_MAX_LIMBS
 #include "mont_ecm_internal.h"
+#include "stopping.h"
+//
+// A curve takes up to a second here: it checks the time limit and the
+// interrupt now and then (not on fewer limbs, whose code stays the same).
+//
+#define MONT_ECM_STOP_CHECKS
 
 #define NL 5
 #include "mont_ecm_impl.h"
