@@ -194,8 +194,10 @@ changes.
   words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
   eight words, up to 512 bits (`mont_ecm.h`).
 
-- A Python package (`python/`), whose `tifa.factor(n)` is `tifa_factor()` (see
-  [Python](#python) below).
+- A Python package (`python/`): `tifa.factor(n)` is `tifa_factor()`, with
+  proofs of the primes on request; `tifa.batch_gcd()` is `tifa_batch_gcd()`,
+  and `tifa.Cofactorizer` gives `tifa_cofactor()` for one integer or a whole
+  list at a time (see [Python](#python) below).
 
 All of them can run in several threads at once. SIQS keeps its largest arrays
 from one run to the next in each thread (170 KiB at most, freed when the thread
@@ -256,9 +258,9 @@ The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 `tifa-fermat`, `tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-p-minus-1`,
 `tifa-p-plus-1`, `tifa-tdiv`); given only the number, they
 use the algorithm's default parameters (`-h` or `--help` lists the others,
-which come before the number). All of them exit with status 0 for a
-complete factorization (or a prime, or 1), 1 for a partial one, 2 if no factor
-was found, and 3 for invalid input.
+which come before the number). All the factorization programs exit with
+status 0 for a complete factorization (or a prime, or 1), 1 for a partial one,
+2 if no factor was found, and 3 for invalid input.
 
 `tifa-batch-gcd` reads positive integers (RSA moduli, say) from files, or
 from its standard input, and prints the position (from 1) and the gcd of

@@ -93,8 +93,10 @@
   tifa_prove_prime() proves that an integer is prime, with a certificate
   that tifa_check_prime_cert() (or anyone) checks, that
   tifa_prime_cert_to_str() writes as text and tifa_prime_cert_from_str()
-  reads back. tifa_set_time_limit() bounds the time of the factorizations
-  of a thread, approximately.
+  reads back. tifa_batch_gcd() finds, among many integers (RSA moduli, say),
+  those sharing a prime with another, from product and remainder trees.
+  tifa_set_time_limit() bounds the time of the factorizations of a thread,
+  approximately.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)
@@ -200,9 +202,12 @@
 
      cc app.c $(pkg-config --cflags --libs tifa) -o app
 
-  The Python package, tifa, whose tifa.factor(n) is tifa_factor(), is
-  installed by pip rather than by CMake. From version 0.4.6 on, with wheels
-  for Linux and macOS (GMP in them):
+  The Python package, tifa, is installed by pip rather than by CMake: its
+  tifa.factor(n) is tifa_factor() (tifa.factor(n, proof=True) also proves
+  the primes), tifa.batch_gcd(moduli) is tifa_batch_gcd(), and a
+  tifa.Cofactorizer gives tifa_cofactor() for one integer or a whole list at
+  a time. From version 0.4.6 on, with wheels for Linux and macOS (GMP in
+  them):
 
          prompt> pip install tifa-factor
 
@@ -415,10 +420,24 @@
   with -h or --help to see it). Run without argument, a program asks for
   the number to factor.
 
-  All the programs exit with status 0 for a complete factorization (or a
-  prime, or 1), 1 for a partial one, 2 if no factor was found, and 3 for
-  invalid input, so that "tifa-factor N && ..." reads as expected. With
-  --prove, a factor not proven prime makes the factorization partial.
+  All the factorization programs exit with status 0 for a complete
+  factorization (or a prime, or 1), 1 for a partial one, 2 if no factor was
+  found, and 3 for invalid input, so that "tifa-factor N && ..." reads as
+  expected. With --prove, a factor not proven prime makes the factorization
+  partial.
+
+  To find, among many integers (RSA moduli, say), those that share a prime
+  with another, use the tifa-batch-gcd program on files of them (or on its
+  standard input): decimal integers separated by spaces or newlines, '#'
+  starting a comment, or hexadecimal ones with --hex:
+
+      prompt> tifa-batch-gcd moduli.txt
+
+  For each integer sharing a prime with another, it prints its position
+  (from 1) and its gcd with the product of the others: a factor of it, or
+  the integer itself if all its primes are shared, as with a duplicate.
+  With --all, it prints every gcd, in order. It exits with status 0 if some
+  integers share primes, 2 if none do, and 3 for invalid input.
 
   To choose better parameters for your machine, see the tifa-tune tool
   ("Parameter tuning" in section 7).
