@@ -91,9 +91,22 @@ Here are some short term objectives:
         the SSE2 groups: 1.00 to 1.03 of the time from 180 to 220 bits on
         two EPYC 9V74, 0.97 to 0.99 at 200 to 220 on an EPYC 9V45 (within
         2% of the noise there).
-      - Double large primes: about 80000 candidates per 200-bit run have a
-        cofactor between pmax^2 and the square of the large primes' bound,
-        each costing 1 to 5 us to split; they are for larger numbers.
+      - Double large primes (November 2026, a prototype counting the
+        relations with two large primes and the cycles they would close, by
+        union-find, on single numbers): none come through as SIQS stands,
+        since the pre-check drops cofactors above log2(pmax) + 8 bits, and
+        two primes above pmax need about twice that. Letting cofactors of up
+        to 40 to 50 bits through, with large primes up to 15e6, 2^26 or 2^28,
+        the cycles would have ended the run at 0.68 to 0.89 of the time of
+        that run, but those runs took 1.5 to 2 times as long (the batch test
+        on many more candidates, the splitting), so that the best of them
+        would have taken 1.46 times the time of SIQS as it is at 200 bits,
+        1.25 at 240, 1.18 at 264. Free candidates, the cycles would cut 25%
+        to 32% of the sieving at 240 and 264 bits: double large primes need
+        a much cheaper way to the cofactor of a candidate than the batch
+        test (resieving, as msieve and yafu do), or larger numbers than
+        SIQS takes here. A large prime bound of 2^26 rather than 15e6 alone
+        gains 3% at 240 bits, within the noise.
       - Threads: the collection of relations would split over several cores
         (the library is thread-safe), for its wall-clock time.
       - From seven primes in 'a', the approximer sorts up to 18424 triples
