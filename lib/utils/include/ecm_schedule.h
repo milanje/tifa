@@ -53,7 +53,10 @@ extern "C" {
 typedef struct struct_ecm_schedule_t ecm_schedule_t;
 
    /**
-    * \brief Allocates the plans for factors of up to \c max_bits bits.
+    * \brief Allocates the schedule for factors of up to \c max_bits bits.
+    *
+    * The plans of the levels above 60 bits are built when a search first
+    * reaches them.
     */
 ecm_schedule_t* alloc_ecm_schedule(uint32_t max_bits);
 
@@ -76,7 +79,7 @@ void free_ecm_schedule(ecm_schedule_t* schedule);
     * \return true if a proper factor was found.
     */
 bool ecm_schedule_split(mpz_t g, const mpz_t n,
-                        const ecm_schedule_t* schedule, double min_bits,
+                        ecm_schedule_t* schedule, double min_bits,
                         double target_bits, double budget);
 
    /**
@@ -93,7 +96,7 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
     * \return true if a proper factor was found.
     */
 bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
-                          const ecm_schedule_t* schedule, double budget);
+                          ecm_schedule_t* schedule, double budget);
 
 #endif
 

@@ -48,6 +48,7 @@ set(TIFA_SOURCES
     # sieve's loops depends on their alignment.
     algo/src/prime_cert.c
     utils/src/time_limit.c
+    utils/src/mont_ecm_wide.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the

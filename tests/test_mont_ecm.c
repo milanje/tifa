@@ -18,7 +18,7 @@
 
 // Fixed-limb Montgomery ECM (mont_ecm.h) against a plain GMP reference with
 // the same curves: identical stage 1 outcomes for every sigma, and every
-// factor the reference finds in stage 2 is found too. Moduli of 1 to 4 limbs.
+// factor the reference finds in stage 2 is found too. Moduli of 1 to 8 limbs.
 
 #include <stdlib.h>
 
@@ -237,7 +237,7 @@ int main(void) {
     mont_ecm_plan_t* const plan2 = alloc_mont_ecm_plan(200, 5000);
     char msg[160];
 
-    for (uint32_t nl = 1; nl <= 4; nl++) {
+    for (uint32_t nl = 1; nl <= MONT_ECM_MAX_LIMBS; nl++) {
         // n = p q with a 22-bit p and exactly nl limbs.
         random_prime(p, state, 22);
         do {
@@ -292,7 +292,7 @@ int main(void) {
     {
         mpz_t x0, a24;
         mpz_inits(x0, a24, NULL);
-        for (uint32_t nl = 1; nl <= 4; nl++) {
+        for (uint32_t nl = 1; nl <= MONT_ECM_MAX_LIMBS; nl++) {
             random_prime(p, state, 20);
             do {
                 random_prime(q, state, 64 * nl - 20 - (nl == 1 ? 1 : 5));

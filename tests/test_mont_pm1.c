@@ -18,7 +18,7 @@
 
 // Fixed-limb Montgomery p-1 and p+1 (mont_ecm.h) against plain GMP
 // references: identical stage 1 outcomes, and every factor the reference
-// finds in stage 2 is found too. Moduli of 1 to 4 limbs, with factors p
+// finds in stage 2 is found too. Moduli of 1 to 8 limbs, with factors p
 // chosen so that p - 1 (or p + 1) is B1-smooth a third of the time, and
 // B2-smooth (one prime above B1) another third.
 
@@ -176,7 +176,7 @@ int main(void) {
 
     for (int pm1 = 1; pm1 >= 0; pm1--) {
         const char* name = pm1 ? "p-1" : "p+1";
-        for (uint32_t nl = 1; nl <= 4; nl++) {
+        for (uint32_t nl = 1; nl <= MONT_ECM_MAX_LIMBS; nl++) {
             uint32_t mismatch1 = 0, missed2 = 0, bad = 0, nfound = 0;
             for (uint32_t t = 0; t < 30; t++) {
                 switch (t % 3) {

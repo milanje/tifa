@@ -1,5 +1,36 @@
 # TIFA news
 
+## 6 November 2026 &mdash; ECM up to 512 bits
+
+ECM, p-1 and p+1 in Montgomery arithmetic (`mont_ecm.h`) now take moduli of
+five to eight 64-bit limbs, up to 512 bits: the kernels of one to four
+limbs, compiled for each size, in a file of their own at the end of the
+library. Above 256 bits, `tifa_factor()` ran single p-1 and p+1 runs, then
+SIQS, whatever the size of the factors: 31 s at 264 bits, 98 s at 280,
+minutes to hours above, without end from about 330 bits. It now searches with ECM
+first, as below 256 bits, for factors of up to 85 bits rather than 60, for
+at most 0.2 of the time SIQS would take (version 0.4.7's from 264 bits). On
+an Apple M5 Pro, with n = p.q, q prime:
+
+| `tifa_factor()`, bits of n, of p | 264, 40 | 280, 55 | 300, 65 | 400, 50 | 500, 60 |
+|---|---:|---:|---:|---:|---:|
+| before | 31 s | 98 s | minutes | no end | no end |
+| now | 11 ms | 0.14 s | 0.44 s | 50 ms | 0.69 s |
+
+The new levels double B1 from one to the next (51200 to 819200), their
+curve counts measured on 20 to 80 factors each; their plans, 7 to 70 ms
+each to build (about one curve), are built when a search first reaches
+them. `ecm()`, `p_minus_1()`, `p_plus_1()` and the proofs of
+`tifa_prove_prime()` use the new arithmetic too: `ecm()` finds 40-bit
+factors of 300 to 500 bits 3 to 8 times as fast, and the proofs of five
+288-bit primes took 4.2 s on average rather than 24.5 s.
+
+Below 257 bits nothing changes but the layout of the code. Time of the new
+version over that of the previous one, `bench/ab.sh`: SIQS 0.995 to 1.001
+from 70 to 220 bits, `tifa_factor()` 0.994 to 1.003 from 80 to 140 bits
+(0.98 to 1.005 with a factor of 40 to 50 bits, at 160 and 200), `ecm()`
+0.990 to 1.006 from 100 to 220 bits, p-1 and p+1 0.975 and 0.995 at 160.
+
 ## 5 November 2026 &mdash; Python: Ctrl-C
 
 In the main thread, Ctrl-C interrupts `tifa.factor()` and

@@ -18,8 +18,9 @@
 
 //
 // ECM kernels for moduli of exactly NL 64-bit limbs. Included once per limb
-// count by mont_ecm.c, with NL and FN(name) (name suffixed by NL) defined:
-// the loops have constant bounds, so the compiler unrolls them.
+// count by mont_ecm.c and mont_ecm_wide.c, with NL and FN(name) (name
+// suffixed by NL) defined: the loops have constant bounds, so the compiler
+// unrolls them.
 //
 
 //------------------------------------------------------------------------------

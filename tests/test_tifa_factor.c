@@ -27,6 +27,7 @@
 
 #include "tifa_test.h"
 #include "tifa_factor.h"
+#include "mont_ecm.h"
 
 static void factor_and_check(const char* label, const mpz_t n) {
     mpz_array_t*    factors = alloc_mpz_array(8);
@@ -280,6 +281,28 @@ int main(void) {
           "an unknown hint fails");
     CHECK_EQ_UI(factors->length, 0, "an unknown hint finds nothing");
     free_mpz_array(factors);
+
+#if TIFA_HAVE_MONT_ECM
+    // Above 256 bits, the ECM pre-pass on five to eight limbs: factors of 30
+    // to 50 bits, the last cofactor prime (SIQS would take minutes or more).
+    static const uint32_t prime_bits[][4] = {
+        { 45, 235, 0, 0 }, { 40, 50, 300, 0 }, { 30, 40, 45, 385 }
+    };
+    static const char* const labels[] = {
+        "45-bit factor (280 bits)", "40- and 50-bit factors (390 bits)",
+        "30-, 40- and 45-bit factors (500 bits)"
+    };
+    for (uint32_t i = 0; i < 3; i++) {
+        mpz_set_ui(n, 1UL);
+        for (uint32_t j = 0; (j < 4) && (prime_bits[i][j] != 0); j++) {
+            mpz_urandomb(p, state, prime_bits[i][j]);
+            mpz_setbit(p, prime_bits[i][j] - 1);
+            mpz_nextprime(p, p);
+            mpz_mul(n, n, p);
+        }
+        factor_and_check(labels[i], n);
+    }
+#endif
 
     gmp_randclear(state);
 

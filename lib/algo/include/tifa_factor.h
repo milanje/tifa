@@ -58,9 +58,9 @@ extern "C" {
     * factor_u64.h). Otherwise, prime factors below 1000 (below 8192 for
     * numbers of at most 26 bits) are found by trial division before any
     * other algorithm runs. The composites left go to SQUFOF up to 58 bits;
-    * above, a short ECM search (see ecm_schedule.h, up to 256 bits) looks
-    * for a medium factor, or, where it can not run, single p-1 and p+1 runs
-    * from 90 bits, before SIQS. \c tifa_factor_with_hint changes this when
+    * above, a short ECM search (see ecm_schedule.h, up to 512 bits) looks
+    * for a factor of up to 60 bits (85 bits above 256), or, where it can not
+    * run, single p-1 and p+1 runs from 90 bits, before SIQS. \c tifa_factor_with_hint changes this when
     * more is known of <tt>n</tt>.
     *
     * \note If the factoring mode used is different from
@@ -110,7 +110,7 @@ enum tifa_factor_hint_enum {
     TIFA_FACTOR_BALANCED,
         /**
          * n has a prime factor of less than about a third of its size: ECM
-         * searches for as long as SIQS would take (up to 256 bits, with
+         * searches for as long as SIQS would take (up to 512 bits, with
          * 128-bit integers; otherwise as \c TIFA_FACTOR_RANDOM).
          */
     TIFA_FACTOR_UNBALANCED

@@ -20,7 +20,7 @@
  * \file    mont_ecm.h
  *
  * \brief ECM curves, p-1 and p+1 in fixed-size Montgomery arithmetic, for
- *        moduli of one to four 64-bit limbs.
+ *        moduli of one to eight 64-bit limbs.
  *
  * Stage 1 raises to the product E of the prime powers up to B1 (Montgomery
  * ladder for ECM, binary powering for p-1, Lucas ladder for p+1); stage 2 is
@@ -55,7 +55,7 @@ extern "C" {
     * \def MONT_ECM_MAX_LIMBS
     * Largest modulus size, in 64-bit limbs.
     */
-#define MONT_ECM_MAX_LIMBS 4
+#define MONT_ECM_MAX_LIMBS 8
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -81,7 +81,7 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2);
 void free_mont_ecm_plan(mont_ecm_plan_t* plan);
 
    /**
-    * \brief Whether \c mont_ecm_curve handles \c n (odd, one to four limbs).
+    * \brief Whether \c mont_ecm_curve handles \c n (odd, one to eight limbs).
     */
 bool mont_ecm_handles(const mpz_t n);
 

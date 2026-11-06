@@ -86,6 +86,14 @@
 //
 #define TFACTOR_ECM_BUDGET 0.2
 #define TFACTOR_ECM_BUDGET_UNBALANCED 1.0
+//
+// Size of the largest factors the ECM pre-pass looks for (bits): up to
+// TFACTOR_WIDE_ECM_BITS bits, then above, where SIQS takes half a minute or
+// more. The plans of the larger levels are built when such a number comes.
+//
+#define TFACTOR_ECM_FBITS 60
+#define TFACTOR_WIDE_ECM_FBITS 85
+#define TFACTOR_WIDE_ECM_BITS 256
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
@@ -145,11 +153,17 @@ static ecode_t add_found(mpz_array_t* const factors,
 }
 //-----------------------------------------------------------------------------
 #if TIFA_HAVE_MONT_ECM
-static ecm_schedule_t* ecm_schedule      = NULL;
-static pthread_once_t  ecm_schedule_once = PTHREAD_ONCE_INIT;
+static ecm_schedule_t* ecm_schedule           = NULL;
+static pthread_once_t  ecm_schedule_once      = PTHREAD_ONCE_INIT;
+static ecm_schedule_t* wide_ecm_schedule      = NULL;
+static pthread_once_t  wide_ecm_schedule_once = PTHREAD_ONCE_INIT;
 
 static void build_ecm_schedule(void) {
-    ecm_schedule = alloc_ecm_schedule(60);
+    ecm_schedule = alloc_ecm_schedule(TFACTOR_ECM_FBITS);
+}
+
+static void build_wide_ecm_schedule(void) {
+    wide_ecm_schedule = alloc_ecm_schedule(TFACTOR_WIDE_ECM_FBITS);
 }
 //
 // Searches n for a factor with ECM, for a fraction of the time SIQS would
@@ -160,12 +174,18 @@ static ecode_t run_ecm_prepass(mpz_array_t* const factors,
                                uint32_array_t* const multis,
                                const mpz_t n, const factoring_mode_t mode,
                                const double budget) {
-    pthread_once(&ecm_schedule_once, build_ecm_schedule);
-
+    ecm_schedule_t* schedule;
+    if (mpz_sizeinbase(n, 2) > TFACTOR_WIDE_ECM_BITS) {
+        pthread_once(&wide_ecm_schedule_once, build_wide_ecm_schedule);
+        schedule = wide_ecm_schedule;
+    } else {
+        pthread_once(&ecm_schedule_once, build_ecm_schedule);
+        schedule = ecm_schedule;
+    }
     ecode_t ecode = NO_FACTOR_FOUND;
     mpz_t g;
     mpz_init(g);
-    if (ecm_schedule_prepass(g, n, ecm_schedule, budget)) {
+    if (ecm_schedule_prepass(g, n, schedule, budget)) {
         mpz_array_t* found = alloc_mpz_array(4);
         append_mpz_to_array(found, g);
         mpz_divexact(g, n, g);

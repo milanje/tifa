@@ -157,8 +157,9 @@ changes.
 
 - `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
   methods by size: machine-word arithmetic below 2^64; above, trial division by
-  the primes below 1000, a short ECM search (single p-1 and p+1 runs above 256
-  bits or without 128-bit integers), then SIQS.
+  the primes below 1000, a short ECM search for factors of up to 60 bits (85
+  above 256 bits; single p-1 and p+1 runs above 512 bits or without 128-bit
+  integers), then SIQS.
   `tifa_factor_with_hint()` does the same, told what is known of the number:
   two prime factors of about the same size (SIQS runs right away), or one
   below a third of its size (ECM searches for longer).
@@ -183,7 +184,7 @@ changes.
   (`tdiv.h`).
 - Below 2^64, deterministic primality testing and factorization in machine
   words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
-  four words, up to 256 bits (`mont_ecm.h`).
+  eight words, up to 512 bits (`mont_ecm.h`).
 
 - A Python package (`python/`), whose `tifa.factor(n)` is `tifa_factor()` (see
   [Python](#python) below).

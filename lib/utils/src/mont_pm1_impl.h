@@ -18,8 +18,8 @@
 
 //
 // p-1 and p+1 kernels for moduli of exactly NL 64-bit limbs. Included once
-// per limb count by mont_ecm.c after mont_ecm_impl.h (whose arithmetic they
-// use), with NL and FN(name) defined.
+// per limb count by mont_ecm.c and mont_ecm_wide.c after mont_ecm_impl.h
+// (whose arithmetic they use), with NL and FN(name) defined.
 //
 
 //
