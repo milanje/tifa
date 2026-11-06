@@ -70,6 +70,15 @@ set(TIFA_BUILD_INCLUDE_DIRS
 # Compile the sources once into an object library.
 #------------------------------------------------------------------------------
 add_library(tifa_objects OBJECT ${TIFA_SOURCES})
+# The loops of the Montgomery kernels start on 64-byte boundaries: on an Apple
+# M5, p+1 took 4% more time when 412 bytes of code were added before them.
+include(CheckCCompilerFlag)
+check_c_compiler_flag(-falign-loops=64 TIFA_HAVE_ALIGN_LOOPS)
+if(TIFA_HAVE_ALIGN_LOOPS AND CMAKE_C_COMPILER_ID MATCHES "Clang"
+   AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+    set_property(SOURCE utils/src/mont_ecm.c utils/src/mont_ecm_wide.c
+                 APPEND PROPERTY COMPILE_OPTIONS -falign-loops=64)
+endif()
 
 # Environment variables that a setuid program must not trust (tuning.c).
 include(CheckSymbolExists)
