@@ -39,6 +39,18 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+**Version 0.4.8 (November 2026)** runs ECM in Montgomery arithmetic up to 512
+bits and in GMP arithmetic above, so that `tifa_factor()` finds the small
+factors of numbers of any size, where it ran SIQS for hours or without end: a
+40-bit factor of a 264-bit number in 11 ms rather than 31 s on an Apple M5 Pro,
+of a 1024-bit number in 92 ms. `tifa_batch_gcd()` and the `tifa-batch-gcd`
+program find, among many RSA moduli, those sharing a prime (100,000 of 2048
+bits in 30 s). The Python package gains `Cofactorizer`, `batch_gcd()`, Ctrl-C,
+`python -m tifa` and, in the wheels, the `tifa-factor` and `tifa-batch-gcd`
+programs; `tifa_factor()` is back to 0.4.6's speed at 70 and 80 bits (see
+[readme/releases/0.4.8.md](./readme/releases/0.4.8.md)). The ABI only grows
+(`libtifa.so.0.4`).
+
 **Version 0.4.7 (November 2026)** makes SIQS 1.1 to 4.1 times as fast from 232
 to 280 bits on an Apple M5 Pro (a 280-bit semiprime in 98 s rather than 407):
 its factor base, capped at 16384 primes, goes to 65536, the exponents of its
@@ -52,17 +64,9 @@ Python wheels (see
 [readme/releases/0.4.7.md](./readme/releases/0.4.7.md#4-november-2026--security-fixes)).
 The ABI only grows (`libtifa.so.0.4`).
 
-**Version 0.4.6 (November 2026)** brings a Python package: `pip install
-tifa-factor`, then `tifa.factor(n)` returns the prime factorization of `n` as
-`{prime: exponent}`, in 0.24 to 0.51 of the time of PARI/GP's `factorint` on
-balanced semiprimes from 100 to 220 bits (see [Python](#python)). Where the
-processor has AVX-512, the bucket fill of SIQS takes sixteen primes at a time:
-`siqs()` takes 0.84 to 0.87 of the time of 0.4.5 at 220 bits (EPYC 9V45 and
-9V74, Xeon 6975P-C). The ABI is unchanged (`libtifa.so.0.4`).
-
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
-changes and their measurements; the changes on master since 0.4.7 are in
+changes and their measurements; the changes on master since 0.4.8 are in
 [readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there

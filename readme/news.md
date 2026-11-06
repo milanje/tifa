@@ -9,22 +9,29 @@ say otherwise.
 
 ## Unreleased
 
-- Python: Ctrl-C interrupts `factor()` and `prime_certificate()`.
+Nothing yet.
+
+[Release notes](./releases/unreleased.md)
+
+## 0.4.8 &mdash; 2026-11-06
+
 - Montgomery ECM, p-1 and p+1 up to 512 bits (8 limbs); above 256 bits,
   `tifa_factor()` searches for factors of up to 85 bits before SIQS.
 - Above 512 bits, ECM in GMP arithmetic before SIQS; the longest curves stop
   within a few ms of a time limit or an interrupt.
 - `tifa_batch_gcd()`, `tifa.batch_gcd()` and the `tifa-batch-gcd` program:
   the integers (RSA moduli) sharing a prime with another.
-- Python: `tifa.Cofactorizer`, `tifa_cofactor()` for one integer or a list.
-- `tifa_factor()` 1% to 2% faster at 70 and 80 bits (0.4.6's speed back).
+- Python: `tifa.Cofactorizer`, `tifa_cofactor()` for one integer or a list;
+  Ctrl-C interrupts `factor()` and `prime_certificate()`.
 - `python -m tifa`, as GNU `factor`; the wheels install `tifa-factor` and
   `tifa-batch-gcd`; `--version` for every program.
+- `tifa_factor()` 1% to 2% faster at 70 and 80 bits (0.4.6's speed back).
 - The ECM search of `tifa_cofactor()` and `tifa_factor()` runs the
   Z/2 x Z/8 curves first: 1% to 2.4% less work on sets of cofactors.
 - The programs take numbers of up to 4095 digits (255 before).
+- ABI grows (`libtifa.so.0.4`).
 
-[Release notes](./releases/unreleased.md)
+[Release notes](./releases/0.4.8.md)
 
 ## 0.4.7 &mdash; 2026-11-05
 

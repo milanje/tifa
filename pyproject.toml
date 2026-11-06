@@ -11,15 +11,37 @@ license = "LGPL-2.1-or-later"
 license-files = ["readme/license_v2.1.txt", "readme/license_v3.txt"]
 authors = [{ name = "Jerome Milan" }]
 requires-python = ">=3.10"
+keywords = [
+    "factorization", "integer factorization", "quadratic sieve", "SIQS",
+    "ECM", "elliptic curve method", "primality certificate",
+    "cofactorization", "batch GCD", "number theory",
+]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: C",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Security :: Cryptography",
     "Typing :: Typed",
 ]
 
 [project.urls]
 Homepage = "https://github.com/milanje/tifa"
+Source = "https://github.com/milanje/tifa"
+Changelog = "https://github.com/milanje/tifa/blob/master/readme/news.md"
+"Release notes" = "https://github.com/milanje/tifa/tree/master/readme/releases"
 
 [project.optional-dependencies]
 test = ["pytest"]
