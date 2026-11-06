@@ -22,6 +22,7 @@ say otherwise.
   `tifa-batch-gcd`; `--version` for every program.
 - The ECM search of `tifa_cofactor()` and `tifa_factor()` runs the
   Z/2 x Z/8 curves first: 1% to 2.4% less work on sets of cofactors.
+- The programs take numbers of up to 4095 digits (255 before).
 
 [Release notes](./releases/unreleased.md)
 

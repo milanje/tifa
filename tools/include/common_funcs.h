@@ -36,6 +36,8 @@
 extern "C" {
 #endif
 
+#include <string.h>
+
 #include "first_primes.h"
 
     //
@@ -52,11 +54,16 @@ extern "C" {
    /**
     * \def PRINT_NAN_ERROR(X)
     * Macro printing a "X is not an integer" error message on the standard
-    * error.
+    * error, or that it has too many digits.
     */
-#define PRINT_NAN_ERROR(X) do {                             \
-    fprintf(stderr, "\nERROR: %s is not an integer!\n", X); \
-    PRINT_ABORT_MSG();                                      \
+#define PRINT_NAN_ERROR(X) do {                                           \
+    if (((X)[0] != '\0') && (strspn((X), "0123456789") == strlen(X))) {   \
+        fprintf(stderr, "\nERROR: the number has more than %d digits!\n", \
+                MAX_NDIGITS - 1);                                         \
+    } else {                                                              \
+        fprintf(stderr, "\nERROR: %s is not an integer!\n", X);           \
+    }                                                                     \
+    PRINT_ABORT_MSG();                                                    \
 } while (0)
 
    /**
@@ -76,9 +83,10 @@ extern "C" {
 
    /**
     * \def MAX_NDIGITS
-    * Maximal number of decimal digits of the number to factor.
+    * Maximal number of decimal digits of the number to factor, plus one
+    * (about 13600 bits: ECM looks for factors of numbers of any size).
     */
-#define MAX_NDIGITS 256
+#define MAX_NDIGITS 4096
    /**
     * \def NTRIES_MILLER_RABIN
     * Number of iterations to use in the Miller-Rabin composition tests.

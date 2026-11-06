@@ -3,6 +3,13 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 6 November 2026 &mdash; numbers of up to 4095 digits in the programs
+
+The factorization programs (`tifa-factor`, `tifa-ecm`, ...) refused numbers
+of more than 255 digits (847 bits) with "is not an integer", although ECM
+now searches numbers of any size. They take up to 4095 digits (about 13600
+bits), and say "the number has more than 4095 digits" beyond.
+
 ## 6 November 2026 &mdash; Z/2 x Z/8 curves in the ECM search of tifa_cofactor and tifa_factor
 
 The ECM search of `tifa_cofactor()` and `tifa_factor()` (`ecm_schedule.c`)

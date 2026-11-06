@@ -138,6 +138,10 @@ tifa_add_exit_test(exit_prove_complete 0 tifa_factor --prove 1000000016000000063
 tifa_add_exit_test(exit_prove_prime    0 tifa_factor --prove 1000003)
 tifa_add_exit_test(exit_prove_bad_hint 3 tifa_factor 12 --prove 34)
 tifa_add_exit_test(exit_prove_help     0 tifa_factor --prove --help)
+# Long numbers: 3 . (2^1279 - 1), 386 digits; 5000 digits are too many.
+tifa_add_exit_test(exit_long_number    0 tifa_factor 31223796583993197245775720982092256615845786741800114415957337051210824179020080894036718325196972554527264841862843023374150698744970394724419719817031962288772388528167661037319550048984750651418878261643069433635081031442645436600887504153314780875197046655933482485615249755084766813998674495672756405541204666609421563080095306466198874086634152609208560702144162131667109506187261)
+string(REPEAT "7" 5000 _too_long)
+tifa_add_exit_test(exit_too_long       3 tifa_factor ${_too_long})
 tifa_add_exit_test(exit_batch_gcd_shared  0 batch_gcd "${_fixtures}/batch_gcd.txt")
 tifa_add_exit_test(exit_batch_gcd_none    2 batch_gcd "${_fixtures}/batch_gcd_coprime.txt")
 tifa_add_exit_test(exit_batch_gcd_empty   2 batch_gcd)
@@ -145,6 +149,10 @@ tifa_add_exit_test(exit_batch_gcd_bad     3 batch_gcd "${_fixtures}/batch_gcd_ba
 tifa_add_exit_test(exit_batch_gcd_missing 3 batch_gcd "${_fixtures}/no_such_file")
 tifa_add_exit_test(exit_batch_gcd_option  3 batch_gcd --decimal)
 tifa_add_exit_test(exit_batch_gcd_help    0 batch_gcd --help)
+
+add_test(NAME too_many_digits COMMAND tifa_factor ${_too_long})
+set_tests_properties(too_many_digits PROPERTIES
+    TIMEOUT 60 PASS_REGULAR_EXPRESSION "more than 4095 digits")
 
 # --version: "<program> (TIFA) <version>".
 foreach(_prog tifa_factor siqs batch_gcd tifa_tune)
