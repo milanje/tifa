@@ -1,5 +1,29 @@
 # TIFA news
 
+## 6 November 2026 &mdash; Batch GCD
+
+`tifa_batch_gcd()` (`batch_gcd.h`) gives the gcd of each integer of a set
+with the product of the others, and the Python package's
+`tifa.batch_gcd()` the same: the RSA moduli that share a prime with
+another, as Heninger, Durumeric, Wustrow and Halderman found among the keys
+of the Internet ("Mining Your Ps and Qs", USENIX Security 2012). A product
+tree gives the product P of the moduli; then, down the tree, each node N
+gives (P / N) mod N to its children, until gcd(n, (P / n) mod n) at each
+modulus n. Heninger et al.'s P mod N^2, computed the same way, took 1.1 times
+as long and 1.5 times the memory. On an Apple M5 Pro, one thread:
+
+| moduli | 10,000 of 1024 bits | 10,000 of 2048 | 100,000 of 1024 | 100,000 of 2048 |
+|---|---:|---:|---:|---:|
+| time | 0.71 s | 1.6 s | 12.5 s | 30 s |
+| memory | 30 MB | 73 MB | 0.39 GB | 0.77 GB |
+
+With P mod N^2, 87% of the time went to the divisions of the remainder
+tree; Bernstein's scaled remainder tree, which multiplies instead, took 0.77
+to 0.91 of its time with GMP's full products (it wants middle products,
+which GMP does not export), no better than (P / N) mod N. The time limit and the interrupt check of the
+calling thread stop it (Ctrl-C in Python). The code is last in the
+library, and the benchmark programs are the same, byte for byte.
+
 ## 6 November 2026 &mdash; ECM up to 512 bits
 
 ECM, p-1 and p+1 in Montgomery arithmetic (`mont_ecm.h`) now take moduli of

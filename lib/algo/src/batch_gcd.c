@@ -78,8 +78,8 @@ ecode_t tifa_batch_gcd(mpz_array_t* const gcds,
         }
     }
     ecode_t ecode = GIVING_UP;
-    mpz_t sq;
-    mpz_init(sq);
+    mpz_t t, u;
+    mpz_inits(t, u, NULL);
 
     for (uint32_t k = 1; k < nlevels; k++) {
         mpz_t* const below = levels[k - 1];
@@ -95,33 +95,48 @@ ecode_t tifa_batch_gcd(mpz_array_t* const gcds,
         }
     }
     //
-    // Down the tree, each node becomes the product of all the moduli modulo
-    // its square: the square of a node divides that of its parent.
+    // Down the tree, each node N becomes (P / N) mod N, P the product of all
+    // the moduli: for a node N = A.B, P / A = (P / N).B. Rather than P mod N^2
+    // (Heninger et al.), for 0.9 of the time and 0.7 of the memory.
     //
-    for (uint32_t k = nlevels - 2; k >= 1; k--) {
-        for (uint32_t j = 0; j < lengths[k]; j++) {
-            mpz_mul(sq, levels[k][j], levels[k][j]);
-            mpz_tdiv_r(levels[k][j], levels[k + 1][j / 2], sq);
+    const uint32_t top = nlevels - 1;
+    mpz_set_ui(levels[top][0], 1);
+    for (uint32_t k = top - 1; k >= 1; k--) {
+        for (uint32_t j = 0; j < lengths[k]; j += 2) {
+            mpz_ptr const q = levels[k + 1][j / 2];
+            if (j + 1 == lengths[k]) {
+                mpz_tdiv_r(levels[k][j], q, levels[k][j]);
+                continue;
+            }
+            mpz_mul(t, q, levels[k][j + 1]);
+            mpz_mul(u, q, levels[k][j]);
+            mpz_tdiv_r(levels[k][j], t, levels[k][j]);
+            mpz_tdiv_r(levels[k][j + 1], u, levels[k][j + 1]);
             if (tifa_should_stop()) {
                 goto done;
             }
+        }
+        for (uint32_t j = 0; j < lengths[k + 1]; j++) {
+            mpz_realloc2(levels[k + 1][j], 1);
         }
     }
     if (gcds->alloced - gcds->length < count) {
         resize_mpz_array(gcds, gcds->length + count);
     }
     for (uint32_t i = 0; i < count; i++) {
-        mpz_ptr const g = gcds->data[gcds->length + i];
-        mpz_mul(sq, moduli->data[i], moduli->data[i]);
-        mpz_tdiv_r(g, levels[1][i / 2], sq);
-        mpz_divexact(g, g, moduli->data[i]);
-        mpz_gcd(g, g, moduli->data[i]);
+        mpz_ptr const q = levels[1][i / 2];
+        if ((i ^ 1) < count) {
+            mpz_mul(t, q, moduli->data[i ^ 1]);
+        } else {
+            mpz_set(t, q);
+        }
+        mpz_gcd(gcds->data[gcds->length + i], t, moduli->data[i]);
     }
     gcds->length += count;
     ecode = SUCCESS;
 
 done:
-    mpz_clear(sq);
+    mpz_clears(t, u, NULL);
     free_levels(levels, lengths, nlevels);
     free(lengths);
     free(levels);

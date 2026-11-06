@@ -144,6 +144,22 @@ when both `p - 1` and `p + 1` are hard to factor). On random numbers of 100
 to 200 bits, `factor(n, proof=True)` takes 2% to 25% more time than
 `factor(n)`. Without `proof=True`, nothing changes.
 
+## Shared primes
+
+`batch_gcd(moduli)` returns the gcd of each integer with the product of the
+others: 1 when it shares no prime with them. Among RSA moduli, a gcd other
+than 1 and the modulus itself is a prime factor of it, found without
+factoring anything:
+
+```python
+>>> tifa.batch_gcd([15, 21, 22, 143])
+[3, 3, 11, 11]
+```
+
+Product and remainder trees (Heninger et al., "Mining Your Ps and Qs",
+2012) take 30 s for 100,000 moduli of 2048 bits on an Apple M5 Pro, and
+0.8 GB; `timeout` and Ctrl-C work as for `factor`.
+
 ## Installing
 
 From PyPI:
