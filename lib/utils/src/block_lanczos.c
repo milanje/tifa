@@ -383,7 +383,7 @@ static uint32_t find_nonsingular_sub(const uint64_t* const t,
 static bool lanczos_core(const sparse_gf2_t* const m, uint64_t seed,
                          uint64_t* const x, uint64_t* const v_last) {
     const uint32_t n = m->ncols;
-    uint64_t* const y       = tifa_malloc((size_t) n * sizeof(uint64_t));
+    uint64_t* const y       = tifa_calloc(n, sizeof(uint64_t));
     uint64_t* const v0_init = tifa_malloc((size_t) n * sizeof(uint64_t));
     uint64_t* v[3];
     for (uint32_t i = 0; i < 3; i++) {
