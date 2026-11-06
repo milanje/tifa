@@ -120,8 +120,16 @@ void augment_coprime_base(mpz_t f, mpz_array_t* base) {
     //
     // The integers still to add are kept on a stack, in the order of the
     // recursion this replaces, whose depth grew with the exponents of the
-    // prime powers (a stack overflow for 1009^10001 in a thread).
+    // prime powers (a stack overflow for 1009^10001 in a thread). Most calls
+    // end before it is allocated.
     //
+    if (is_in_mpz_array(f, base) || (mpz_cmp_ui(f, 1) == 0)) {
+        return;
+    }
+    if (base->length == 0) {
+        append_mpz_to_array(base, f);
+        return;
+    }
     mpz_array_t* const pending = alloc_mpz_array(ELONGATION);
     append_mpz_to_array(pending, f);
 

@@ -337,24 +337,29 @@ void sort_decomp(decomp_t* const decomp) {
 // add_to_decomp with the rows of a dense decomp_t loaded once.
 //
 static inline void add_exponent(unsigned char** const dense,
-                                decomp_t* const decomp, const uint32_t i,
-                                const uint32_t j, const uint32_t e) {
-    if (dense != NULL) {
-        dense[i][j] += (unsigned char) e;
-    } else {
+                                decomp_t* const decomp, const bool sparse,
+                                const uint32_t i, const uint32_t j,
+                                const uint32_t e) {
+    if (sparse) {
         append_to_decomp(decomp, i, j, e);
+    } else {
+        dense[i][j] += (unsigned char) e;
     }
 }
 //-----------------------------------------------------------------------------
-void fill_trial_div_decomp(binary_matrix_t* const matrix,
-                           decomp_t* const decomp,
-                           mpz_array_t* const partially_factored,
-                           const mpz_array_t* const to_factor,
-                           const uint32_array_t* const factor_base
-                          ) {
+//
+// Inlined once per kind of decomp_t: a test of the kind per exponent added
+// cost 0.7% of the time of tifa_factor at 80 bits.
+//
+static inline __attribute__((always_inline))
+void fill_trial_div_rows(binary_matrix_t* const matrix,
+                         decomp_t* const decomp,
+                         mpz_array_t* const partially_factored,
+                         const mpz_array_t* const to_factor,
+                         const uint32_array_t* const factor_base,
+                         const bool sparse) {
 
-    unsigned char** const dense = (decomp->dense != NULL) ? decomp->dense->data
-                                                          : NULL;
+    unsigned char** const dense = sparse ? NULL : decomp->dense->data;
     bool flip_bit = false;
 
     uint32_t nrows        = matrix->nrows;
@@ -405,7 +410,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 } else {
                     e = remove_twos(l, &n);
                 }
-                add_exponent(dense, decomp, i, 0, e);
+                add_exponent(dense, decomp, sparse, i, 0, e);
                 if (e & 1) {
                     flip_matrix_bit(nrows, 1, matrix);
                 }
@@ -427,7 +432,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                                            factor_base->length
                                        );
                     if ((l[0] <= UINT32_MAX) && (t != NOT_IN_ARRAY)) {
-                        add_exponent(dense, decomp, i, t, 1);
+                        add_exponent(dense, decomp, sparse, i, t, 1);
                         flip_matrix_bit(nrows, t + 1, matrix);
                         l[0] = 1;
                     }
@@ -472,7 +477,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                             e++;
                         } while (divisible_odd(l, n, q, pinv[k], plim[k]));
                     }
-                    add_exponent(dense, decomp, i, k, e);
+                    add_exponent(dense, decomp, sparse, i, k, e);
                     if (e & 1) {
                         flip_matrix_bit(nrows, k + 1, matrix);
                     }
@@ -496,7 +501,7 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
                 e++;
                 flip_bit = !flip_bit;
             }
-            add_exponent(dense, decomp, i, j, e);
+            add_exponent(dense, decomp, sparse, i, j, e);
             if (flip_bit) {
                 flip_matrix_bit(nrows, j + 1, matrix);
                 flip_bit = false;
@@ -510,6 +515,21 @@ void fill_trial_div_decomp(binary_matrix_t* const matrix,
 #endif
     partially_factored->length = to_factor->length;
     matrix->nrows = nrows;
+}
+//-----------------------------------------------------------------------------
+void fill_trial_div_decomp(binary_matrix_t* const matrix,
+                           decomp_t* const decomp,
+                           mpz_array_t* const partially_factored,
+                           const mpz_array_t* const to_factor,
+                           const uint32_array_t* const factor_base
+                          ) {
+    if (decomp->dense != NULL) {
+        fill_trial_div_rows(matrix, decomp, partially_factored, to_factor,
+                            factor_base, false);
+    } else {
+        fill_trial_div_rows(matrix, decomp, partially_factored, to_factor,
+                            factor_base, true);
+    }
 }
 //-----------------------------------------------------------------------------
 void fill_matrix_from_list(binary_matrix_t* const matrix,

@@ -1676,11 +1676,17 @@ static void add_primes_of_a(siqs_context_t* const context,
     const uint32_t* const a_primes = context->a_primes->data;
     const uint32_t* const a_idx    = context->a_idx_for_smooth->data;
     const uint32_t        nrels    = context->matrix->nrows - first_row;
+    unsigned char** const dense    = (decomp->dense != NULL)
+                                   ? decomp->dense->data : NULL;
 
     for (uint32_t i = 0; i < nrels; i++) {
         const uint32_t* const q = &a_primes[a_idx[i] * npa];
         for (uint32_t k = 0; k < npa; k++) {
-            add_to_decomp(decomp, i, q[k], 1);
+            if (dense != NULL) {
+                dense[i][q[k]]++;
+            } else {
+                append_to_decomp(decomp, i, q[k], 1);
+            }
             flip_matrix_bit(first_row + i, q[k] + 1, context->matrix);
         }
     }
