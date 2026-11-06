@@ -44,9 +44,10 @@ Here are some short term objectives:
         (0.97 to 1.00 of stage 1); two curves interleaved in one step (0.68
         on one limb, whose numbers go to factor_u64 instead, 0.87 to 0.92
         on two, 0.95 to 1.00 on three and four).
-      - tifa_cofactor's schedule (ecm_schedule.c) still runs Suyama's
-        curves, retuned for them, where ecm() starts with the Z/2 x Z/8
-        table.
+      - The levels of ecm_schedule.c (tifa_cofactor, tifa_factor's ECM
+        search) were tuned for Suyama's curves; they run the Z/2 x Z/8 ones
+        first since November 2026 (1% to 2.4% less work on sets of
+        cofactors), and might take fewer curves for them.
 
   - SIQS, in shares of a run (November 2026, after 0.4.4): the sieve's fill
     55% to 75% from 160 to 220 bits, at about one cycle per hit on the M5;

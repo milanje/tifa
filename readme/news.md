@@ -20,6 +20,8 @@ say otherwise.
 - `tifa_factor()` 1% to 2% faster at 70 and 80 bits (0.4.6's speed back).
 - `python -m tifa`, as GNU `factor`; the wheels install `tifa-factor` and
   `tifa-batch-gcd`; `--version` for every program.
+- The ECM search of `tifa_cofactor()` and `tifa_factor()` runs the
+  Z/2 x Z/8 curves first: 1% to 2.4% less work on sets of cofactors.
 
 [Release notes](./releases/unreleased.md)
 

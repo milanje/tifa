@@ -33,12 +33,13 @@
 #if TIFA_HAVE_MONT_ECM
 
 //
-// ECM levels for Suyama's curves (ecm.c's are retuned for the Z/2 x Z/8
-// curves): the B1 for factors of fbits bits (so for the
-// range (fbits - 5, fbits]), the mean number of curves that takes, and the
-// time of one curve on two limbs (us, Apple M series), which only matters
-// relative to siqs_cost. From 65 bits, B1 doubles from level to level and the
-// curve counts, from 20 to 80 factors per level, are rounded up.
+// ECM levels, tuned for Suyama's curves, though the curves run are those of
+// mont_ecm_nth_curve (the Z/2 x Z/8 table first): the B1 for factors of
+// fbits bits (so for the range (fbits - 5, fbits]), the mean number of
+// curves that takes, and the time of one curve on two limbs (us, Apple M
+// series), which only matters relative to siqs_cost. From 65 bits, B1
+// doubles from level to level and the curve counts, from 20 to 80 factors
+// per level, are rounded up.
 //
 static const struct {
     uint32_t fbits;
@@ -175,7 +176,7 @@ static bool run_levels(mpz_t g, const mpz_t n,
     const double limit = budget * siqs_cost((double) mpz_sizeinbase(n, 2));
     const double lfac  = limb_factor[mpz_size(n)];
     double   spent = 0;
-    uint32_t sigma = 6;
+    uint32_t k     = 0;
 
     for (uint32_t i = 0; i < schedule->nlevels; i++) {
         const double hi = (double) levels[i].fbits;
@@ -193,7 +194,7 @@ static bool run_levels(mpz_t g, const mpz_t n,
         }
         const mont_ecm_plan_t* const plan = level_plan(schedule, i);
         for (uint32_t j = 0; j < levels[i].ncurves; j++) {
-            if (mont_ecm_curve(g, n, sigma++, plan)) {
+            if (mont_ecm_nth_curve(g, n, k++, plan)) {
                 return true;
             }
             if (tifa_should_stop()) {

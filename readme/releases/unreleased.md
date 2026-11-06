@@ -3,6 +3,30 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 6 November 2026 &mdash; Z/2 x Z/8 curves in the ECM search of tifa_cofactor and tifa_factor
+
+The ECM search of `tifa_cofactor()` and `tifa_factor()` (`ecm_schedule.c`)
+ran Suyama's curves from sigma = 6, where `ecm()` starts with the curves of
+torsion Z/2 x Z/8 of `z2z8_curves.h`, whose orders are divisible by 16
+rather than 12. It now runs the same sequence as `ecm()`
+(`mont_ecm_nth_curve`). Which curves run matters as much as their family on
+small sets: Suyama's curves from sigma = 1000 or 77777 did up to 4.6% more
+work than from 6 on 1500 cofactors. On 20000 and 12000 cofactors as sieves
+leave them (lpb 31 and 36, three large primes), the Z/2 x Z/8 curves retire
+1.0% and 1.4% to 2.4% fewer instructions than the mean of the three
+Suyama starts, and give up on fewer composites. On an Apple M5 Pro:
+
+| `tifa_cofactor()` | lpb 31, exact | lpb 31, giving up | lpb 36, exact | lpb 36, giving up | lpb 32, 64 bits |
+|---|---:|---:|---:|---:|---:|
+| time against Suyama's | 0.999 | 0.997 | 0.974 | 0.986 | 1.000 |
+
+On `tifa_factor()`, where a curve finding a factor or not decides whether
+SIQS runs, the instructions vary by up to 30% with the start of Suyama's
+curves on 60 to 300 numbers; against sigma = 6, the Z/2 x Z/8 curves take
+0.95 to 1.02 of them on random composites of 100 to 140 bits (three seeds),
+0.79 to 0.98 on numbers with a factor of 40 to 50 bits from 160 to 300
+bits. The levels themselves stay tuned for Suyama's curves.
+
 ## 6 November 2026 &mdash; python -m tifa, the programs in the wheels, --version
 
 `python -m tifa` factors the integers of its command line, or else of its
