@@ -28,7 +28,8 @@ target_link_libraries(tools_common PRIVATE GMP::GMP)   # for gmp.h at compile ti
 # as ecm clash with other tools.
 #------------------------------------------------------------------------------
 set(TIFA_PROGRAMS
-    cfrac ecm fermat siqs squfof rho tdiv p_minus_1 p_plus_1 tifa_factor)
+    cfrac ecm fermat siqs squfof rho tdiv p_minus_1 p_plus_1 tifa_factor
+    batch_gcd)
 foreach(_prog IN LISTS TIFA_PROGRAMS)
     add_executable(${_prog}
         src/${_prog}_program.c

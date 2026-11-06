@@ -88,10 +88,30 @@ add_test(NAME tifa_factor_program_prove_prime
 set_tests_properties(tifa_factor_program_prove_prime PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "170141183460469231731687303715884105727:\n\t    \\[\\[170141183460469231731687303715884105727, \\[\\[2, .*\n170141183460469231731687303715884105727 is prime\\.")
+# The tifa-batch-gcd program: positions and gcds of the integers sharing a
+# prime, every gcd with --all, hexadecimal with --hex.
+set(_fixtures "${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+add_test(NAME batch_gcd_program
+         COMMAND batch_gcd "${_fixtures}/batch_gcd.txt")
+set_tests_properties(batch_gcd_program PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "1 3\n2 3\n3 11\n4 11\n6 899\n7 899\n")
+add_test(NAME batch_gcd_program_all
+         COMMAND batch_gcd --all "${_fixtures}/batch_gcd.txt")
+set_tests_properties(batch_gcd_program_all PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "3\n3\n11\n11\n1\n899\n899\n")
+add_test(NAME batch_gcd_program_hex
+         COMMAND batch_gcd --hex "${_fixtures}/batch_gcd_hex.txt")
+set_tests_properties(batch_gcd_program_hex PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "1 3\n2 3\n3 b\n4 b\n")
 # A pass regex alone ignores the exit status: fail on sanitizer reports too.
 set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
                      tifa_factor_program_square tifa_factor_program_hint
                      tifa_factor_program_prove tifa_factor_program_prove_prime
+                     batch_gcd_program batch_gcd_program_all
+                     batch_gcd_program_hex
                      PROPERTIES
     FAIL_REGULAR_EXPRESSION "ERROR|Sanitizer|runtime error")
 
@@ -118,4 +138,11 @@ tifa_add_exit_test(exit_prove_complete 0 tifa_factor --prove 1000000016000000063
 tifa_add_exit_test(exit_prove_prime    0 tifa_factor --prove 1000003)
 tifa_add_exit_test(exit_prove_bad_hint 3 tifa_factor 12 --prove 34)
 tifa_add_exit_test(exit_prove_help     0 tifa_factor --prove --help)
+tifa_add_exit_test(exit_batch_gcd_shared  0 batch_gcd "${_fixtures}/batch_gcd.txt")
+tifa_add_exit_test(exit_batch_gcd_none    2 batch_gcd "${_fixtures}/batch_gcd_coprime.txt")
+tifa_add_exit_test(exit_batch_gcd_empty   2 batch_gcd)
+tifa_add_exit_test(exit_batch_gcd_bad     3 batch_gcd "${_fixtures}/batch_gcd_bad.txt")
+tifa_add_exit_test(exit_batch_gcd_missing 3 batch_gcd "${_fixtures}/no_such_file")
+tifa_add_exit_test(exit_batch_gcd_option  3 batch_gcd --decimal)
+tifa_add_exit_test(exit_batch_gcd_help    0 batch_gcd --help)
 tifa_add_exit_test(exit_help_h    0 siqs -h)

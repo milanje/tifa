@@ -181,7 +181,8 @@ changes.
   share a prime with another: the gcd of each with the product of the
   others, from product and remainder trees, as for the RSA keys of the
   Internet (Heninger et al., "Mining Your Ps and Qs", 2012). 100,000 moduli
-  of 2048 bits take 30 s on an Apple M5 Pro.
+  of 2048 bits take 30 s on an Apple M5 Pro. `tifa-batch-gcd` does it on
+  files of integers.
 - The algorithms themselves, each with its own header and parameters: SIQS
   (`siqs.h`), CFRAC (`cfrac.h`), ECM (`ecm.h`), Pollard's p-1 (`p_minus_1.h`),
   Williams' p+1 (`p_plus_1.h`), Pollard's rho (`rho.h`), SQUFOF (`squfof.h`),
@@ -255,7 +256,24 @@ The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 use the algorithm's default parameters (`-h` or `--help` lists the others,
 which come before the number). All of them exit with status 0 for a
 complete factorization (or a prime, or 1), 1 for a partial one, 2 if no factor
-was found, and 3 for invalid input. Installation also
+was found, and 3 for invalid input.
+
+`tifa-batch-gcd` reads positive integers (RSA moduli, say) from files, or
+from its standard input, and prints the position (from 1) and the gcd of
+each one that shares a prime with another, from `tifa_batch_gcd()`:
+
+```sh
+./build/tools/tifa-batch-gcd moduli.txt          # one decimal integer per line
+./build/tools/tifa-batch-gcd --hex moduli.txt    # hexadecimal, as are the gcds
+./build/tools/tifa-batch-gcd --all moduli.txt    # every gcd, 1 included
+```
+
+A gcd that is neither 1 nor the integer is a factor of it; the integer
+itself means that all its primes are shared, as with a duplicate. It exits
+with status 0 if some integers share primes, 2 if none do, and 3 for invalid
+input. 20,000 integers of 2048 bits take 3.9 s on an Apple M5 Pro.
+
+Installation also
 provides a `tifa.pc` pkg-config file and a CMake package, so downstream projects
 can consume TIFA with either:
 

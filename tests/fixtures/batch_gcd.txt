@@ -1,0 +1,7 @@
+# 3.5, 3.7, 2.11 and 11.13 share 3 and 11; 17.19 shares nothing, and the
+# duplicate 29.31 shares both its primes.
+15 21
+22   143
+323
+899
+899

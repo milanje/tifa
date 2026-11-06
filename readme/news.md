@@ -1,5 +1,16 @@
 # TIFA news
 
+## 6 November 2026 &mdash; tifa-batch-gcd
+
+The `tifa-batch-gcd` program runs `tifa_batch_gcd()` on files of integers
+(RSA moduli, say), or on its standard input: decimal integers, or
+hexadecimal ones with `--hex` (with or without `0x`), separated by spaces or
+newlines, `#` starting a comment. It prints the position and the gcd of each
+integer that shares a prime with another (of every one with `--all`), and
+exits with status 0 if some do, 2 if none do, 3 for invalid input. 20,000
+integers of 2048 bits take 3.9 s and 137 MB on an Apple M5 Pro, the reading
+of the integers a small part of it.
+
 ## 6 November 2026 &mdash; Cofactorization in Python
 
 `tifa.Cofactorizer` gives the Python package `tifa_cofactor()`, the
