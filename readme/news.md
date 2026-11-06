@@ -1,5 +1,20 @@
 # TIFA news
 
+## 6 November 2026 &mdash; Small sizes as fast as in 0.4.6
+
+0.4.7 took 1% to 2% more time than 0.4.6 in `tifa_factor()` at 80 bits and
+about 1% more in SIQS at 90, which looked like a matter of code layout. The
+instructions retired (`/usr/bin/time -l` on fixed runs) said otherwise: 1.3%
+more at 80 bits, 0.6% at 90. The sparse decompositions of the relations
+(for factor bases beyond 16384 primes) tested which kind they were for each
+exponent added, even with the dense ones of small sizes, and the coprime
+base of the factors found allocated its stack before its early exits, at
+each of the four calls of a two-factor result. The trial division of the
+relations is now compiled once per kind, and the early exits come first:
+0.16% more instructions than 0.4.6 at 70 bits, 0.05% at 90, and against
+0.4.7, `tifa_factor()` takes 0.98 to 0.99 of its time at 70 and 80 bits on an
+Apple M5 Pro, the rest unchanged.
+
 ## 6 November 2026 &mdash; Batch GCD
 
 `tifa_batch_gcd()` (`batch_gcd.h`) gives the gcd of each integer of a set
