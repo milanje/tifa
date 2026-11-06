@@ -107,6 +107,17 @@ Here are some short term objectives:
         test (resieving, as msieve and yafu do), or larger numbers than
         SIQS takes here. A large prime bound of 2^26 rather than 15e6 alone
         gains 3% at 240 bits, within the noise.
+      - For resieving, the bucket entries would carry the prime: position
+        << 16 | index in the factor base (both fit in 16 bits) rather than
+        position << 8 | log. Looking the log up by index when emptying the
+        buckets cost 4% at 220 and 240 bits; a constant log per run of
+        primes of the same log (msieve's slices, their ends kept per bin)
+        retires fewer instructions than now (0.98 to 1.00), and with the
+        loops of siqs_sieve.c aligned on 64 bytes in both builds took 1.00
+        to 1.01 of the time from 180 to 240 bits. Unaligned, its place in
+        the code made it 1.004 to 1.042; aligning those loops makes the
+        current code 1.006 to 1.020 slower, so it is no fix by itself. Not
+        done on the AVX-512 fill.
       - Threads: the collection of relations would split over several cores
         (the library is thread-safe), for its wall-clock time.
       - From seven primes in 'a', the approximer sorts up to 18424 triples
