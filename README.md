@@ -23,8 +23,6 @@ on x86-64 (an AMD EPYC 7763) from 100 to 220 bits, `tifa_factor()` 2.2 to
 time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 220 bits, and about as long as its AVX-512 build.
 
-<br clear="left">
-
 ## Contents
 
 - [What's new](#whats-new)
@@ -41,27 +39,26 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
-Version 0.4.7 (November 2026) makes SIQS 1.1 to 4.1 times as fast from 232
-to 280 bits on an Apple M5 Pro (a 280-bit semiprime in 98 s rather than
-407): its factor base, capped at 16384 primes, goes to 65536, the exponents
-of its relations are kept sparse beyond 16384, and its parameters from 232
-bits are new. `tifa_prove_prime()` proves that an integer is prime, with a
-certificate anyone can check; `tifa_set_time_limit()` limits the time of a
-thread's factorizations; `tifa-tune` tunes large sizes; and the Python
-package proves primes, takes a `timeout` and reads tuning files. A review
-for untrusted input fixed the certificate checker, the tuning files, the
-factoring core and the Python wheels (see
+**Version 0.4.7 (November 2026)** makes SIQS 1.1 to 4.1 times as fast from 232
+to 280 bits on an Apple M5 Pro (a 280-bit semiprime in 98 s rather than 407):
+its factor base, capped at 16384 primes, goes to 65536, the exponents of its
+relations are kept sparse beyond 16384, and its parameters from 232 bits are
+new. `tifa_prove_prime()` proves that an integer is prime, with a certificate
+anyone can check; `tifa_set_time_limit()` limits the time of a thread's
+factorizations; `tifa-tune` tunes large sizes; and the Python package proves
+primes, takes a `timeout` and reads tuning files. A review for untrusted input
+fixed the certificate checker, the tuning files, the factoring core and the
+Python wheels (see
 [readme/releases/0.4.7.md](./readme/releases/0.4.7.md#4-november-2026--security-fixes)).
 The ABI only grows (`libtifa.so.0.4`).
 
-Version 0.4.6 (November 2026) brings a Python package: `pip install
-tifa-factor`, then `tifa.factor(n)` returns the prime factorization of `n`
-as `{prime: exponent}`, in 0.24 to 0.51 of the time of PARI/GP's
-`factorint` on balanced semiprimes from 100 to 220 bits (see
-[Python](#python)). Where the processor has AVX-512, the bucket fill of
-SIQS takes sixteen primes at a time: `siqs()` takes 0.84 to 0.87 of the
-time of 0.4.5 at 220 bits (EPYC 9V45 and 9V74, Xeon 6975P-C). The ABI is
-unchanged (`libtifa.so.0.4`).
+**Version 0.4.6 (November 2026)** brings a Python package: `pip install
+tifa-factor`, then `tifa.factor(n)` returns the prime factorization of `n` as
+`{prime: exponent}`, in 0.24 to 0.51 of the time of PARI/GP's `factorint` on
+balanced semiprimes from 100 to 220 bits (see [Python](#python)). Where the
+processor has AVX-512, the bucket fill of SIQS takes sixteen primes at a time:
+`siqs()` takes 0.84 to 0.87 of the time of 0.4.5 at 220 bits (EPYC 9V45 and
+9V74, Xeon 6975P-C). The ABI is unchanged (`libtifa.so.0.4`).
 
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
