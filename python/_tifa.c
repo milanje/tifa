@@ -36,6 +36,7 @@
 
 #include "tifa_config.h"
 #include "array.h"
+#include "batch_gcd.h"
 #include "exit_codes.h"
 #include "factoring_machine.h"
 #include "prime_cert.h"
@@ -310,6 +311,84 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
                                            timed_out ? Py_True : Py_False);
 }
 
+PyDoc_STRVAR(batch_gcd_doc,
+"_batch_gcd(moduli, timeout, interruptible, /)\n--\n\n"
+"tifa_batch_gcd on the list of ints moduli, all positive, within timeout\n"
+"seconds if it is positive and finite, and stopping for the exception of a\n"
+"signal handler if interruptible. Return ([gcd, ...], timed_out), the list\n"
+"empty if timed out.");
+
+static PyObject* batch_gcd(PyObject* const self, PyObject* const args) {
+    (void) self;
+    PyObject* list;
+    double timeout;
+    int interruptible;
+    if (!PyArg_ParseTuple(args, "O!dp:_batch_gcd", &PyList_Type, &list,
+                          &timeout, &interruptible)) {
+        return NULL;
+    }
+    const Py_ssize_t count = PyList_Size(list);
+    if (count > (Py_ssize_t) UINT32_MAX - ELONGATION) {
+        PyErr_SetString(PyExc_OverflowError, "too many moduli");
+        return NULL;
+    }
+    mpz_array_t* const moduli = alloc_mpz_array((uint32_t) count);
+    for (Py_ssize_t i = 0; i < count; i++) {
+        PyObject* const n = PyList_GetItem(list, i);
+        if (   !PyLong_Check(n)
+            || (mpz_from_pylong(moduli->data[i], n) != 0)
+            || (mpz_sgn(moduli->data[i]) <= 0)) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_ValueError,
+                                "moduli must be positive ints");
+            }
+            free_mpz_array(moduli);
+            return NULL;
+        }
+        moduli->length++;
+    }
+    mpz_array_t* const gcds = alloc_mpz_array((uint32_t) count);
+    ecode_t ecode;
+    bool timed_out;
+    bool interrupted;
+    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
+
+    Py_BEGIN_ALLOW_THREADS
+    tifa_set_time_limit(timeout);
+    if (interruptible) {
+        tifa_set_interrupt_check(check_signals, &next_poll);
+    }
+    ecode       = tifa_batch_gcd(gcds, moduli);
+    timed_out   = tifa_time_limit_reached();
+    interrupted = tifa_interrupted();
+    tifa_set_interrupt_check(NULL, NULL);
+    tifa_set_time_limit(0.0);
+    Py_END_ALLOW_THREADS
+
+    free_mpz_array(moduli);
+    if (interrupted) {
+        free_mpz_array(gcds);
+        return NULL;
+    }
+    PyObject* result = PyList_New(0);
+    for (uint32_t i = 0; (result != NULL) && (i < gcds->length); i++) {
+        PyObject* const g = pylong_from_mpz(gcds->data[i]);
+        if ((g == NULL) || (PyList_Append(result, g) != 0)) {
+            Py_CLEAR(result);
+        }
+        Py_XDECREF(g);
+    }
+    free_mpz_array(gcds);
+    if ((result != NULL) && (ecode == FAILURE)) {
+        Py_DECREF(result);
+        PyErr_SetString(PyExc_ValueError, "moduli must be positive ints");
+        return NULL;
+    }
+    return (result == NULL) ? NULL
+                            : Py_BuildValue("(NO)", result,
+                                            timed_out ? Py_True : Py_False);
+}
+
 PyDoc_STRVAR(set_tuning_dir_doc,
 "_set_tuning_dir(path, /)\n--\n\n"
 "tifa_tuning_set_dir(path), path being bytes without NUL, or None.");
@@ -338,6 +417,7 @@ static PyMethodDef methods[] = {
     {"_prime_certificate", prime_certificate, METH_VARARGS,
      prime_certificate_doc},
     {"_set_tuning_dir", set_tuning_dir, METH_O, set_tuning_dir_doc},
+    {"_batch_gcd", batch_gcd, METH_VARARGS, batch_gcd_doc},
     {NULL, NULL, 0, NULL}
 };
 

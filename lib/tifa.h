@@ -54,6 +54,7 @@
 #include "tifa_factor.h"
 #include "cofactor.h"
 #include "prime_cert.h"
+#include "batch_gcd.h"
 //
 // Includes from lib/data
 //

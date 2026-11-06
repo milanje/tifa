@@ -40,11 +40,18 @@ import threading
 import time
 from typing import Any, Iterable, Literal, Optional, SupportsIndex, Union
 
-from ._tifa import LIBRARY_VERSION, _factor, _prime_certificate, _set_tuning_dir
+from ._tifa import (
+    LIBRARY_VERSION,
+    _batch_gcd,
+    _factor,
+    _prime_certificate,
+    _set_tuning_dir,
+)
 
 __all__ = [
     "FactorizationError",
     "FactorizationTimeout",
+    "batch_gcd",
     "check_certificate",
     "factor",
     "prime_certificate",
@@ -272,6 +279,44 @@ def prime_certificate(
     if status != _PROVEN:
         raise RuntimeError(f"could not prove that {p} is prime")
     return steps
+
+
+def batch_gcd(
+    moduli: Iterable[SupportsIndex], *, timeout: Optional[float] = None
+) -> list[int]:
+    """Return the gcd of each of ``moduli`` with the product of the others.
+
+    A gcd of 1 means that the integer shares no prime with the others; the
+    integer itself, that all its primes are shared (as with a duplicate). Of
+    RSA moduli, those whose gcd is neither 1 nor themselves give away a
+    prime, so their factorization:
+
+    >>> batch_gcd([15, 21, 22, 143])
+    [3, 3, 11, 11]
+    >>> batch_gcd([35, 35, 11])
+    [35, 35, 1]
+
+    The gcds come from Bernstein's product and remainder trees, as in
+    Heninger et al.'s "Mining Your Ps and Qs" (2012): ... seconds for
+    100,000 RSA moduli of 2048 bits on an Apple M5 Pro, the memory some
+    log2(len(moduli)) times the size of their product (... GB there). With
+    ``timeout``, a number of seconds, ``TimeoutError`` is raised if the gcds
+    are not done within that time; in the main thread, Ctrl-C interrupts it,
+    as it does ``factor``.
+
+    Raises ``TypeError`` if some modulus is not an integer or ``timeout`` not
+    a number, ``ValueError`` if some modulus is not positive or ``timeout``
+    not positive, and ``TimeoutError`` as said above.
+    """
+    ns = [operator.index(n) for n in moduli]
+    for n in ns:
+        if n < 1:
+            raise ValueError(f"moduli must be positive, not {n}")
+    deadline = _deadline(timeout)
+    gcds, late = _batch_gcd(ns, _left(deadline), _interruptible())
+    if late:
+        raise TimeoutError(f"could not compute the gcds in {timeout} s")
+    return gcds
 
 
 def check_certificate(p: SupportsIndex, certificate: Iterable[Any]) -> bool:

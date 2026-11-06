@@ -37,6 +37,7 @@ tifa_add_test(test_hostile_input)
 target_link_libraries(test_hostile_input PRIVATE Threads::Threads)
 tifa_add_test(test_time_limit)
 target_link_libraries(test_time_limit PRIVATE Threads::Threads)
+tifa_add_test(test_batch_gcd)
 
 # The tuning-loader test reads fixture files from the source tree; hand it their
 # location as a compile definition (no env var needed: the test unsets

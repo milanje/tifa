@@ -49,6 +49,7 @@ set(TIFA_SOURCES
     algo/src/prime_cert.c
     utils/src/time_limit.c
     utils/src/mont_ecm_wide.c
+    algo/src/batch_gcd.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the
@@ -140,6 +141,7 @@ add_library(Tifa::tifa_static ALIAS tifa_static)
 #------------------------------------------------------------------------------
 set(TIFA_PUBLIC_HEADERS
     # Algorithms
+    algo/include/batch_gcd.h
     algo/include/cfrac.h
     algo/include/cofactor.h
     algo/include/ecm.h
