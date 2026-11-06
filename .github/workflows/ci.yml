@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch (or pull request) cancels the run of the
+# older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     name: build-test (${{ matrix.name }})
