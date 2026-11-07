@@ -52,7 +52,8 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s\t<nprimes_tdiv_residues>\n", "");
     fprintf(stderr, "%15s\t<filter_method>\n", "");
     fprintf(stderr, "%15s\t<nrelations>\n", "");
-    fprintf(stderr, "%15s\t<linalg_method>\n", "");
+    fprintf(stderr, "%15s\t<linalg_method> (0: smart gaussian elimination,"
+                    " 1: filtered, 2: block Lanczos)\n", "");
     fprintf(stderr, "%15s\t<use_large_primes>\n", "");
     fprintf(stderr, "%15s\t<nprimes_tdiv>\n", "");
     fprintf(stderr, "%15s\t<number_to_factor>\n", "");
@@ -174,7 +175,7 @@ static void process_args(factoring_program_t* const program) {
             params->nprimes_tdiv = params->nprimes_in_base;
         }
         if ((params->filter_method > DJB_BATCH)
-                || (params->linalg_method > FILTERED_GAUSS_ELIM)) {
+                || (params->linalg_method > BLOCK_LANCZOS)) {
             fprintf(stderr, "ERROR: unknown filter or linalg method!\n");
             print_usage(program);
             exit(TIFA_EXIT_USAGE);

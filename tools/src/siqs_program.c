@@ -48,7 +48,8 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "%15s\t<nprimes_in_factor_base>\n", "");
     fprintf(stderr, "%15s\t<nprimes_tdiv_smooth_residues>\n", "");
     fprintf(stderr, "%15s\t<nrelations>\n", "");
-    fprintf(stderr, "%15s\t<linalg_method>\n", "");
+    fprintf(stderr, "%15s\t<linalg_method> (0: smart gaussian elimination,"
+                    " 1: filtered, 2: block Lanczos)\n", "");
     fprintf(stderr, "%15s\t<use_large_primes>\n", "");
     fprintf(stderr, "%15s\t<sieve_threshold>\n", "");
     fprintf(stderr, "%15s\t<extra_primes_in_a>\n", "");
@@ -174,7 +175,11 @@ static void process_args(factoring_program_t* const program) {
         if (params->nprimes_tdiv > params->nprimes_in_base) {
             params->nprimes_tdiv = params->nprimes_in_base;
         }
-
+        if (params->linalg_method > BLOCK_LANCZOS) {
+            fprintf(stderr, "ERROR: unknown linalg method!\n");
+            print_usage(program);
+            exit(TIFA_EXIT_USAGE);
+        }
         break;
     }
     default:
@@ -195,7 +200,10 @@ static void print_params(factoring_program_t* const program) {
     printf("\tnprimes_in_base      : %u\n", params->nprimes_in_base);
     printf("\tnprimes_tdiv_residues: %u\n", params->nprimes_tdiv);
     printf("\tnrelations           : %u\n", params->nrelations);
-    printf("\tlinalg_method        : %u\n", params->linalg_method);
+    printf("\tlinalg_method        : %u (%s)\n",
+            params->linalg_method,
+            linalg_method_to_str[params->linalg_method]
+    );
     printf("\tnprimes_tdiv         : %u\n", program->nprimes_tdiv);
 
     if (params->use_large_primes) {

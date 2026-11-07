@@ -76,9 +76,10 @@ typedef enum linalg_method_enum linalg_method_t;
     * Global constant array mapping linalg methods to their string 
     * representations.
     */
-static const char* const linalg_method_to_str[2] = {
+static const char* const linalg_method_to_str[3] = {
     "smart gaussian elimination",
-    "filtered gaussian elimination"
+    "filtered gaussian elimination",
+    "block Lanczos"
 };
 
    /**
