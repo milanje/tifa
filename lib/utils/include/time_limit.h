@@ -27,6 +27,8 @@
 
 #include <stdbool.h>
 
+#include <stdint.h>
+
 #include "tifa_config.h"
 
 #ifdef __cplusplus
@@ -88,6 +90,14 @@ TIFA_API void tifa_set_interrupt_check(tifa_interrupt_check_t check,
     *         returned true since.
     */
 TIFA_API bool tifa_interrupted(void);
+
+   /**
+    * \brief Lets the calling thread's SIQS runs collect their relations in
+    * \c threads threads (1, the default, for none).
+    *
+    * \param[in] threads The number of threads, the calling one included.
+    */
+TIFA_API void tifa_set_threads(uint32_t threads);
 
 #ifdef __cplusplus
 }

@@ -313,6 +313,14 @@ uint32_t siqs_sieve_chunk_size(void);
 void set_siqs_sieve_threshold(siqs_sieve_t* const sieve, uint32_t threshold);
 
    /**
+    * \brief Moves the sieve to its polynomial's next polynomial (a new 'a'
+    * after the last 'b' of an 'a'), its buckets filled again if it has some.
+    *
+    * \param[in] sieve A pointer to the sieve.
+    */
+void switch_polynomial(siqs_sieve_t* const sieve);
+
+   /**
     * \brief Prints an <tt>siqs_sieve_t</tt>'s poly init timing.
     * 
     * Prints the time taken by \tt{sieve} to initialize its polynomials.

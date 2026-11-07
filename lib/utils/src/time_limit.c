@@ -40,6 +40,7 @@ typedef struct {
     tifa_interrupt_check_t check;
     void*                  arg;
     bool                   interrupted;
+    uint32_t               threads;
 } stop_state_t;
 
 static pthread_key_t  state_key;
@@ -144,4 +145,19 @@ bool tifa_should_stop(void) {
         s->interrupted = true;
     }
     return s->interrupted;
+}
+//------------------------------------------------------------------------------
+void tifa_set_threads(uint32_t threads) {
+    stop_state_t* const s = state(threads > 1);
+    if (s != NULL) {
+        s->threads = threads;
+    }
+}
+//------------------------------------------------------------------------------
+uint32_t tifa_threads(void) {
+    if (!state_key_ok) {
+        return 1;
+    }
+    const stop_state_t* const s = pthread_getspecific(state_key);
+    return ((s == NULL) || (s->threads < 1)) ? 1 : s->threads;
 }

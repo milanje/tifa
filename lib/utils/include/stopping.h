@@ -26,6 +26,7 @@
 #define _TIFA_STOPPING_H_
 
 #include <stdbool.h>
+#include <stdint.h>
 
    /**
     * \brief Whether the calling thread's factorizations should give up.
@@ -34,5 +35,10 @@
     *         returned true (see time_limit.h).
     */
 bool tifa_should_stop(void);
+//
+// The number of threads set by tifa_set_threads for the calling thread, 1
+// if none.
+//
+uint32_t tifa_threads(void);
 
 #endif
