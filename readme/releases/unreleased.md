@@ -33,6 +33,8 @@ default, SIQS runs as before. Against 0.4.9: the same instructions within
 within 0.02% (2000 per size from 100 to 180 bits, three seeds); 0.99 to
 1.01 of the time for SIQS from 70 to 220 bits, `tifa_factor()` from 70 to
 100 bits, `ecm()` and p-1 at 160 bits, in both orders (`bench/ab.sh`).
+On x86-64 (GitHub's AMD EPYC 9V45 and Intel Xeon Platinum 8573C runners,
+GCC 15), the same runs took 0.99 to 1.01 of the time as well.
 
 Six SIQS runs at once, one per thread, each took as long as one alone (0.42
 to 0.45 s at 200 bits, 1.58 to 1.70 s at 220): the shared L2 cache does
