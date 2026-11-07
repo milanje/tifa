@@ -165,10 +165,11 @@ static PyObject* pairs_from_arrays(const mpz_array_t* const factors,
 }
 
 PyDoc_STRVAR(factor_doc,
-"_factor(n, hint, timeout, interruptible, /)\n--\n\n"
+"_factor(n, hint, timeout, interruptible, threads, /)\n--\n\n"
 "Factor the int n > 1 with tifa_factor_with_hint (hint 0, 1 or 2), within\n"
 "timeout seconds if it is positive and finite, and stopping for the\n"
-"exception of a signal handler if interruptible (in the main thread). Return\n"
+"exception of a signal handler if interruptible (in the main thread), SIQS\n"
+"in up to threads threads (tifa_set_threads). Return\n"
 "(complete, [(factor, exponent), ...], timed_out), complete being False when\n"
 "some factors may not be prime.");
 
@@ -178,8 +179,9 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     int hint;
     double timeout;
     int interruptible;
-    if (!PyArg_ParseTuple(args, "O!idp:_factor", &PyLong_Type, &nobj, &hint,
-                          &timeout, &interruptible)) {
+    unsigned int threads;
+    if (!PyArg_ParseTuple(args, "O!idpI:_factor", &PyLong_Type, &nobj, &hint,
+                          &timeout, &interruptible, &threads)) {
         return NULL;
     }
     mpz_t n;
@@ -203,6 +205,7 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
 
     Py_BEGIN_ALLOW_THREADS
     tifa_set_time_limit(timeout);
+    tifa_set_threads(threads);
     if (interruptible) {
         tifa_set_interrupt_check(check_signals, &next_poll);
     }
@@ -212,6 +215,7 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     timed_out   = tifa_time_limit_reached();
     interrupted = tifa_interrupted();
     tifa_set_interrupt_check(NULL, NULL);
+    tifa_set_threads(1);
     tifa_set_time_limit(0.0);
     if ((ecode == NO_FACTOR_FOUND) && !timed_out && !interrupted) {
         prime = (mpz_probab_prime_p(n, 30) != 0);
@@ -294,10 +298,10 @@ static PyObject* step_from_cert(const prime_cert_step_t* const step) {
 }
 
 PyDoc_STRVAR(prime_certificate_doc,
-"_prime_certificate(n, timeout, interruptible, /)\n--\n\n"
+"_prime_certificate(n, timeout, interruptible, threads, /)\n--\n\n"
 "Prove the int n prime with tifa_prove_prime, within timeout seconds if it is\n"
 "positive and finite, and stopping for the exception of a signal handler if\n"
-"interruptible. Return (status, steps, timed_out), status 0 (proven), 1 (not\n"
+"interruptible, SIQS in up to threads threads. Return (status, steps, timed_out), status 0 (proven), 1 (not\n"
 "prime) or 2 (not proven), steps [(p, [(q, a), ...]), ...] or\n"
 "(p, [(q, a), ...], D, [(r, P), ...]) when proven.");
 
@@ -306,8 +310,9 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     PyObject* nobj;
     double timeout;
     int interruptible;
-    if (!PyArg_ParseTuple(args, "O!dp:_prime_certificate", &PyLong_Type,
-                          &nobj, &timeout, &interruptible)) {
+    unsigned int threads;
+    if (!PyArg_ParseTuple(args, "O!dpI:_prime_certificate", &PyLong_Type,
+                          &nobj, &timeout, &interruptible, &threads)) {
         return NULL;
     }
     mpz_t n;
@@ -324,6 +329,7 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
 
     Py_BEGIN_ALLOW_THREADS
     tifa_set_time_limit(timeout);
+    tifa_set_threads(threads);
     if (interruptible) {
         tifa_set_interrupt_check(check_signals, &next_poll);
     }
@@ -331,6 +337,7 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     timed_out   = tifa_time_limit_reached();
     interrupted = tifa_interrupted();
     tifa_set_interrupt_check(NULL, NULL);
+    tifa_set_threads(1);
     tifa_set_time_limit(0.0);
     Py_END_ALLOW_THREADS
 

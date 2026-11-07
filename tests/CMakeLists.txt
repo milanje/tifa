@@ -71,6 +71,12 @@ add_test(NAME tifa_factor_program_square
 set_tests_properties(tifa_factor_program_square PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "(1000000007 \\^ 2[^0-9].*1000000009 \\^ 2|1000000009 \\^ 2[^0-9].*1000000007 \\^ 2)[^0-9].*Factorization is complete")
+# In 4 threads: 576460752303423619 . 1152921504606847009 (119 bits), by SIQS.
+add_test(NAME tifa_factor_program_threads
+         COMMAND tifa_factor --threads 4 balanced 664613997892458106507825459650105571)
+set_tests_properties(tifa_factor_program_threads PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "(576460752303423619[^0-9].*1152921504606847009|1152921504606847009[^0-9].*576460752303423619)[^0-9].*Factorization is complete")
 # A hint: 340730379077795843 . 604614875560711445197 (128 bits).
 add_test(NAME tifa_factor_program_hint
          COMMAND tifa_factor balanced 206010655745875572166197184221848916071)
@@ -136,6 +142,9 @@ tifa_add_exit_test(exit_bad_hint  3 tifa_factor 12 34)
 tifa_add_exit_test(exit_no_input  3 tifa_factor)
 tifa_add_exit_test(exit_help      0 tifa_factor --help)
 tifa_add_exit_test(exit_prove_complete 0 tifa_factor --prove 1000000016000000063)
+tifa_add_exit_test(exit_threads_complete 0 tifa_factor --threads 4 1000000016000000063)
+tifa_add_exit_test(exit_threads_zero     3 tifa_factor --threads 0 1000000016000000063)
+tifa_add_exit_test(exit_threads_missing  3 tifa_factor 1000000016000000063 --threads)
 tifa_add_exit_test(exit_prove_prime    0 tifa_factor --prove 1000003)
 tifa_add_exit_test(exit_prove_bad_hint 3 tifa_factor 12 --prove 34)
 tifa_add_exit_test(exit_prove_help     0 tifa_factor --prove --help)

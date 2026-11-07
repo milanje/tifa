@@ -367,9 +367,15 @@ struct struct_siqs_context_t {
     DECL_EXTRA_TIMER(batch);
 
     uint32_t na_used;
+    //
+    // The threads collecting relations, if any (see tifa_set_threads).
+    //
+    struct struct_siqs_worker_t* workers;
+    uint32_t nworkers;
 };
 //-----------------------------------------------------------------------------
 typedef struct struct_siqs_context_t siqs_context_t;
+typedef struct struct_siqs_worker_t siqs_worker_t;
 //-----------------------------------------------------------------------------
 struct struct_u32triplet_t {
     //
@@ -489,9 +495,10 @@ static void compute_reduced_polynomial_values(siqs_context_t* const context);
 static void drop_hopeless_candidates(siqs_context_t* const context,
                                      const uint32_t first);
 static ecode_t collect_relations(siqs_context_t* const context);
-static uint32_t siqs_nthreads(void);
+static uint32_t siqs_nthreads(const siqs_context_t* const context);
 static ecode_t collect_relations_threaded(siqs_context_t* const context,
                                           const uint32_t nthreads);
+static void free_workers(siqs_context_t* const context);
 inline static void keep_relations_with_smooth_gx(siqs_context_t* const context);
 static void add_primes_of_a(siqs_context_t* const context,
                             decomp_t* const decomp,
@@ -892,6 +899,9 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
 
     context->lpt = NULL;
 
+    context->workers  = NULL;
+    context->nworkers = 0;
+
     if (params->use_large_primes) {
         context->lpt = alloc_lp_table(
                            LP_TABLE_SLOTS_PER_ROW * context->smooth_redgx->alloced
@@ -967,6 +977,9 @@ static ecode_t clear_siqs_context(factoring_machine_t* const machine) {
             free_lp_table(context->lpt);
         }
         free(context->relset);
+        if (context->workers != NULL) {
+            free_workers(context);
+        }
         free(context);
     }
 
@@ -1080,7 +1093,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
     //
     // Collect congruences relations
     //
-    const uint32_t nthreads = siqs_nthreads();
+    const uint32_t nthreads = siqs_nthreads(context);
     ecode_t ecode = (nthreads > 1)
                   ? collect_relations_threaded(context, nthreads)
                   : collect_relations(context);
@@ -1816,11 +1829,23 @@ static ecode_t collect_relations(siqs_context_t* const context) {
 //-----------------------------------------------------------------------------
 //                     RELATIONS COLLECTED IN SEVERAL THREADS
 //-----------------------------------------------------------------------------
-static uint32_t siqs_nthreads(void) {
-    const uint32_t n = tifa_threads();
-    return (n > 64) ? 64 : n;
-}
+//
+// At most one thread per SIQS_PRIMES_PER_THREAD primes in the base: below
+// about 100 bits (200 primes), starting threads takes longer than the run.
+// On an Apple M5 Pro, 2 threads took 0.82 of the time at 100 bits, 4 at 120
+// bits 0.59 (6, 0.62).
+//
+#define SIQS_PRIMES_PER_THREAD 100
+#define SIQS_MAX_THREADS       64
 
+static uint32_t siqs_nthreads(const siqs_context_t* const context) {
+    uint32_t n = tifa_threads();
+    if (n == 1) {
+        return 1;
+    }
+    n = MIN(n, context->params->nprimes_in_base / SIQS_PRIMES_PER_THREAD);
+    return MIN(n, SIQS_MAX_THREADS);
+}
 //
 // done and nrels_to_go change under the lock; the workers also read them
 // without it.
@@ -1838,29 +1863,36 @@ typedef struct {
     uint32_t        nthreads;
     uint32_t        max_batch;
 } siqs_shared_t;
-
-typedef struct {
+//
+// A worker sieves with its own copy of the context, whose sieve, candidates
+// and 'a' values are its own: the main context's 'a' values are numbered
+// for all of them (a_map). The workers last as long as the context, so that
+// a later collection goes on with other polynomials.
+//
+struct struct_siqs_worker_t {
     siqs_context_t  ctx;
     siqs_shared_t*  shared;
     uint32_t*       a_map;
     uint32_t        a_map_alloced;
     uint32_t        a_mapped;
+    uint32_t        batch_alloced;
     bool            own_sieve;
+    bool            running;
     pthread_t       thread;
-} siqs_worker_t;
-
+};
 //
 // Hands the worker's candidates to the main context, whose batch test keeps
 // the smooth ones and the large prime relations, as collect_relations does.
 //
 static void hand_off(siqs_worker_t* const w) {
     siqs_context_t* const ctx  = &w->ctx;
-    siqs_context_t* const main = w->shared->main;
+    siqs_shared_t*  const sh   = w->shared;
+    siqs_context_t* const main = sh->main;
     const uint32_t npa = ctx->sieve->poly->nprimes_in_a;
 
-    pthread_mutex_lock(&w->shared->lock);
-    if (LOAD_RELAXED(w->shared->done)) {
-        pthread_mutex_unlock(&w->shared->lock);
+    pthread_mutex_lock(&sh->lock);
+    if (LOAD_RELAXED(sh->done)) {
+        pthread_mutex_unlock(&sh->lock);
         return;
     }
     for (uint32_t k = w->a_mapped; k < ctx->a_values->length; k++) {
@@ -1890,8 +1922,8 @@ static void hand_off(siqs_worker_t* const w) {
 
     const uint32_t nrels = main->smooth_redgx->length;
     keep_relations_with_smooth_gx(main);
-    w->shared->idle_handoffs = (main->smooth_redgx->length == nrels)
-                             ? w->shared->idle_handoffs + 1 : 0;
+    sh->idle_handoffs = (main->smooth_redgx->length == nrels)
+                      ? sh->idle_handoffs + 1 : 0;
 
     main->cand_u->length     = 0;
     main->cand_redgx->length = 0;
@@ -1901,25 +1933,37 @@ static void hand_off(siqs_worker_t* const w) {
 
     const uint32_t to_go = main->smooth_redgx->alloced
                          - main->smooth_redgx->length;
-    STORE_RELAXED(w->shared->nrels_to_go, to_go);
+    STORE_RELAXED(sh->nrels_to_go, to_go);
     if (to_go == 0) {
-        w->shared->ecode = SUCCESS;
-        STORE_RELAXED(w->shared->done, true);
-    } else if (w->shared->idle_handoffs
-               == MAX_IDLE_BATCHES * w->shared->nthreads) {
-        main->stalled    = true;
-        w->shared->ecode = GIVING_UP;
-        STORE_RELAXED(w->shared->done, true);
+        sh->ecode = SUCCESS;
+        STORE_RELAXED(sh->done, true);
+    } else if (sh->idle_handoffs == MAX_IDLE_BATCHES * sh->nthreads) {
+        main->stalled = true;
+        sh->ecode     = GIVING_UP;
+        STORE_RELAXED(sh->done, true);
     }
-    pthread_mutex_unlock(&w->shared->lock);
+    pthread_mutex_unlock(&sh->lock);
 }
 
+static void stop_workers(siqs_shared_t* const sh, const bool stalled) {
+    pthread_mutex_lock(&sh->lock);
+    if (!LOAD_RELAXED(sh->done)) {
+        sh->main->stalled = stalled;
+        sh->ecode = GIVING_UP;
+        STORE_RELAXED(sh->done, true);
+    }
+    pthread_mutex_unlock(&sh->lock);
+}
+//
+// The time limit and the interrupt check are the calling thread's: it alone
+// checks them, and stops the others.
+//
 static void* collect_in_worker(void* const arg) {
-    siqs_worker_t* const w   = (siqs_worker_t*) arg;
+    siqs_worker_t*  const w   = (siqs_worker_t*) arg;
     siqs_context_t* const ctx = &w->ctx;
-    siqs_shared_t* const sh  = w->shared;
+    siqs_shared_t*  const sh  = w->shared;
     const bool caller = !w->own_sieve;
-    uint32_t fills = 0;
+    uint32_t fills      = 0;
     uint32_t idle_fills = 0;
 
     while (!LOAD_RELAXED(sh->done)) {
@@ -1936,16 +1980,10 @@ static void* collect_in_worker(void* const arg) {
                 drop_hopeless_candidates(ctx, ncands);
             }
             idle_fills = (ctx->xpool->length == ncands) ? idle_fills + 1 : 0;
-            const bool stop = caller && ((++fills & 15) == 0)
-                              && tifa_should_stop();
-            if (stop || (idle_fills == MAX_IDLE_FILLS)) {
-                pthread_mutex_lock(&sh->lock);
-                if (!LOAD_RELAXED(sh->done)) {
-                    sh->main->stalled = !stop;
-                    sh->ecode = GIVING_UP;
-                    STORE_RELAXED(sh->done, true);
-                }
-                pthread_mutex_unlock(&sh->lock);
+            if (idle_fills == MAX_IDLE_FILLS) {
+                stop_workers(sh, true);
+            } else if (caller && ((++fills & 15) == 0) && tifa_should_stop()) {
+                stop_workers(sh, false);
             }
         }
         if (LOAD_RELAXED(sh->done)) {
@@ -1965,18 +2003,23 @@ static void* collect_in_worker(void* const arg) {
         next = MAX(next, MIN_BATCH_SIZE);
         ctx->to_collect = MIN(next, sh->max_batch);
     }
+    ctx->xpool->length      = 0;
+    ctx->cand_redgx->length = 0;
+    ctx->cand_u->length     = 0;
+    ctx->cand_a_idx->length = 0;
     return NULL;
 }
 
 static void init_worker(siqs_worker_t* const w, siqs_context_t* const main,
-                        siqs_shared_t* const shared, const uint32_t t,
-                        const uint32_t nthreads, const uint32_t batch) {
-    w->ctx      = *main;
-    w->shared   = shared;
-    w->a_map    = NULL;
+                        const uint32_t t, const uint32_t nthreads,
+                        const uint32_t batch) {
+    w->ctx           = *main;
+    w->a_map         = NULL;
     w->a_map_alloced = 0;
-    w->a_mapped = 0;
-    w->own_sieve = (t != 0);
+    w->a_mapped      = 0;
+    w->batch_alloced = batch;
+    w->own_sieve     = (t != 0);
+    w->running       = false;
 
     siqs_context_t* const ctx = &w->ctx;
     if (w->own_sieve) {
@@ -1995,7 +2038,6 @@ static void init_worker(siqs_worker_t* const w, siqs_context_t* const main,
         ctx->sieve->poly->polyno = ctx->sieve->poly->npolys;
         switch_polynomial(ctx->sieve);
     }
-    ctx->to_collect = batch;
     ctx->xpool      = alloc_int32_array(batch);
     ctx->xbytes     = alloc_byte_array(batch);
     ctx->cand_redgx = alloc_mpz_array(batch);
@@ -2006,19 +2048,25 @@ static void init_worker(siqs_worker_t* const w, siqs_context_t* const main,
     ctx->a_values_npolyinit = 0;
 }
 
-static void clear_worker(siqs_worker_t* const w) {
-    siqs_context_t* const ctx = &w->ctx;
-    if (w->own_sieve) {
-        free_siqs_sieve(ctx->sieve);
+static void free_workers(siqs_context_t* const context) {
+    for (uint32_t t = 0; t < context->nworkers; t++) {
+        siqs_worker_t*  const w   = &context->workers[t];
+        siqs_context_t* const ctx = &w->ctx;
+        if (w->own_sieve) {
+            free_siqs_sieve(ctx->sieve);
+        }
+        free_int32_array(ctx->xpool);
+        free_byte_array(ctx->xbytes);
+        free_mpz_array(ctx->cand_redgx);
+        free_mpz_array(ctx->cand_u);
+        free_uint32_array(ctx->cand_a_idx);
+        free_mpz_array(ctx->a_values);
+        free_uint32_array(ctx->a_primes);
+        free(w->a_map);
     }
-    free_int32_array(ctx->xpool);
-    free_byte_array(ctx->xbytes);
-    free_mpz_array(ctx->cand_redgx);
-    free_mpz_array(ctx->cand_u);
-    free_uint32_array(ctx->cand_a_idx);
-    free_mpz_array(ctx->a_values);
-    free_uint32_array(ctx->a_primes);
-    free(w->a_map);
+    free(context->workers);
+    context->workers  = NULL;
+    context->nworkers = 0;
 }
 
 static ecode_t collect_relations_threaded(siqs_context_t* const context,
@@ -2038,38 +2086,46 @@ static ecode_t collect_relations_threaded(siqs_context_t* const context,
     context->cand_u->length     = 0;
     context->cand_a_idx->length = 0;
 
-    siqs_shared_t shared;
-    pthread_mutex_init(&shared.lock, NULL);
-    shared.main  = context;
-    shared.done  = (context->smooth_redgx->length
-                    == context->smooth_redgx->alloced);
-    shared.ecode = SUCCESS;
-    shared.nthreads = nthreads;
-    shared.idle_handoffs = 0;
-    shared.nrels_to_go = context->smooth_redgx->alloced
-                       - context->smooth_redgx->length;
-
     uint32_t batch = context->to_collect / (2 * nthreads);
     batch = MAX(batch, MIN_BATCH_SIZE);
     batch = MIN(batch, context->to_collect);
-    shared.max_batch = batch;
 
-    siqs_worker_t* const workers = tifa_malloc(nthreads * sizeof(siqs_worker_t));
-    for (uint32_t t = 0; t < nthreads; t++) {
-        init_worker(&workers[t], context, &shared, t, nthreads, batch);
+    if (context->workers == NULL) {
+        context->workers  = tifa_malloc(nthreads * sizeof(siqs_worker_t));
+        context->nworkers = nthreads;
+        for (uint32_t t = 0; t < nthreads; t++) {
+            init_worker(&context->workers[t], context, t, nthreads, batch);
+        }
     }
-    for (uint32_t t = 1; t < nthreads; t++) {
-        pthread_create(&workers[t].thread, NULL, collect_in_worker,
-                       &workers[t]);
+    siqs_worker_t* const workers = context->workers;
+
+    siqs_shared_t shared;
+    pthread_mutex_init(&shared.lock, NULL);
+    shared.main          = context;
+    shared.ecode         = SUCCESS;
+    shared.nthreads      = context->nworkers;
+    shared.idle_handoffs = 0;
+    shared.max_batch     = MIN(batch, workers[0].batch_alloced);
+    shared.nrels_to_go   = context->smooth_redgx->alloced
+                         - context->smooth_redgx->length;
+    shared.done          = (shared.nrels_to_go == 0);
+
+    for (uint32_t t = 0; t < context->nworkers; t++) {
+        workers[t].shared         = &shared;
+        workers[t].ctx.to_collect = shared.max_batch;
+    }
+    for (uint32_t t = 1; t < context->nworkers; t++) {
+        workers[t].running = (0 == pthread_create(&workers[t].thread, NULL,
+                                                  collect_in_worker,
+                                                  &workers[t]));
     }
     collect_in_worker(&workers[0]);
-    for (uint32_t t = 1; t < nthreads; t++) {
-        pthread_join(workers[t].thread, NULL);
+    for (uint32_t t = 1; t < context->nworkers; t++) {
+        if (workers[t].running) {
+            pthread_join(workers[t].thread, NULL);
+            workers[t].running = false;
+        }
     }
-    for (uint32_t t = 0; t < nthreads; t++) {
-        clear_worker(&workers[t]);
-    }
-    free(workers);
     pthread_mutex_destroy(&shared.lock);
 
     return shared.ecode;

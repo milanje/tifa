@@ -81,7 +81,9 @@ changes and their measurements; the changes on master since 0.4.9 are in
 - `tifa_set_time_limit()` (`time_limit.h`) limits the time of the calling
   thread's factorizations: SIQS, its linear algebra and ECM give up soon
   after it, or when the function given to `tifa_set_interrupt_check()` says
-  so (Ctrl-C in Python).
+  so (Ctrl-C in Python). `tifa_set_threads()` lets its SIQS runs collect
+  their relations in several threads (4.4 times as fast in 6 threads at 240
+  bits on an Apple M5 Pro); one, the default, runs as before.
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).
@@ -116,7 +118,9 @@ changes and their measurements; the changes on master since 0.4.9 are in
 
 All of them can run in several threads at once. SIQS keeps its largest arrays
 from one run to the next in each thread (170 KiB at most, freed when the thread
-exits).
+exits). To factor many numbers, as a sieve's cofactorization does, one
+factorization per thread uses the cores best; `tifa_set_threads()` is for a
+single large number.
 
 The [readme.txt](./readme/readme.txt) file in the `readme` directory has more
 detail on the algorithms and the source layout; its build and installation
@@ -236,7 +240,8 @@ primes, and `prime_certificate(p)` returns a proof that
 `tifa_batch_gcd()`, and `Cofactorizer(lpb, ...)` gives `tifa_cofactor()`,
 for one integer or a whole list at a time. `factor(n, timeout=60)`
 gives up after about a minute (`tifa.FactorizationTimeout`, a
-`TimeoutError`), and Ctrl-C interrupts it. `python -m tifa 360 97`
+`TimeoutError`), Ctrl-C interrupts it, and `factor(n, threads=6)` runs SIQS
+in up to 6 threads. `python -m tifa 360 97`
 factors from the command line, as GNU `factor` does. The package installs
 the `tifa-factor`, `tifa-batch-gcd` and `tifa-tune` programs as well, and
 `set_tuning_dir(path)` takes the parameters from the files `tifa-tune`

@@ -34,6 +34,7 @@
 
 #include "tool_utils.h"
 #include "tifa_factor.h"
+#include "time_limit.h"
 #include "factoring_program.h"
 #include "common_funcs.h"
 
@@ -42,10 +43,11 @@ static const char* const hint_names[] = { "random", "balanced", "unbalanced" };
 //------------------------------------------------------------------------------
 static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "%15s [--prove] [random|balanced|unbalanced] "
-                    "<number_to_factor>\n", program->argv[0]);
+    fprintf(stderr, "%15s [--prove] [--threads <n>] "
+                    "[random|balanced|unbalanced] <number_to_factor>\n",
+                    program->argv[0]);
     fprintf(stderr, "Or, to be asked for the number:\n");
-    fprintf(stderr, "%15s [--prove]\n\n", program->argv[0]);
+    fprintf(stderr, "%15s [--prove] [--threads <n>]\n\n", program->argv[0]);
     fprintf(stderr, "balanced: two prime factors of about the same size;\n");
     fprintf(stderr, "unbalanced: a prime factor below a third of the size;\n");
     fprintf(stderr, "random (the default): nothing known.\n\n");
@@ -53,6 +55,9 @@ static void print_usage(factoring_program_t* const program) {
                     "certificates in\nJSON, as tifa.check_certificate (Python) "
                     "takes them. A factor not proven\nprime makes the "
                     "factorization partial.\n\n");
+    fprintf(stderr, "--threads <n>: SIQS collects its relations in up to n "
+                    "threads (one per 100\nprimes of its factor base at "
+                    "most, so none below about 100 bits).\n\n");
     print_exit_statuses();
 }
 //------------------------------------------------------------------------------
@@ -147,11 +152,23 @@ int main(int argc, char** argv) {
     factoring_program_t program;
     tifa_factor_hint_t  hint = TIFA_FACTOR_RANDOM;
 
-    bool prove = false;
-    int  nargs = 1;
+    bool prove   = false;
+    bool bad_arg = false;
+    int  nargs   = 1;
     for (int i = 1; i < argc; i++) {
         if (0 == strcmp(argv[i], "--prove")) {
             prove = true;
+        } else if (0 == strcmp(argv[i], "--threads")) {
+            char* end = NULL;
+            const unsigned long n = (i + 1 < argc)
+                                  ? strtoul(argv[i + 1], &end, 10) : 0;
+            if ((end == NULL) || (*end != '\0') || (n < 1) || (n > 1024)
+                || (argv[i + 1][0] == '-')) {
+                bad_arg = true;
+                break;
+            }
+            tifa_set_threads((uint32_t) n);
+            i++;
         } else {
             argv[nargs++] = argv[i];
         }
@@ -176,6 +193,12 @@ int main(int argc, char** argv) {
     program.factoring_algo_func        = tifa_factor_func;
     program.set_params_to_default_func = set_params_to_default;
 
+    if (bad_arg) {
+        fprintf(stderr, "--threads takes a number of threads, from 1 to "
+                        "1024.\n\n");
+        print_usage(&program);
+        return TIFA_EXIT_USAGE;
+    }
     const int status = run_program(&program);
 
     mpz_clear(program.n);

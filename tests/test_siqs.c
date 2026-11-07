@@ -24,6 +24,7 @@
 #include "tifa_test.h"
 
 #include "siqs.h"
+#include "time_limit.h"
 
 static int siqs_factors(const mpz_t n) {
     mpz_array_t*    f = alloc_mpz_array(8);
@@ -76,6 +77,29 @@ static int siqs_lanczos(const mpz_t n, const uint32_t fb) {
     }
     params.linalg_method = BLOCK_LANCZOS;
 
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    int ok = (rc == COMPLETE_FACTORIZATION_FOUND)
+             && tifa_is_complete_factorization(n, f, m);
+
+    free_mpz_array(f);
+    free_uint32_array(m);
+    return ok;
+}
+
+//
+// A complete factorization with a factor base of fb primes (the default if
+// 0), in the threads set by tifa_set_threads.
+//
+static int siqs_fb(const mpz_t n, const uint32_t fb) {
+    mpz_array_t*    f = alloc_mpz_array(8);
+    uint32_array_t* m = alloc_uint32_array(8);
+    siqs_params_t params;
+    set_siqs_params_to_default(n, &params);
+    if (fb != 0) {
+        params.nprimes_in_base = fb;
+        params.nprimes_tdiv    = fb;
+        params.linalg_method   = siqs_dflt_linalg_method(fb);
+    }
     ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
     int ok = (rc == COMPLETE_FACTORIZATION_FOUND)
              && tifa_is_complete_factorization(n, f, m);
@@ -193,7 +217,7 @@ int main(void) {
         mpz_clear(p);
     }
     //
-    // Block Lanczos at small sizes too (SIQS picks it from 30000 primes).
+    // Block Lanczos at small sizes too (SIQS picks it from 12000 primes).
     //
     {
         gmp_randstate_t state;
@@ -217,6 +241,50 @@ int main(void) {
         }
         gmp_randclear(state);
     }
+    //
+    // Several threads. The hard inputs above with 400 primes in the base,
+    // for 4 threads: few polynomials, many duplicates, and retries.
+    //
+    tifa_set_threads(4);
+    {
+        static const char* const hard[] = {
+            "45844815609288407", "1066778129149670260218683",
+            "325578952376929918515281297", "387266287363586789317"
+        };
+        for (uint32_t i = 0; i < 4; i++) {
+            mpz_t n;
+            mpz_init_set_str(n, hard[i], 10);
+            char label[80];
+            snprintf(label, sizeof(label), "4 threads, %s: factored", hard[i]);
+            CHECK(siqs_fb(n, 400), label);
+            mpz_clear(n);
+        }
+        gmp_randstate_t state;
+        gmp_randinit_default(state);
+        gmp_randseed_ui(state, 4);
+        static const unsigned long sizes[] = { 100, 120, 140, 160, 180 };
+        for (uint32_t i = 0; i < 5; i++) {
+            mpz_t n;
+            mpz_t p;
+            mpz_init(n);
+            mpz_init(p);
+            random_prime(n, state, sizes[i] / 2);
+            random_prime(p, state, sizes[i] / 2);
+            mpz_mul(n, n, p);
+            char label[64];
+            snprintf(label, sizeof(label), "4 threads, %lu bits: factored",
+                     sizes[i]);
+            CHECK(siqs_fb(n, 0), label);
+            if (sizes[i] == 140) {
+                CHECK(siqs_lanczos(n, 0),
+                      "4 threads, 140 bits, block Lanczos: factored");
+            }
+            mpz_clear(n);
+            mpz_clear(p);
+        }
+        gmp_randclear(state);
+    }
+    tifa_set_threads(1);
 
     TIFA_TEST_END();
 }

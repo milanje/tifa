@@ -105,6 +105,16 @@ int main(void) {
     CHECK(elapsed < 1.0, "SIQS stops soon after the limit");
     CHECK(tifa_time_limit_reached(), "the limit has passed");
 
+    // In several threads: the calling one checks the limit for all.
+    tifa_set_threads(4);
+    random_prime(p, 100, rng);
+    random_prime(q, 100, rng);
+    mpz_mul(n, p, q);
+    elapsed = factor_limited(n, TIFA_FACTOR_BALANCED, &complete);
+    CHECK(!complete, "SIQS in 4 threads stops at the limit");
+    CHECK(elapsed < 1.0, "SIQS in 4 threads stops soon after the limit");
+    tifa_set_threads(1);
+
     bool other = true;
     pthread_t thread;
     CHECK(pthread_create(&thread, NULL, limit_seen, &other) == 0,

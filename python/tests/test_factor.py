@@ -224,6 +224,34 @@ def test_timeout_must_be_a_number(timeout):
         tifa.factor(15, timeout=timeout)
 
 
+@pytest.mark.parametrize("bits", [64, 100, 140, 180])
+def test_threads(bits):
+    rng = random.Random(bits)
+    p, q = random_prime(bits // 2, rng), random_prime(bits - bits // 2, rng)
+    assert tifa.factor(p * q, threads=4) == dict(sorted({p: 1, q: 1}.items()))
+    assert tifa.factor(p * q, threads=4, hint="balanced") == tifa.factor(p * q)
+
+
+def test_threads_proof():
+    p = random_prime(160, random.Random(160))
+    assert tifa.check_certificate(p, tifa.prime_certificate(p, threads=4))
+    assert tifa.factor(3 * p, proof=True, threads=4) == {3: 1, p: 1}
+
+
+@pytest.mark.parametrize("threads", [0, -1])
+def test_threads_must_be_positive(threads):
+    with pytest.raises(ValueError):
+        tifa.factor(15, threads=threads)
+    with pytest.raises(ValueError):
+        tifa.prime_certificate(97, threads=threads)
+
+
+@pytest.mark.parametrize("threads", [1.5, "2", True, None])
+def test_threads_must_be_an_integer(threads):
+    with pytest.raises(TypeError):
+        tifa.factor(15, threads=threads)
+
+
 class Alarm(Exception):
     pass
 
