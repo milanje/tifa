@@ -28,6 +28,7 @@
 
 #include "ecm_schedule.h"
 #include "tifa_alloc.h"
+#include "macros.h"
 #include "stopping.h"
 
 #if TIFA_HAVE_MONT_ECM
@@ -169,29 +170,59 @@ static double siqs_cost(const double bits) {
                + t * log(siqs_costs[i].cost));
 }
 //------------------------------------------------------------------------------
-static bool run_levels(mpz_t g, const mpz_t n,
-                       ecm_schedule_t* const schedule,
-                       const double min_bits, const double target_bits,
-                       const double budget, const bool whole_first_level) {
-    const double limit = budget * siqs_cost((double) mpz_sizeinbase(n, 2));
-    const double lfac  = limb_factor[mpz_size(n)];
-    double   spent = 0;
-    uint32_t k     = 0;
+typedef struct {
+    double   limit;
+    double   lfac;
+    double   min_bits;
+    double   target_bits;
+    double   spent;
+    uint32_t next;
+    bool     whole_first_level;
+} level_iter_t;
 
-    for (uint32_t i = 0; i < schedule->nlevels; i++) {
+static void init_level_iter(level_iter_t* const it, const mpz_t n,
+                            const double min_bits, const double target_bits,
+                            const double budget, const bool whole_first_level) {
+    it->limit       = budget * siqs_cost((double) mpz_sizeinbase(n, 2));
+    it->lfac        = limb_factor[mpz_size(n)];
+    it->min_bits    = min_bits;
+    it->target_bits = target_bits;
+    it->spent       = 0;
+    it->next        = 0;
+    it->whole_first_level = whole_first_level;
+}
+
+static bool next_level(level_iter_t* const it,
+                       const ecm_schedule_t* const schedule,
+                       uint32_t* const level) {
+    for (uint32_t i = it->next; i < schedule->nlevels; i++) {
         const double hi = (double) levels[i].fbits;
-        if (hi <= min_bits) {
+        if (hi <= it->min_bits) {
             continue;
         }
-        if (hi - 5 >= target_bits) {
+        if (hi - 5 >= it->target_bits) {
             break;
         }
-        const bool first = whole_first_level && (spent == 0)
-                           && (levels[i].cost * lfac <= limit);
-        spent += levels[i].ncurves * levels[i].cost * lfac;
-        if ((spent > limit) && !first) {
+        const bool first = it->whole_first_level && (it->spent == 0)
+                           && (levels[i].cost * it->lfac <= it->limit);
+        it->spent += levels[i].ncurves * levels[i].cost * it->lfac;
+        if ((it->spent > it->limit) && !first) {
             break;
         }
+        it->next = i + 1;
+        *level   = i;
+        return true;
+    }
+    it->next = schedule->nlevels;
+    return false;
+}
+//------------------------------------------------------------------------------
+static bool run_levels(mpz_t g, const mpz_t n,
+                       ecm_schedule_t* const schedule,
+                       level_iter_t* const it) {
+    uint32_t k = 0;
+    uint32_t i;
+    while (next_level(it, schedule, &i)) {
         const mont_ecm_plan_t* const plan = level_plan(schedule, i);
         for (uint32_t j = 0; j < levels[i].ncurves; j++) {
             if (mont_ecm_nth_curve(g, n, k++, plan)) {
@@ -212,17 +243,144 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
     if (mont_pm1(g, n, 2, schedule->pm1_plan) == 1) {
         return true;
     }
-    return run_levels(g, n, schedule, min_bits, target_bits, budget, false);
+    level_iter_t it;
+    init_level_iter(&it, n, min_bits, target_bits, budget, false);
+    return run_levels(g, n, schedule, &it);
 }
 //------------------------------------------------------------------------------
+static bool run_levels_threaded(mpz_t g, const mpz_t n,
+                                ecm_schedule_t* schedule, level_iter_t* it);
+
 bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
                           ecm_schedule_t* const schedule,
                           const double budget) {
     if (mont_pm1(g, n, 2, schedule->pm1_plan) == 1) {
         return true;
     }
-    return run_levels(g, n, schedule, 0, (double) mpz_sizeinbase(n, 2) / 2,
-                      budget, true);
+    level_iter_t it;
+    init_level_iter(&it, n, 0, (double) mpz_sizeinbase(n, 2) / 2, budget,
+                    true);
+    if (tifa_threads() > 1) {
+        return run_levels_threaded(g, n, schedule, &it);
+    }
+    return run_levels(g, n, schedule, &it);
+}
+//------------------------------------------------------------------------------
+//
+// The curves in several threads: each takes the next curve to run, and the
+// first factor found stops them all. The time limit and the interrupt check
+// are the calling thread's.
+//
+// At least PREPASS_US_PER_THREAD of estimated curve time per thread: starting
+// one takes tens of microseconds.
+//
+#define PREPASS_US_PER_THREAD 100
+#define PREPASS_MAX_THREADS   64
+
+typedef struct {
+    pthread_mutex_t lock;
+    mpz_srcptr      n;
+    ecm_schedule_t* schedule;
+    uint32_t        level[NLEVELS];
+    uint32_t        first[NLEVELS + 1];
+    uint32_t        nlevels;
+    uint32_t        next;
+    bool            done;
+    bool            found;
+    mpz_t           g;
+} prepass_t;
+
+typedef struct {
+    prepass_t* p;
+    pthread_t  thread;
+    bool       caller;
+    bool       running;
+} prepass_worker_t;
+
+static void* run_prepass_curves(void* const arg) {
+    const prepass_worker_t* const w = (const prepass_worker_t*) arg;
+    prepass_t* const p = w->p;
+    const uint32_t ncurves = p->first[p->nlevels];
+    uint32_t r = 0;
+    mpz_t g;
+    mpz_init(g);
+
+    while (!__atomic_load_n(&p->done, __ATOMIC_RELAXED)) {
+        const uint32_t k = __atomic_fetch_add(&p->next, 1, __ATOMIC_RELAXED);
+        if (k >= ncurves) {
+            break;
+        }
+        while (k >= p->first[r + 1]) {
+            r++;
+        }
+        const mont_ecm_plan_t* const plan = level_plan(p->schedule,
+                                                       p->level[r]);
+        if (mont_ecm_nth_curve(g, p->n, k, plan)) {
+            pthread_mutex_lock(&p->lock);
+            if (!p->found) {
+                p->found = true;
+                mpz_set(p->g, g);
+            }
+            pthread_mutex_unlock(&p->lock);
+            __atomic_store_n(&p->done, true, __ATOMIC_RELAXED);
+        } else if (w->caller && tifa_should_stop()) {
+            __atomic_store_n(&p->done, true, __ATOMIC_RELAXED);
+        }
+    }
+    mpz_clear(g);
+    return NULL;
+}
+
+static bool run_levels_threaded(mpz_t g, const mpz_t n,
+                                ecm_schedule_t* const schedule,
+                                level_iter_t* const it) {
+    prepass_t p;
+    p.nlevels  = 0;
+    p.first[0] = 0;
+    double cost = 0;
+    uint32_t i;
+    while (next_level(it, schedule, &i)) {
+        p.level[p.nlevels] = i;
+        p.first[p.nlevels + 1] = p.first[p.nlevels] + levels[i].ncurves;
+        p.nlevels++;
+        cost = it->spent;
+    }
+    const double most = MIN(cost / PREPASS_US_PER_THREAD, PREPASS_MAX_THREADS);
+    uint32_t nthreads = MIN(tifa_threads(), (uint32_t) most);
+    nthreads = MAX(MIN(nthreads, p.first[p.nlevels]), 1);
+
+    pthread_mutex_init(&p.lock, NULL);
+    p.n        = n;
+    p.schedule = schedule;
+    p.next     = 0;
+    p.done     = false;
+    p.found    = false;
+    mpz_init(p.g);
+
+    prepass_worker_t* const w = tifa_malloc(nthreads * sizeof(prepass_worker_t));
+    for (uint32_t t = 0; t < nthreads; t++) {
+        w[t].p       = &p;
+        w[t].caller  = (t == 0);
+        w[t].running = false;
+    }
+    for (uint32_t t = 1; t < nthreads; t++) {
+        w[t].running = (0 == pthread_create(&w[t].thread, NULL,
+                                            run_prepass_curves, &w[t]));
+    }
+    run_prepass_curves(&w[0]);
+    for (uint32_t t = 1; t < nthreads; t++) {
+        if (w[t].running) {
+            pthread_join(w[t].thread, NULL);
+        }
+    }
+    if (p.found) {
+        mpz_set(g, p.g);
+    }
+    const bool found = p.found;
+    free(w);
+    mpz_clear(p.g);
+    pthread_mutex_destroy(&p.lock);
+    return found;
 }
 
 #endif

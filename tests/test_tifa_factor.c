@@ -28,6 +28,7 @@
 #include "tifa_test.h"
 #include "tifa_factor.h"
 #include "mont_ecm.h"
+#include "time_limit.h"
 
 static void factor_and_check(const char* label, const mpz_t n) {
     mpz_array_t*    factors = alloc_mpz_array(8);
@@ -319,6 +320,26 @@ int main(void) {
         }
         factor_and_check(wide_labels[i], n);
     }
+#if TIFA_HAVE_MONT_ECM
+    // The ECM pre-pass in 4 threads.
+    static const uint32_t threaded_bits[][3] = { { 40, 160, 0 }, { 45, 50, 205 } };
+    static const char* const threaded_labels[] = {
+        "40-bit factor (200 bits), 4 threads",
+        "45- and 50-bit factors (300 bits), 4 threads"
+    };
+    tifa_set_threads(4);
+    for (uint32_t i = 0; i < 2; i++) {
+        mpz_set_ui(n, 1UL);
+        for (uint32_t j = 0; (j < 3) && (threaded_bits[i][j] != 0); j++) {
+            mpz_urandomb(p, state, threaded_bits[i][j]);
+            mpz_setbit(p, threaded_bits[i][j] - 1);
+            mpz_nextprime(p, p);
+            mpz_mul(n, n, p);
+        }
+        factor_and_check(threaded_labels[i], n);
+    }
+    tifa_set_threads(1);
+#endif
 
     gmp_randclear(state);
 

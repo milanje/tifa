@@ -130,6 +130,15 @@ int main(void) {
     CHECK(!complete, "ECM stops at the limit");
     CHECK(elapsed < 1.0, "ECM stops soon after the limit");
 
+    tifa_set_threads(4);
+    random_prime(p, 80, rng);
+    random_prime(q, 160, rng);
+    mpz_mul(n, p, q);
+    elapsed = factor_limited(n, TIFA_FACTOR_UNBALANCED, &complete);
+    CHECK(!complete, "ECM in 4 threads stops at the limit");
+    CHECK(elapsed < 1.0, "ECM in 4 threads stops soon after the limit");
+    tifa_set_threads(1);
+
     // The longest curves stop within themselves: in GMP arithmetic above
     // 512 bits (2.5 s each at 600 bits on an Apple M5 Pro), and on eight
     // limbs (0.7 s).

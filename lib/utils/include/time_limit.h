@@ -92,17 +92,19 @@ TIFA_API void tifa_set_interrupt_check(tifa_interrupt_check_t check,
 TIFA_API bool tifa_interrupted(void);
 
    /**
-    * \brief Lets the calling thread's SIQS runs collect their relations in
-    * several threads.
+    * \brief Lets the calling thread's factorizations run in several threads.
     *
     * SIQS, run by itself or by \c tifa_factor and \c tifa_prove_prime, then
     * collects its relations in up to \c threads threads, the calling one
     * included, but at most one per 100 primes of its factor base (none below
-    * about 100 bits) and 64 in all. The calling thread alone checks the time
-    * limit and the interrupt check, and stops the others. With 1, the
-    * default, or 0, SIQS runs in the calling thread only, as fast as before.
-    * Each thread has its own setting, which holds until the next call. To
-    * factor many numbers, one factorization per thread uses the cores best.
+    * about 100 bits) and 64 in all. The ECM search that \c tifa_factor and
+    * \c tifa_prove_prime run before SIQS shares its curves among as many,
+    * but at most one per 0.1 ms of curves (none below about 120 bits without
+    * a hint). The calling thread alone checks the time limit and the
+    * interrupt check, and stops the others. With 1, the default, or 0, all
+    * run in the calling thread only, as fast as before. Each thread has its
+    * own setting, which holds until the next call. To factor many numbers,
+    * one factorization per thread uses the cores best.
     *
     * \param[in] threads The number of threads, the calling one included.
     */
