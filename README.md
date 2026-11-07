@@ -39,6 +39,16 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+**Version 0.4.9 (November 2026)** gives SIQS a third linear algebra,
+Montgomery's block Lanczos on a sparse matrix, from 12000 primes in its
+factor base (about 230 bits): on an Apple M5 Pro, from 240 to 280 bits, the
+linear algebra takes 0.55 to 0.16 of the time of the filtered elimination,
+the whole factorization 0.98 to 0.94, and the peak memory 30 to 83 MB
+rather than 181 to 721. The default linear algebra follows the factor base
+of a tuning file (see
+[readme/releases/0.4.9.md](./readme/releases/0.4.9.md)). The ABI only grows
+(`libtifa.so.0.4`).
+
 **Version 0.4.8 (November 2026)** runs ECM in Montgomery arithmetic up to 512
 bits and in GMP arithmetic above, so that `tifa_factor()` finds the small
 factors of numbers of any size, where it ran SIQS for hours or without end: a
@@ -51,22 +61,9 @@ programs; `tifa_factor()` is back to 0.4.6's speed at 70 and 80 bits (see
 [readme/releases/0.4.8.md](./readme/releases/0.4.8.md)). The ABI only grows
 (`libtifa.so.0.4`).
 
-**Version 0.4.7 (November 2026)** makes SIQS 1.1 to 4.1 times as fast from 232
-to 280 bits on an Apple M5 Pro (a 280-bit semiprime in 98 s rather than 407):
-its factor base, capped at 16384 primes, goes to 65536, the exponents of its
-relations are kept sparse beyond 16384, and its parameters from 232 bits are
-new. `tifa_prove_prime()` proves that an integer is prime, with a certificate
-anyone can check; `tifa_set_time_limit()` limits the time of a thread's
-factorizations; `tifa-tune` tunes large sizes; and the Python package proves
-primes, takes a `timeout` and reads tuning files. A review for untrusted input
-fixed the certificate checker, the tuning files, the factoring core and the
-Python wheels (see
-[readme/releases/0.4.7.md](./readme/releases/0.4.7.md#4-november-2026--security-fixes)).
-The ABI only grows (`libtifa.so.0.4`).
-
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
-changes and their measurements; the changes on master since 0.4.8 are in
+changes and their measurements; the changes on master since 0.4.9 are in
 [readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there

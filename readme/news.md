@@ -9,11 +9,22 @@ say otherwise.
 
 ## Unreleased
 
+Nothing yet.
+
+[Release notes](./releases/unreleased.md)
+
+## 0.4.9 &mdash; 2026-11-07
+
 - Block Lanczos (`BLOCK_LANCZOS`), for SIQS from about 230 bits: at 280
   bits, its linear algebra 0.16 of the time, the whole factorization 0.94,
   its peak memory 83 MB rather than 721.
+- The default linear algebra of SIQS follows the factor base of a tuning
+  file (`siqs_dflt_linalg_method()`).
+- `tifa-cfrac` and `tifa-siqs` take block Lanczos and refuse an unknown
+  linear algebra.
+- ABI grows (`libtifa.so.0.4`).
 
-[Release notes](./releases/unreleased.md)
+[Release notes](./releases/0.4.9.md)
 
 ## 0.4.8 &mdash; 2026-11-06
 
