@@ -139,11 +139,15 @@ Here are some short term objectives:
         to 22 MB rather than 81 to 166. The runs moved more than that, for
         another reason: with the same instructions retired, the sieving took
         0.983 of the time at 220 bits and 1.013 at 224, for each of the ten
-        numbers. Where its arrays land depends on what was allocated before
-        them: 400 KB allocated before SIQS made the sieving 1% to 2% faster
-        on three numbers of 224 bits. SIQS_BLOCK_LANCZOS_MIN_BASE stays at
-        12000; placing the arrays of the sieve deliberately might take the
-        better case at every size.
+        numbers. SIQS_BLOCK_LANCZOS_MIN_BASE stays at 12000. The arrays of
+        the sieve start on a page (16 KiB) whatever was allocated before
+        them, so that their offsets in a page never change; at 224 bits,
+        the sieve's chunk allocated apart (aligned on 4 MiB, at any distance
+        from the factor base) took the 1.1% back, but at 200 and 220 bits it
+        changed nothing (1.000 to 1.004), nor does block Lanczos slow the
+        sieving from 240 to 280 bits (0.994 to 1.002): no placement to fix.
+        Measure such effects in alternation: the M5 slows by about 3% over a
+        few minutes of load, which a sweep in order takes for an effect.
       - Threads: the collection of relations would split over several cores
         (the library is thread-safe), for its wall-clock time.
       - From seven primes in 'a', the approximer sorts up to 18424 triples
