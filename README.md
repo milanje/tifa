@@ -81,9 +81,10 @@ changes and their measurements; the changes on master since 0.4.9 are in
 - `tifa_set_time_limit()` (`time_limit.h`) limits the time of the calling
   thread's factorizations: SIQS, its linear algebra and ECM give up soon
   after it, or when the function given to `tifa_set_interrupt_check()` says
-  so (Ctrl-C in Python). `tifa_set_threads()` lets its SIQS runs collect
-  their relations in several threads (4.4 times as fast in 6 threads at 240
-  bits on an Apple M5 Pro); one, the default, runs as before.
+  so (Ctrl-C in Python). `tifa_set_threads()` runs them in several threads,
+  SIQS and the ECM search before it (`tifa_factor()` is 4.5 times as fast in
+  6 threads at 240 bits on an Apple M5 Pro); one, the default, runs as
+  before.
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).

@@ -3,6 +3,31 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 7 November 2026 &mdash; The ECM search in several threads
+
+With `tifa_set_threads(n)`, the ECM search that `tifa_factor()` and
+`tifa_prove_prime()` run before SIQS shares its curves among up to `n`
+threads as well, at most one per 0.1 ms of curves (none below about 120
+bits without a hint): each thread takes the next curve, the first factor
+found stops them all, and the calling thread alone checks the time limit
+and the interrupt. Run in one thread, the search had come to take as long
+as SIQS in six: 4.6 s, then 6.0 s of SIQS, at 264 bits.
+
+On an Apple M5 Pro, the wall-clock time of `tifa_factor()` on balanced
+semiprimes, without a hint, in 6 threads against one:
+
+| bits | 100 | 120 | 140 | 160 | 180 | 200 | 220 | 240 | 264 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| SIQS in threads | 0.87 | 0.62 | 0.46 | 0.43 | 0.44 | 0.39 | 0.33 | 0.26 | 0.32 |
+| and the ECM search | 0.88 | 0.61 | 0.41 | 0.32 | 0.27 | 0.24 | 0.23 | 0.22 | 0.22 |
+
+The threads take more CPU time in all: 24% more at 140 bits, 12% at 180, 9%
+at 200 and 7% at 220.
+
+In one thread, the same instructions within 0.04% for SIQS, `tifa_factor()`
+and `tifa_cofactor()` (SIQS at 70 bits aside, whose count varies by 0.2%
+from run to run), and 0.99 to 1.01 of the time in both orders.
+
 ## 7 November 2026 &mdash; SIQS in several threads
 
 `tifa_set_threads(n)` (`time_limit.h`) lets the calling thread's SIQS runs

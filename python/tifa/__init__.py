@@ -175,11 +175,13 @@ def factor(
     {59649589127497217: 1, 5704689200685129054721: 1}
 
     With ``threads`` above 1, SIQS collects its relations in up to that many
-    threads, at most one per 100 primes of its factor base: none below about
-    100 bits, 2 at 100 bits, 4 from about 120. On an Apple M5 Pro, with 6
-    threads, a 140-bit number takes 0.42 of the time of one thread, a 180-bit
-    one 0.29, and a 240-bit one 0.23, for about 8% more CPU time. To factor
-    many numbers, factoring several at once, one per thread, is better.
+    threads, at most one per 100 primes of its factor base (none below about
+    100 bits, 2 at 100 bits, 4 from about 120), and the ECM search before it
+    shares its curves among as many. On an Apple M5 Pro, with 6 threads, a
+    140-bit number takes 0.41 of the time of one thread, a 180-bit one 0.27,
+    and a 240-bit one 0.22, for more CPU time in all (a quarter more at 140
+    bits, 9% at 200). To factor many numbers, factoring several at once, one
+    per thread, is better.
 
     In the main thread, Ctrl-C interrupts ``factor`` within about a
     twentieth of a second, raising ``KeyboardInterrupt`` (or whatever a

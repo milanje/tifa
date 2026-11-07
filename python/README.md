@@ -57,9 +57,11 @@ with ThreadPoolExecutor() as pool:
 
 To factor one large number sooner, `factor(n, threads=6)` lets SIQS collect
 its relations in up to 6 threads, at most one per 100 primes of its factor
-base (none below about 100 bits). On an Apple M5 Pro, 6 threads take 0.42
-of the time of one at 140 bits, 0.29 at 180 and 0.23 at 240, for about 8%
-more CPU time. For many numbers, one per thread as above is better.
+base (none below about 100 bits), and the ECM search before it share its
+curves among as many. On an Apple M5 Pro, 6 threads take 0.41 of the time
+of one at 140 bits, 0.27 at 180 and 0.22 at 240, for more CPU time in all
+(a quarter more at 140 bits, 9% at 200). For many numbers, one per thread
+as above is better.
 
 ## Time limits
 
