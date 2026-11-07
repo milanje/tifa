@@ -79,6 +79,14 @@ def test_timeout():
     assert run("--timeout", "0", "6").returncode == 2
 
 
+def test_threads():
+    n = 576460752303423619 * 1152921504606847009
+    out = run("--threads", "4", "--proof", str(n))
+    assert out.returncode == 0, out.stderr
+    assert out.stdout == f"{n}: 576460752303423619 1152921504606847009\n"
+    assert run("--threads", "0", "6").returncode == 2
+
+
 def test_version():
     out = run("--version")
     assert out.returncode == 0

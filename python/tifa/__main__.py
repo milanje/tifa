@@ -72,11 +72,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="give up on an integer after about this long",
     )
     parser.add_argument(
+        "--threads", type=int, default=1, metavar="N",
+        help="run SIQS in up to N threads (see tifa.factor)",
+    )
+    parser.add_argument(
         "--version", action="version", version=f"tifa {tifa.__version__}"
     )
     args = parser.parse_args(argv)
     if args.timeout is not None and not args.timeout > 0:
         parser.error("--timeout must be positive")
+    if args.threads < 1:
+        parser.error("--threads must be positive")
 
     words = args.numbers if args.numbers else _words(sys.stdin)
     status = 0
@@ -94,7 +100,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             continue
         try:
             factors = tifa.factor(
-                n, hint=args.hint, proof=args.proof, timeout=args.timeout
+                n, hint=args.hint, proof=args.proof, timeout=args.timeout,
+                threads=args.threads,
             )
         except tifa.FactorizationError as error:
             print(f"python -m tifa: {error}", file=sys.stderr)

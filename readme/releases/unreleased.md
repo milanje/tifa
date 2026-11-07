@@ -14,8 +14,8 @@ of 'a', with its own sieve and candidates; their candidates go through the
 batch smoothness test and the large prime table of the run, under a lock.
 The time limit and the interrupt check stay the calling thread's: it checks
 them and stops the others. `tifa_factor()` and `tifa_prove_prime()` follow
-it, `tifa-factor` takes `--threads <n>`, and Python's `factor()` and
-`prime_certificate()` take `threads=`.
+it, `tifa-factor` and `python -m tifa` take `--threads <n>`, and Python's
+`factor()` and `prime_certificate()` take `threads=`.
 
 On an Apple M5 Pro (six performance cores), the wall-clock time of SIQS on
 balanced semiprimes, against one thread (at 100 bits, 200 primes, two
