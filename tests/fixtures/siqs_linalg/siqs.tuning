@@ -1,0 +1,7 @@
+# TIFA tuning file (schema v1) -- test fixture
+# algo:      siqs
+# key:       bitsize(n)
+# Factor bases across the thresholds of the default linear algebra.
+columns: min_bitsize nprimes_in_base sieve_half_width threshold nprimes_tdiv nrelations use_large_primes extra_primes_in_a
+200   13000   300000   70   13000   8   1   0
+240   2000    300000   70   2000    8   1   0

@@ -61,6 +61,24 @@ extern "C" {
     * Use the large prime variation by default from this many bits.
     */
 #define SIQS_DFLT_LARGE_PRIMES_MIN_BITS 103
+   /**
+    * \def SIQS_FILTERED_GAUSS_MIN_BASE
+    * By default, the matrix is filtered before the elimination
+    * (\c FILTERED_GAUSS_ELIM) from this many primes in the factor base (about
+    * 188 bits): 0.96 of the time at 210 and 220 bits on an Apple M5, but up
+    * to 1.05 below 160 bits, where the elimination costs less than the
+    * filtering saves.
+    */
+#define SIQS_FILTERED_GAUSS_MIN_BASE 3000
+   /**
+    * \def SIQS_BLOCK_LANCZOS_MIN_BASE
+    * By default, block Lanczos (\c BLOCK_LANCZOS) on a sparse matrix, without
+    * any dense one, from this many primes in the factor base (about 230
+    * bits). The linear algebra took the same time at 220 bits on an Apple M5
+    * Pro, 0.61 of it at 240, 0.26 at 264, 0.15 at 280 (1.1 s rather than
+    * 7.5), and the run's peak memory 0.09 to 0.20 of it from 240 to 280 bits.
+    */
+#define SIQS_BLOCK_LANCZOS_MIN_BASE 12000
 
    /**
     * \struct struct_siqs_params_t siqs.h lib/algo/include/siqs.h
@@ -98,9 +116,8 @@ struct struct_siqs_params_t {
         */
     uint32_t nrelations;
        /**
-        * Linear system resolution method to use: by default the Gaussian
-        * elimination, filtered from 3000 primes in the base, and block
-        * Lanczos from 12000 (about 230 bits), without any dense matrix.
+        * Linear system resolution method to use: by default the one of
+        * \c siqs_dflt_linalg_method() for \c nprimes_in_base.
         */
     linalg_method_t linalg_method;
        /**
@@ -122,6 +139,29 @@ struct struct_siqs_params_t {
     * \brief Equivalent to <tt>struct struct_siqs_params_t</tt>.
     */
 typedef struct struct_siqs_params_t siqs_params_t;
+
+   /**
+    * \brief The default linear algebra of SIQS for a factor base of
+    * \c nprimes_in_base primes.
+    *
+    * The Gaussian elimination, filtered from \c SIQS_FILTERED_GAUSS_MIN_BASE
+    * primes, and block Lanczos from \c SIQS_BLOCK_LANCZOS_MIN_BASE.
+    * \c set_siqs_params_to_default() takes it for the factor base it sets,
+    * tuning files included; take it again after changing \c nprimes_in_base.
+    *
+    * \param[in] nprimes_in_base The number of primes in the factor base.
+    * \return The linear algebra method.
+    */
+static inline linalg_method_t siqs_dflt_linalg_method(
+    const uint32_t nprimes_in_base) {
+    if (nprimes_in_base >= SIQS_BLOCK_LANCZOS_MIN_BASE) {
+        return BLOCK_LANCZOS;
+    }
+    if (nprimes_in_base >= SIQS_FILTERED_GAUSS_MIN_BASE) {
+        return FILTERED_GAUSS_ELIM;
+    }
+    return SIQS_DFLT_LINALG_METHOD;
+}
 
    /**
     * \brief Fills a \c siqs_params_t with default values.

@@ -348,8 +348,9 @@ static bool run_siqs(const mpz_t n, const mpz_t p, const uint32_t cols[],
                      double* secs) {
     (void) p;
     siqs_params_t params;
-    set_siqs_params_to_default(n, &params);    // fills linalg_method
+    set_siqs_params_to_default(n, &params);
     params.nprimes_in_base  = cols[0];
+    params.linalg_method    = siqs_dflt_linalg_method(cols[0]);
     params.sieve_half_width = cols[1];
     params.threshold        = cols[2];
     params.nprimes_tdiv     = cols[3];

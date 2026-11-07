@@ -37,6 +37,7 @@
 #include "tuning.h"
 #include "factoring_machine.h"
 #include "p_minus_1.h"
+#include "siqs.h"
 
 #if !defined(TIFA_TEST_FIXTURE_DIR)
     #error "TIFA_TEST_FIXTURE_DIR must be defined by the build"
@@ -289,6 +290,30 @@ int main(void) {
     set_p_minus_1_params_to_default(n, &params);
     CHECK_EQ_UI(params.b1, 50000, "default b1 restored after leaving dir");
 #endif
+
+    // The linear algebra follows the tuned factor base, not the default one.
+    tifa_tuning_set_dir(TIFA_TEST_FIXTURE_DIR "/siqs_linalg");
+    siqs_params_t siqs_params;
+    mpz_ui_pow_ui(n, 2, 199);
+    set_siqs_params_to_default(n, &siqs_params);
+    CHECK_EQ_UI(siqs_params.nprimes_in_base, 13000, "tuned base at 200 bits");
+    CHECK_EQ_UI(siqs_params.linalg_method, BLOCK_LANCZOS,
+                "block Lanczos for the tuned base at 200 bits");
+    mpz_ui_pow_ui(n, 2, 239);
+    set_siqs_params_to_default(n, &siqs_params);
+    CHECK_EQ_UI(siqs_params.nprimes_in_base, 2000, "tuned base at 240 bits");
+    CHECK_EQ_UI(siqs_params.linalg_method, SIQS_DFLT_LINALG_METHOD,
+                "smart elimination for the tuned base at 240 bits");
+
+    CHECK_EQ_UI(siqs_dflt_linalg_method(SIQS_FILTERED_GAUSS_MIN_BASE - 1),
+                SIQS_DFLT_LINALG_METHOD, "below the filtered threshold");
+    CHECK_EQ_UI(siqs_dflt_linalg_method(SIQS_FILTERED_GAUSS_MIN_BASE),
+                FILTERED_GAUSS_ELIM, "at the filtered threshold");
+    CHECK_EQ_UI(siqs_dflt_linalg_method(SIQS_BLOCK_LANCZOS_MIN_BASE - 1),
+                FILTERED_GAUSS_ELIM, "below the block Lanczos threshold");
+    CHECK_EQ_UI(siqs_dflt_linalg_method(SIQS_BLOCK_LANCZOS_MIN_BASE),
+                BLOCK_LANCZOS, "at the block Lanczos threshold");
+
     tifa_tuning_set_dir(NULL);
 
     mpz_clear(n);

@@ -150,21 +150,6 @@
     #error "NPRIMES_TO_SKIP_LARGE must be below PRECHECK_SMALL_PRIMES"
 #endif
 //
-// From FILTERED_GAUSS_MIN_BASE primes in the base (about 188 bits), the
-// matrix is filtered before the elimination (see FILTERED_GAUSS_ELIM): 0.96
-// of the time at 210 and 220 bits on an Apple M5, but up to 1.05 below 160
-// bits, where the elimination costs less than the filtering saves.
-//
-#define FILTERED_GAUSS_MIN_BASE 3000
-//
-// From BLOCK_LANCZOS_MIN_BASE primes in the base (about 230 bits), block
-// Lanczos on a sparse matrix (see BLOCK_LANCZOS) rather than the dense one.
-// The linear algebra took the same time at 220 bits on an Apple M5 Pro,
-// 0.61 of it at 240, 0.26 at 264, 0.15 at 280 (1.1 s rather than 7.5), and
-// the run's peak memory 0.09 to 0.20 of it from 240 to 280 bits.
-//
-#define BLOCK_LANCZOS_MIN_BASE 12000
-//
 // With SKIP_LARGE_MIN_BASE primes or more, the sieve skips NPRIMES_TO_SKIP_LARGE
 // of them (see siqs_sieve.h): the threshold is SKIP_LARGE_THRESHOLD_DROP lower
 // for the logs they no longer add, 0.95 to 0.99 of the time from 170 to 220
@@ -658,10 +643,6 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
     params->nprimes_tdiv     = params->nprimes_in_base;
     params->nrelations       = SIQS_DFLT_NRELATIONS;
     params->extra_primes_in_a = best_params[i].extra;
-    params->linalg_method    = (params->nprimes_in_base >= BLOCK_LANCZOS_MIN_BASE)
-                             ? BLOCK_LANCZOS
-                             : (params->nprimes_in_base >= FILTERED_GAUSS_MIN_BASE)
-                             ? FILTERED_GAUSS_ELIM : SIQS_DFLT_LINALG_METHOD;
     params->use_large_primes = (mpz_sizeinbase(n, 2)
                                 >= SIQS_DFLT_LARGE_PRIMES_MIN_BITS);
     if (   params->use_large_primes
@@ -676,9 +657,9 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
 
     //
     // Override the tabulated/interpolated defaults with machine-tuned values if
-    // a tuning file supplies a row for this bit-size. The linear-algebra method
-    // is not tuned and keeps its default. Note that the local `size` was
-    // clamped to the last row above, so the true bit-size is recomputed.
+    // a tuning file supplies a row for this bit-size. Note that the local
+    // `size` was clamped to the last row above, so the true bit-size is
+    // recomputed.
     //
     tuning_row_t row;
     if (tifa_tuning_get_row(
@@ -692,6 +673,7 @@ void set_siqs_params_to_default(const mpz_t n, siqs_params_t* const params) {
         params->use_large_primes  = (row.cols[5] != 0);
         params->extra_primes_in_a = row.cols[6];
     }
+    params->linalg_method = siqs_dflt_linalg_method(params->nprimes_in_base);
 }
 //------------------------------------------------------------------------------
 
