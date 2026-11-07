@@ -3,15 +3,32 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 7 November 2026 &mdash; Fixes to the threads, and polish
+
+- In several threads, SIQS built the other threads' sieves on its half
+  width rounded up to whole chunks, from which their 'a' could take
+  another number of primes than the calling thread's: the primes of 'a'
+  were then read and written out of bounds (by default, on a few percent
+  of the numbers of some sizes from 230 bits). They now take the calling
+  thread's sieve width.
+- In several threads, a `nrelations` of some hundreds could fill the set of
+  the relations seen, whose search then never ended. The set now holds as
+  many as the rounds of more relations can ask for.
+- The time limit's functions read whether their thread key exists with an
+  acquire, as it is written, rather than plainly.
+- `siqs-bench` and `factor-bench` take `--threads <n>`, timed by the wall
+  clock; the documentation names the ECM search wherever threads are.
+
 ## 7 November 2026 &mdash; The ECM search in several threads
 
 With `tifa_set_threads(n)`, the ECM search that `tifa_factor()` and
 `tifa_prove_prime()` run before SIQS shares its curves among up to `n`
-threads as well, at most one per 0.1 ms of curves (none below about 120
-bits without a hint): each thread takes the next curve, the first factor
-found stops them all, and the calling thread alone checks the time limit
-and the interrupt. Run in one thread, the search had come to take as long
-as SIQS in six: 4.6 s, then 6.0 s of SIQS, at 264 bits.
+threads as well, at most one per 0.1 ms of curves (from about 120 bits
+without a hint, 100 with the unbalanced one, 135 when proving a prime):
+each thread takes the next curve, the first factor found stops them all,
+and the calling thread alone checks the time limit and the interrupt. Run
+in one thread, the search had come to take as long as SIQS in six: 4.6 s,
+then 6.0 s of SIQS, at 264 bits.
 
 On an Apple M5 Pro, the wall-clock time of `tifa_factor()` on balanced
 semiprimes, without a hint, in 6 threads against one:

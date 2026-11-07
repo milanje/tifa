@@ -169,7 +169,7 @@ PyDoc_STRVAR(factor_doc,
 "Factor the int n > 1 with tifa_factor_with_hint (hint 0, 1 or 2), within\n"
 "timeout seconds if it is positive and finite, and stopping for the\n"
 "exception of a signal handler if interruptible (in the main thread), SIQS\n"
-"in up to threads threads (tifa_set_threads). Return\n"
+"and the ECM search in up to threads threads (tifa_set_threads). Return\n"
 "(complete, [(factor, exponent), ...], timed_out), complete being False when\n"
 "some factors may not be prime.");
 
@@ -301,8 +301,9 @@ PyDoc_STRVAR(prime_certificate_doc,
 "_prime_certificate(n, timeout, interruptible, threads, /)\n--\n\n"
 "Prove the int n prime with tifa_prove_prime, within timeout seconds if it is\n"
 "positive and finite, and stopping for the exception of a signal handler if\n"
-"interruptible, SIQS in up to threads threads. Return (status, steps, timed_out), status 0 (proven), 1 (not\n"
-"prime) or 2 (not proven), steps [(p, [(q, a), ...]), ...] or\n"
+"interruptible, SIQS and the ECM search in up to threads threads. Return\n"
+"(status, steps, timed_out), status 0 (proven), 1 (not prime) or 2 (not\n"
+"proven), steps [(p, [(q, a), ...]), ...] or\n"
 "(p, [(q, a), ...], D, [(r, P), ...]) when proven.");
 
 static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {

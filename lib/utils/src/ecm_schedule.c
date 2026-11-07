@@ -267,9 +267,7 @@ bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
 }
 //------------------------------------------------------------------------------
 //
-// The curves in several threads: each takes the next curve to run, and the
-// first factor found stops them all. The time limit and the interrupt check
-// are the calling thread's.
+// The time limit and the interrupt check are the calling thread's.
 //
 // At least PREPASS_US_PER_THREAD of estimated curve time per thread: starting
 // one takes tens of microseconds.

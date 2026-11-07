@@ -99,9 +99,10 @@ TIFA_API bool tifa_interrupted(void);
     * included, but at most one per 100 primes of its factor base (none below
     * about 100 bits) and 64 in all. The ECM search that \c tifa_factor and
     * \c tifa_prove_prime run before SIQS shares its curves among as many,
-    * but at most one per 0.1 ms of curves (none below about 120 bits without
-    * a hint). The calling thread alone checks the time limit and the
-    * interrupt check, and stops the others. With 1, the default, or 0, all
+    * but at most one per 0.1 ms of curves: from about 120 bits for
+    * \c tifa_factor without a hint, 100 with the unbalanced one, 135 for
+    * \c tifa_prove_prime. The calling thread alone checks the time limit and
+    * the interrupt check, and stops the others. With 1, the default, or 0, all
     * run in the calling thread only, as fast as before. Each thread has its
     * own setting, which holds until the next call. To factor many numbers,
     * one factorization per thread uses the cores best.

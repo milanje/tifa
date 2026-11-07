@@ -283,6 +283,43 @@ int main(void) {
             mpz_clear(p);
         }
         gmp_randclear(state);
+
+        mpz_t n;
+        mpz_init_set_str(n, "898281150108340332513658406327", 10);
+        mpz_array_t*    f = alloc_mpz_array(8);
+        uint32_array_t* m = alloc_uint32_array(8);
+        siqs_params_t params;
+        //
+        // A half width of whole chunks and one more: the threads' 'a' have
+        // as many primes as the calling thread's.
+        //
+        set_siqs_params_to_default(n, &params);
+        params.nprimes_in_base  = 400;
+        params.nprimes_tdiv     = 400;
+        params.sieve_half_width = 65537;
+        params.linalg_method    = siqs_dflt_linalg_method(400);
+        ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        CHECK(   (rc == COMPLETE_FACTORIZATION_FOUND)
+              && tifa_is_complete_factorization(n, f, m),
+              "4 threads, half width 65537: factored");
+        //
+        // A prime, with many more relations asked for, round after round:
+        // the set of the relations seen holds them all.
+        //
+        mpz_ui_pow_ui(n, 2, 119);
+        mpz_nextprime(n, n);
+        set_siqs_params_to_default(n, &params);
+        params.nprimes_in_base = 400;
+        params.nprimes_tdiv    = 400;
+        params.nrelations      = 600;
+        params.linalg_method   = siqs_dflt_linalg_method(400);
+        f->length = 0;
+        rc = siqs(f, NULL, n, &params, FIND_SOME_FACTORS);
+        CHECK((rc != SOME_FACTORS_FOUND) && (f->length == 0),
+              "4 threads, a prime, 600 more relations a round: no factor");
+        free_mpz_array(f);
+        free_uint32_array(m);
+        mpz_clear(n);
     }
     tifa_set_threads(1);
 

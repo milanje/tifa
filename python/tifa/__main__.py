@@ -73,7 +73,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument(
         "--threads", type=int, default=1, metavar="N",
-        help="run SIQS in up to N threads (see tifa.factor)",
+        help="run SIQS and the ECM search in up to N threads "
+        "(see tifa.factor)",
     )
     parser.add_argument(
         "--version", action="version", version=f"tifa {tifa.__version__}"

@@ -367,9 +367,7 @@ struct struct_siqs_context_t {
     DECL_EXTRA_TIMER(batch);
 
     uint32_t na_used;
-    //
-    // The threads collecting relations, if any (see tifa_set_threads).
-    //
+
     struct struct_siqs_worker_t* workers;
     uint32_t nworkers;
 };
@@ -1832,8 +1830,6 @@ static ecode_t collect_relations(siqs_context_t* const context) {
 //
 // At most one thread per SIQS_PRIMES_PER_THREAD primes in the base: below
 // about 100 bits (200 primes), starting threads takes longer than the run.
-// On an Apple M5 Pro, 2 threads took 0.82 of the time at 100 bits, 4 at 120
-// bits 0.59 (6, 0.62).
 //
 #define SIQS_PRIMES_PER_THREAD 100
 #define SIQS_MAX_THREADS       64
@@ -1881,8 +1877,8 @@ struct struct_siqs_worker_t {
     pthread_t       thread;
 };
 //
-// Hands the worker's candidates to the main context, whose batch test keeps
-// the smooth ones and the large prime relations, as collect_relations does.
+// The batch test and the large prime table are the main context's, under
+// the lock.
 //
 static void hand_off(siqs_worker_t* const w) {
     siqs_context_t* const ctx  = &w->ctx;
@@ -2023,9 +2019,16 @@ static void init_worker(siqs_worker_t* const w, siqs_context_t* const main,
 
     siqs_context_t* const ctx = &w->ctx;
     if (w->own_sieve) {
+        //
+        // params->sieve_half_width was rounded up to whole chunks: from it,
+        // another 'a' could have another number of primes.
+        //
+        const siqs_sieve_t* const s = main->sieve;
+        const uint32_t half_width = (s->nchunks - 1) * s->chunk_size
+                                  + s->endlast + 1;
         ctx->sieve = alloc_siqs_sieve(main->kn, main->factor_base,
                                       main->log_factor_base, main->sqrtm_pi,
-                                      main->params->sieve_half_width,
+                                      half_width,
                                       main->params->extra_primes_in_a);
         set_siqs_sieve_threshold(ctx->sieve, main->params->threshold);
         //
@@ -2072,12 +2075,15 @@ static void free_workers(siqs_context_t* const context) {
 static ecode_t collect_relations_threaded(siqs_context_t* const context,
                                           const uint32_t nthreads) {
     //
-    // Duplicates across threads are dropped as they come.
+    // Duplicates across threads are dropped as they come, in a set that
+    // holds as many relations as want_more_relations may ask for.
     //
     if (!context->drop_duplicates) {
         context->drop_duplicates = true;
+        const uint32_t most = context->matrix_ncols
+                            + NRELATIONS_ROUNDS * context->params->nrelations;
         const uint32_t relset_size =
-            1U << (most_significant_bit(context->matrix_nrows) + 2);
+            1U << (most_significant_bit(MAX(most, context->matrix_nrows)) + 2);
         context->relset      = tifa_calloc(relset_size, sizeof(uint32_t));
         context->relset_mask = relset_size - 1;
     }

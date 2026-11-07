@@ -321,7 +321,6 @@ int main(void) {
         factor_and_check(wide_labels[i], n);
     }
 #if TIFA_HAVE_MONT_ECM
-    // The ECM pre-pass in 4 threads.
     static const uint32_t threaded_bits[][3] = { { 40, 160, 0 }, { 45, 50, 205 } };
     static const char* const threaded_labels[] = {
         "40-bit factor (200 bits), 4 threads",

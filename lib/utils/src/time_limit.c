@@ -48,7 +48,15 @@ static pthread_once_t state_once = PTHREAD_ONCE_INIT;
 static bool           state_key_ok = false;
 
 static void make_state_key(void) {
-    state_key_ok = (0 == pthread_key_create(&state_key, free));
+    const bool ok = (0 == pthread_key_create(&state_key, free));
+    __atomic_store_n(&state_key_ok, ok, __ATOMIC_RELEASE);
+}
+//
+// Read without pthread_once by the threads that never set anything: the
+// acquire makes the key they then use the one created.
+//
+static bool key_ok(void) {
+    return __atomic_load_n(&state_key_ok, __ATOMIC_ACQUIRE);
 }
 
 //
@@ -56,7 +64,7 @@ static void make_state_key(void) {
 //
 static stop_state_t* state(const bool create) {
     pthread_once(&state_once, make_state_key);
-    if (!state_key_ok) {
+    if (!key_ok()) {
         return NULL;
     }
     stop_state_t* s = pthread_getspecific(state_key);
@@ -105,7 +113,7 @@ void tifa_set_time_limit(double seconds) {
 }
 //------------------------------------------------------------------------------
 bool tifa_time_limit_reached(void) {
-    if (!state_key_ok) {
+    if (!key_ok()) {
         return false;
     }
     const stop_state_t* const s = pthread_getspecific(state_key);
@@ -123,7 +131,7 @@ void tifa_set_interrupt_check(tifa_interrupt_check_t check, void* arg) {
 }
 //------------------------------------------------------------------------------
 bool tifa_interrupted(void) {
-    if (!state_key_ok) {
+    if (!key_ok()) {
         return false;
     }
     const stop_state_t* const s = pthread_getspecific(state_key);
@@ -131,7 +139,7 @@ bool tifa_interrupted(void) {
 }
 //------------------------------------------------------------------------------
 bool tifa_should_stop(void) {
-    if (!state_key_ok) {
+    if (!key_ok()) {
         return false;
     }
     stop_state_t* const s = pthread_getspecific(state_key);
@@ -155,7 +163,7 @@ void tifa_set_threads(uint32_t threads) {
 }
 //------------------------------------------------------------------------------
 uint32_t tifa_threads(void) {
-    if (!state_key_ok) {
+    if (!key_ok()) {
         return 1;
     }
     const stop_state_t* const s = pthread_getspecific(state_key);
