@@ -131,6 +131,19 @@ Here are some short term objectives:
         buckets costs. For double large primes, a third off the cost of
         their candidates would leave them slower than SIQS as it is (about
         7.1 s against 6.5 at 240 bits).
+      - Block Lanczos below 12000 primes (November 2026, 10 numbers per
+        size from 204 to 228 bits, with the filtered elimination): its
+        linear algebra and the trial division of the relations cost 1 to
+        3.5 ms more up to 212 bits, then 1 ms less at 216 bits, 6 at 220,
+        15 at 224 and 21 at 228 (0.1% to 0.8% of a run), the peak memory 16
+        to 22 MB rather than 81 to 166. The runs moved more than that, for
+        another reason: with the same instructions retired, the sieving took
+        0.983 of the time at 220 bits and 1.013 at 224, for each of the ten
+        numbers. Where its arrays land depends on what was allocated before
+        them: 400 KB allocated before SIQS made the sieving 1% to 2% faster
+        on three numbers of 224 bits. SIQS_BLOCK_LANCZOS_MIN_BASE stays at
+        12000; placing the arrays of the sieve deliberately might take the
+        better case at every size.
       - Threads: the collection of relations would split over several cores
         (the library is thread-safe), for its wall-clock time.
       - From seven primes in 'a', the approximer sorts up to 18424 triples
