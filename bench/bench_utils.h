@@ -18,8 +18,8 @@
 
 /**
  * \file    bench_utils.h
- * \brief   Shared by the benchmark programs: CPU time, random semiprimes and
- *          argument parsing.
+ * \brief   Shared by the benchmark programs: CPU and wall-clock time, random
+ *          semiprimes and argument parsing.
  */
 
 #if !defined(_TIFA_BENCH_UTILS_H_)
@@ -42,6 +42,12 @@
 static inline double cpu_seconds(void) {
     struct timespec t;
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t);
+    return (double) t.tv_sec + 1e-9 * (double) t.tv_nsec;
+}
+
+static inline double wall_seconds(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
     return (double) t.tv_sec + 1e-9 * (double) t.tv_nsec;
 }
 

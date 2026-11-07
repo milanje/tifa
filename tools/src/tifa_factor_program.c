@@ -55,9 +55,9 @@ static void print_usage(factoring_program_t* const program) {
                     "certificates in\nJSON, as tifa.check_certificate (Python) "
                     "takes them. A factor not proven\nprime makes the "
                     "factorization partial.\n\n");
-    fprintf(stderr, "--threads <n>: SIQS collects its relations in up to n "
-                    "threads (one per 100\nprimes of its factor base at "
-                    "most, so none below about 100 bits).\n\n");
+    fprintf(stderr, "--threads <n>: run SIQS and the ECM search before it in "
+                    "up to n threads\n(SIQS: one per 100 primes of its factor "
+                    "base at most, so none below\nabout 100 bits).\n\n");
     print_exit_statuses();
 }
 //------------------------------------------------------------------------------

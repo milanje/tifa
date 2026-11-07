@@ -111,8 +111,9 @@ the example above takes a few hours.
 
 ## Errors
 
-`TypeError` if `n` is not an integer, `ValueError` if it is not positive
-or the hint is unknown. In the rare event that `n` can not be factored
+`TypeError` if `n` or `threads` is not an integer or `timeout` not a
+number, `ValueError` if one of them is not positive or the hint is
+unknown. In the rare event that `n` can not be factored
 completely (or, with `proof=True`, a factor not proven prime),
 `tifa.FactorizationError` is raised, its `factors` attribute holding what
 was found (factors that multiply to `n`, some of them not prime).

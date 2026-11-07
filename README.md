@@ -81,10 +81,10 @@ changes and their measurements; the changes on master since 0.4.9 are in
 - `tifa_set_time_limit()` (`time_limit.h`) limits the time of the calling
   thread's factorizations: SIQS, its linear algebra and ECM give up soon
   after it, or when the function given to `tifa_set_interrupt_check()` says
-  so (Ctrl-C in Python). `tifa_set_threads()` runs them in several threads,
-  SIQS and the ECM search before it (`tifa_factor()` is 4.5 times as fast in
-  6 threads at 240 bits on an Apple M5 Pro); one, the default, runs as
-  before.
+  so (Ctrl-C in Python). `tifa_set_threads()` lets them run SIQS and the ECM
+  search before it in several threads (`tifa_factor()` 4.5 times as fast in
+  6 threads at 240 bits on an Apple M5 Pro); one thread, the default, runs
+  as before.
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).
@@ -172,7 +172,8 @@ function chooses, given a hint (`random`, the default, `balanced` or
 With `--prove`, `tifa-factor` also proves the prime factors and prints
 their certificates in JSON, as `tifa.check_certificate` takes them (see
 [Python](#python)); a factor it cannot prove prime makes the factorization
-partial.
+partial. With `--threads <n>`, it runs SIQS and the ECM search before it in
+up to `n` threads (see `tifa_set_threads()`).
 
 The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 `tifa-fermat`, `tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-p-minus-1`,
@@ -242,7 +243,7 @@ primes, and `prime_certificate(p)` returns a proof that
 for one integer or a whole list at a time. `factor(n, timeout=60)`
 gives up after about a minute (`tifa.FactorizationTimeout`, a
 `TimeoutError`), Ctrl-C interrupts it, and `factor(n, threads=6)` runs SIQS
-in up to 6 threads. `python -m tifa 360 97`
+and the ECM search before it in up to 6 threads. `python -m tifa 360 97`
 factors from the command line, as GNU `factor` does. The package installs
 the `tifa-factor`, `tifa-batch-gcd` and `tifa-tune` programs as well, and
 `set_tuning_dir(path)` takes the parameters from the files `tifa-tune`
@@ -454,6 +455,8 @@ are never installed):
 - `siqs-check <lo> <hi> <count>` factors semiprimes of random sizes with SIQS
   and counts the incomplete and wrong results; the test suite runs it from 50
   to 120 bits.
+- With `--threads <n>`, `siqs-bench` and `factor-bench` run in up to `n`
+  threads (`tifa_set_threads()`) and time the runs by the wall clock.
 - `bench/ab.sh <base> <new> <args...>` compares two builds, or two sets of
   options: it runs both alternately over four rounds, each order twice, and
   prints the ratio of their times.

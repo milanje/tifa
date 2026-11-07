@@ -25,6 +25,7 @@
 #include "bench_utils.h"
 #include "siqs.h"
 #include "array.h"
+#include "time_limit.h"
 
 static void usage(FILE* const out) {
     fprintf(out,
@@ -32,7 +33,8 @@ static void usage(FILE* const out) {
         "\n"
         "Times siqs() on <count> balanced semiprimes of <bits> bits, or of\n"
         "random sizes from <lo> to <hi> bits, factored again and again for at\n"
-        "least <seconds> of CPU time, and prints the mean time per run.\n"
+        "least <seconds> of CPU time (of wall-clock time with --threads), and\n"
+        "prints the mean time per run.\n"
         "Defaults: 30 numbers, 3 seconds.\n"
         "\n"
         "options:\n"
@@ -42,6 +44,7 @@ static void usage(FILE* const out) {
         "  --threshold-delta <d>  sieve threshold plus d\n"
         "  --large-primes <0|1>   large prime variation off or on\n"
         "  --nrelations <n>       relations beyond the size of the factor base\n"
+        "  --threads <n>          collect the relations in up to n threads\n"
     );
 }
 
@@ -52,6 +55,7 @@ int main(int argc, char** argv) {
     long thdelta = 0;
     long large_primes = -1;
     long nrelations = -1;
+    unsigned long threads = 1;
 
     if ((argc > 1) && is_help(argv[1])) {
         usage(stdout);
@@ -81,6 +85,9 @@ int main(int argc, char** argv) {
         } else if (0 == strcmp(opt, "--nrelations")) {
             ok = parse_ulong(val, &u) && (u <= 1024);
             nrelations = (long) u;
+        } else if (0 == strcmp(opt, "--threads")) {
+            ok = parse_ulong(val, &threads) && (threads >= 1)
+                 && (threads <= 1024);
         } else {
             ok = false;
         }
@@ -154,8 +161,11 @@ int main(int argc, char** argv) {
     mpz_array_t*    const factors = alloc_mpz_array(4);
     uint32_array_t* const multis  = alloc_uint32_array(4);
 
+    tifa_set_threads((uint32_t) threads);
+    double (*const now)(void) = (threads > 1) ? wall_seconds : cpu_seconds;
+
     unsigned long runs = 0;
-    const double t0 = cpu_seconds();
+    const double t0 = now();
     do {
         for (unsigned long k = 0; k < count; k++) {
             factors->length = 0;
@@ -163,9 +173,9 @@ int main(int argc, char** argv) {
             siqs(factors, multis, ns[k], &par[k], SINGLE_RUN);
             runs++;
         }
-    } while (cpu_seconds() - t0 < secs);
+    } while (now() - t0 < secs);
 
-    const double us = 1e6 * (cpu_seconds() - t0) / (double) runs;
+    const double us = 1e6 * (now() - t0) / (double) runs;
     if (lo == hi) {
         printf("%lu bits: %.2f us per run\n", lo, us);
     } else {

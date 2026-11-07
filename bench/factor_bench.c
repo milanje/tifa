@@ -29,10 +29,11 @@
 #include "p_plus_1.h"
 #include "squfof.h"
 #include "tifa_factor.h"
+#include "time_limit.h"
 
 static void usage(FILE* const out) {
     fprintf(out,
-        "usage: factor-bench [--seed <s>] <algo> <bits> <pbits>\n"
+        "usage: factor-bench [--seed <s>] [--threads <n>] <algo> <bits> <pbits>\n"
         "                    [<count> [<seconds>]]\n"
         "\n"
         "Times tifa_factor() (a complete factorization), ecm() or squfof()\n"
@@ -43,7 +44,8 @@ static void usage(FILE* const out) {
         "number of runs that found no factor. Defaults: 30 numbers, 3 seconds;\n"
         "--seed sets the seed of the numbers (default 1). <algo> is factor,\n"
         "factor-balanced, factor-unbalanced (tifa_factor_with_hint()), ecm,\n"
-        "pm1, pp1 or squfof.\n"
+        "pm1, pp1 or squfof. --threads runs tifa_factor() in up to <n> threads\n"
+        "(tifa_set_threads()), timed by the wall clock.\n"
     );
 }
 
@@ -54,13 +56,19 @@ int main(int argc, char** argv) {
         usage(stdout);
         return EXIT_SUCCESS;
     }
+    unsigned long threads = 1;
     int i = 1;
-    if ((argc > 2) && (0 == strcmp(argv[1], "--seed"))) {
-        if (!parse_ulong(argv[2], &seed)) {
+    while ((i + 1 < argc) && (0 == strncmp(argv[i], "--", 2))) {
+        const bool ok = (0 == strcmp(argv[i], "--seed"))
+                      ? parse_ulong(argv[i + 1], &seed)
+                      :    (0 == strcmp(argv[i], "--threads"))
+                        && parse_ulong(argv[i + 1], &threads)
+                        && (threads >= 1) && (threads <= 1024);
+        if (!ok) {
             usage(stderr);
             return 2;
         }
-        i = 3;
+        i += 2;
     }
     if ((argc - i < 3) || (argc - i > 5)) {
         usage(stderr);
@@ -113,9 +121,12 @@ int main(int argc, char** argv) {
     mpz_array_t*    const factors = alloc_mpz_array(8);
     uint32_array_t* const multis  = alloc_uint32_array(8);
 
+    tifa_set_threads((uint32_t) threads);
+    double (*const now)(void) = (threads > 1) ? wall_seconds : cpu_seconds;
+
     unsigned long runs  = 0;
     unsigned long fails = 0;
-    const double t0 = cpu_seconds();
+    const double t0 = now();
     do {
         for (unsigned long k = 0; k < count; k++) {
             factors->length = 0;
@@ -145,10 +156,10 @@ int main(int argc, char** argv) {
             }
             runs++;
         }
-    } while (cpu_seconds() - t0 < secs);
+    } while (now() - t0 < secs);
 
     printf("%lu bits: %.2f us per run (%lu of %lu runs without a factor)\n",
-           bits, 1e6 * (cpu_seconds() - t0) / (double) runs, fails, runs);
+           bits, 1e6 * (now() - t0) / (double) runs, fails, runs);
 
     for (unsigned long k = 0; k < count; k++) {
         mpz_clear(ns[k]);

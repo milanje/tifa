@@ -97,7 +97,8 @@
   reads back. tifa_batch_gcd() finds, among many integers (RSA moduli, say),
   those sharing a prime with another, from product and remainder trees.
   tifa_set_time_limit() bounds the time of the factorizations of a thread,
-  approximately.
+  approximately, and tifa_set_threads() runs SIQS and the ECM search before
+  it in several threads, for one large number.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)
