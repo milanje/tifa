@@ -94,10 +94,13 @@ static const struct {
 #define PM1_B1 315
 //
 // The plans of the levels up to EAGER_FBITS bits are built with the
-// schedule, those above (7 to 380 ms each, about one curve; 57 MB from 90
-// bits) when a search first reaches them, under the lock.
+// schedule, those above (7 to 380 ms each, about one curve) when a search
+// first reaches them, under the lock. Those above KEEP_FBITS bits (the
+// default ecm_max_bits), 57 MB in all, are freed when the last search using
+// them ends.
 //
 #define EAGER_FBITS 60
+#define KEEP_FBITS  85
 
 struct struct_ecm_schedule_t {
     mont_ecm_plan_t* pm1_plan;
@@ -105,6 +108,7 @@ struct struct_ecm_schedule_t {
     uint32_t         neager;
     pthread_mutex_t  lock;
     mont_ecm_plan_t* plans[NLEVELS];
+    uint32_t         users[NLEVELS];
 };
 
 //------------------------------------------------------------------------------
@@ -118,6 +122,7 @@ ecm_schedule_t* alloc_ecm_schedule(const uint32_t max_bits) {
     while (   (s->nlevels < NLEVELS)
            && (levels[s->nlevels].fbits - 5 < max_bits)) {
         s->plans[s->nlevels] = NULL;
+        s->users[s->nlevels] = 0;
         if (levels[s->nlevels].fbits <= EAGER_FBITS) {
             s->plans[s->nlevels] = alloc_mont_ecm_plan(
                                        levels[s->nlevels].b1,
@@ -142,8 +147,8 @@ void free_ecm_schedule(ecm_schedule_t* const schedule) {
     free(schedule);
 }
 //------------------------------------------------------------------------------
-static const mont_ecm_plan_t* level_plan(ecm_schedule_t* const schedule,
-                                         const uint32_t i) {
+static const mont_ecm_plan_t* acquire_plan(ecm_schedule_t* const schedule,
+                                           const uint32_t i) {
     if (i < schedule->neager) {
         return schedule->plans[i];
     }
@@ -152,9 +157,24 @@ static const mont_ecm_plan_t* level_plan(ecm_schedule_t* const schedule,
         schedule->plans[i] = alloc_mont_ecm_plan(levels[i].b1,
                                                  50 * levels[i].b1);
     }
+    if (levels[i].fbits > KEEP_FBITS) {
+        schedule->users[i]++;
+    }
     const mont_ecm_plan_t* const plan = schedule->plans[i];
     pthread_mutex_unlock(&schedule->lock);
     return plan;
+}
+
+static void release_plan(ecm_schedule_t* const schedule, const uint32_t i) {
+    if (levels[i].fbits <= KEEP_FBITS) {
+        return;
+    }
+    pthread_mutex_lock(&schedule->lock);
+    if (--schedule->users[i] == 0) {
+        free_mont_ecm_plan(schedule->plans[i]);
+        schedule->plans[i] = NULL;
+    }
+    pthread_mutex_unlock(&schedule->lock);
 }
 //------------------------------------------------------------------------------
 static double siqs_cost(const double bits) {
@@ -227,15 +247,18 @@ static bool run_levels(mpz_t g, const mpz_t n,
     uint32_t k = 0;
     uint32_t i;
     while (next_level(it, schedule, &i)) {
-        const mont_ecm_plan_t* const plan = level_plan(schedule, i);
+        const mont_ecm_plan_t* const plan = acquire_plan(schedule, i);
         for (uint32_t j = 0; j < levels[i].ncurves; j++) {
             if (mont_ecm_nth_curve(g, n, k++, plan)) {
+                release_plan(schedule, i);
                 return true;
             }
             if (tifa_should_stop()) {
+                release_plan(schedule, i);
                 return false;
             }
         }
+        release_plan(schedule, i);
     }
     return false;
 }
@@ -285,6 +308,10 @@ typedef struct {
     ecm_schedule_t* schedule;
     uint32_t        level[NLEVELS];
     uint32_t        first[NLEVELS + 1];
+    //
+    // The plans this search acquired, by position in level.
+    //
+    const mont_ecm_plan_t* plans[NLEVELS];
     uint32_t        nlevels;
     uint32_t        next;
     bool            done;
@@ -298,6 +325,23 @@ typedef struct {
     bool       caller;
     bool       running;
 } prepass_worker_t;
+
+static const mont_ecm_plan_t* prepass_plan(prepass_t* const p,
+                                           const uint32_t r) {
+    const mont_ecm_plan_t* plan = __atomic_load_n(&p->plans[r],
+                                                  __ATOMIC_ACQUIRE);
+    if (plan == NULL) {
+        pthread_mutex_lock(&p->lock);
+        if (p->plans[r] == NULL) {
+            __atomic_store_n(&p->plans[r],
+                             acquire_plan(p->schedule, p->level[r]),
+                             __ATOMIC_RELEASE);
+        }
+        plan = p->plans[r];
+        pthread_mutex_unlock(&p->lock);
+    }
+    return plan;
+}
 
 static bool prepass_done(void* const arg) {
     return __atomic_load_n(&((prepass_t*) arg)->done, __ATOMIC_RELAXED);
@@ -326,8 +370,7 @@ static void* run_prepass_curves(void* const arg) {
         while (k >= p->first[r + 1]) {
             r++;
         }
-        const mont_ecm_plan_t* const plan = level_plan(p->schedule,
-                                                       p->level[r]);
+        const mont_ecm_plan_t* const plan = prepass_plan(p, r);
         if (mont_ecm_nth_curve(g, p->n, k, plan)) {
             pthread_mutex_lock(&p->lock);
             if (!p->found) {
@@ -354,6 +397,7 @@ static bool run_levels_threaded(mpz_t g, const mpz_t n,
     uint32_t i;
     while (next_level(it, schedule, &i)) {
         p.level[p.nlevels] = i;
+        p.plans[p.nlevels] = NULL;
         p.first[p.nlevels + 1] = p.first[p.nlevels] + levels[i].ncurves;
         p.nlevels++;
         cost = it->spent;
@@ -384,6 +428,11 @@ static bool run_levels_threaded(mpz_t g, const mpz_t n,
     for (uint32_t t = 1; t < nthreads; t++) {
         if (w[t].running) {
             pthread_join(w[t].thread, NULL);
+        }
+    }
+    for (uint32_t r = 0; r < p.nlevels; r++) {
+        if (p.plans[r] != NULL) {
+            release_plan(schedule, p.level[r]);
         }
     }
     if (p.found) {

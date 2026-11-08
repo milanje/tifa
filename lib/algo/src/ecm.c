@@ -161,8 +161,12 @@ struct struct_ecm_context_t {
     unsigned long int m_max;
     unsigned int*  Js;
     unsigned int   njs;
-    unsigned int*  gcd_table;
-    unsigned int** prime_table;
+    //
+    // For the k-th giant step, pairs[offsets[k] .. offsets[k + 1] - 1] are
+    // the indices in Js of the j such that (m_min + k).D +/- j is prime.
+    //
+    uint32_t*      offsets;
+    uint8_t*       pairs;
     mpz_t* SX;
     mpz_t* SZ;
     //
@@ -198,9 +202,7 @@ typedef struct struct_ecm_context_t ecm_context_t;
 // curve, measured with mont_ecm_nth_curve on 120-bit numbers and B2 =
 // ECM_B2_RATIO.B1) and the mean number of curves that takes. Above 60 bits,
 // the bounds and curve counts are extrapolated; from 90, B1 doubles and the
-// counts are ecm_schedule.c's, scaled by Dickman's estimates for both bounds
-// (in GMP arithmetic, where B2 stops at MAX_B2, the levels of 95 and 100 bits
-// find their factors less often).
+// counts are ecm_schedule.c's, scaled by Dickman's estimates for both bounds.
 //
 typedef struct {
     uint32_t fbits;
@@ -237,12 +239,10 @@ static const ecm_level_t ecm_levels[] = {
 //
 #define MAX_ROUNDS_AT_TOP 4
 //
-// Largest stage 2 bound in GMP arithmetic, whose stage 2 table takes about
-// two bytes per unit of b2, and on the Montgomery curves (one per ten), above
-// the top level's.
+// Largest stage 2 bound, above the top level's: the stage 2 tables take
+// about a byte per prime (20 MB at 2^28).
 //
-#define MAX_B2      (1U << 26)
-#define MAX_MONT_B2 (1U << 28)
+#define MAX_B2 (1U << 28)
 //
 // Largest stage 1 bound of the caller's parameters (factors of about 150
 // bits): the exponent of stage 1 takes about 1.44 bits per unit of b1.
@@ -349,7 +349,7 @@ ecode_t ecm_impl(mpz_array_t* const factors, uint32_array_t* const multis,
     //
     ecm_params_t own_params = *params;
     own_params.b1 = MIN(own_params.b1, MAX_B1);
-    own_params.b2 = MIN(own_params.b2, MAX_MONT_B2);
+    own_params.b2 = MIN(own_params.b2, MAX_B2);
 
     factoring_machine_t machine;
 
@@ -437,7 +437,6 @@ static void set_stage1_bound(ecm_context_t* const context,
     // Stage 2 takes giant steps of D = 210 from b1 + D/2: as on the
     // Montgomery curves, it needs b1 >= D/2, and b2 > b1.
     //
-    params->b2 = MIN(params->b2, MAX_B2);
     if (params->b1 < 2) {
         params->b1 = 2;
     }
@@ -661,13 +660,9 @@ static void clear_precomputations(ecm_context_t* const context) {
     free(context->SX);
     free(context->SZ);
 
-    unsigned int nrows = context->m_max - context->m_min + 1;
-    for (unsigned int i = 0U; i < nrows; i++) {
-        free(context->prime_table[i]);
-    }
-    free(context->prime_table);
+    free(context->offsets);
+    free(context->pairs);
     free(context->Js);
-    free(context->gcd_table);
 
 #if PHASE_2_GLOBALS
     mpz_clear(context->tmp_phase2_1);
@@ -889,9 +884,9 @@ static ecode_t phase_2(factoring_machine_t* const machine, bool check) {
     unsigned long int m_min = context->m_min;
     unsigned long int m_max = context->m_max;
 
-    unsigned int* Js        = context->Js;
-    unsigned int  njs       = context->njs;
-    unsigned int** prime_table = context->prime_table;
+    const unsigned int* const Js      = context->Js;
+    const uint32_t*     const offsets = context->offsets;
+    const uint8_t*      const pairs   = context->pairs;
 
     mpz_t* SX        = context->SX;
     mpz_t* SZ        = context->SZ;
@@ -997,18 +992,16 @@ static ecode_t phase_2(factoring_machine_t* const machine, bool check) {
         }
         unsigned int m = m_min + im;
 
-        for (unsigned int ij = 0; ij < njs; ij++) {
-            unsigned int j = Js[ij];
-            if (prime_table[im][j] == 1) {
-                mpz_mul(tmp, xr, SZ[j]);
-                mpz_submul(tmp, zr, SX[j]);
-                mpz_mul(d, d, tmp);
-                mpz_mod(d, d, context->n);
-                if (check) {
-                    mpz_gcd(g, d, context->n);
-                    if (mpz_cmp_ui(g, 1) != 0) {
-                        goto product_done;
-                    }
+        for (uint32_t k = offsets[im]; k < offsets[im + 1]; k++) {
+            const unsigned int j = Js[pairs[k]];
+            mpz_mul(tmp, xr, SZ[j]);
+            mpz_submul(tmp, zr, SX[j]);
+            mpz_mul(d, d, tmp);
+            mpz_mod(d, d, context->n);
+            if (check) {
+                mpz_gcd(g, d, context->n);
+                if (mpz_cmp_ui(g, 1) != 0) {
+                    goto product_done;
                 }
             }
         }
@@ -1277,6 +1270,8 @@ static void multiply_point(mpz_t xk, mpz_t zk,
     return;
 }
 //------------------------------------------------------------------------------
+#define GMP_STAGE2_D 210
+
 static ecode_t perform_precomputations(ecm_context_t* const context) {
     //
     // Fills the tables needed for the second phase.
@@ -1314,8 +1309,8 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     //            the aforementionned paper. Some tests are needed to assess
     //            the better value in our case.
     //
-    context->D   = 210;
-    context->DO2 = 105;
+    context->D   = GMP_STAGE2_D;
+    context->DO2 = GMP_STAGE2_D / 2;
 
     context->m_min = (context->B1 + context->DO2) / context->D;
     context->m_max = (context->B2 - context->DO2) / context->D + 1;
@@ -1328,60 +1323,63 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     // _NOTE_: More space than strictly required is allocated in order to keep
     //         a simple implementation without translating indices.
     //
-    context->gcd_table = tifa_malloc((DO2 + 1) * sizeof(unsigned int));
     context->SX        = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
     context->SZ        = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
     context->Js        = tifa_malloc((DO2 + 1) * sizeof(unsigned int));
     context->njs       = 0;
 
+    uint8_t slot[GMP_STAGE2_D / 2 + 1];
     for (unsigned long int j = 1; j <= DO2; j++) {
+        slot[j] = UINT8_MAX;
         if (gcd_ulint(j, D) == 1) {
-            context->gcd_table[j] = 1;
             mpz_init(context->SX[j]);
             mpz_init(context->SZ[j]);
+            slot[j] = (uint8_t) context->njs;
             context->Js[context->njs] = j;
             context->njs++;
-        } else {
-            context->gcd_table[j] = 0;
         }
     }
-    unsigned int nrows = m_max - m_min + 1;
-    unsigned int ncols = DO2 + 1;
-
-    context->prime_table = tifa_malloc(nrows * sizeof(unsigned int*));
-
-    for (unsigned int i = 0U; i < nrows; i++) {
-        context->prime_table[i] = tifa_malloc(ncols * sizeof(unsigned int));
-    }
-    unsigned int deltam = m_max - m_min;
     //
-    // The odd primes up to m_max.D + DO2, from a sieve: a primality test of
-    // each number took 0.8 s at the largest B2, without a check of the time
-    // limit.
+    // A prime m.D +/- j (j < D/2: m.D + D/2 is a multiple of 3, 5 and 7)
+    // belongs to the giant step m alone.
     //
-    const unsigned long int top = m_max * D + DO2;
-    uint64_t* const odd_composite = tifa_calloc(top / 128 + 1,
-                                                sizeof(uint64_t));
-    for (unsigned long int p = 3; p * p <= top; p += 2) {
-        if ((odd_composite[p / 128] >> ((p / 2) % 64)) & 1) {
-            continue;
+    const uint32_t nrows = (uint32_t) (m_max - m_min + 1);
+    uint32_t* const offsets = tifa_calloc(nrows + 1, sizeof(uint32_t));
+    uint8_t* const  needed  = tifa_calloc(context->njs, sizeof(uint8_t));
+    uint8_t*        pairs   = NULL;
+    uint32_t        npairs  = 0;
+    uint32_t        alloced = 0;
+    uint32_t        row     = 0;
+
+    prime_iter_t it;
+    prime_iter_init(&it, (uint32_t) (m_min * D - DO2),
+                    (uint32_t) (m_max * D + DO2));
+    for (uint32_t q = prime_iter_next(&it); ; q = prime_iter_next(&it)) {
+        const uint32_t qrow = (q == 0) ? nrows
+                            : (uint32_t) ((q + DO2) / D - m_min);
+        while (row < qrow) {
+            if (alloced - npairs < context->njs) {
+                alloced = 2 * alloced + context->njs;
+                pairs   = tifa_realloc(pairs, alloced);
+            }
+            for (uint32_t ij = 0; ij < context->njs; ij++) {
+                if (needed[ij]) {
+                    pairs[npairs++] = (uint8_t) ij;
+                    needed[ij] = 0;
+                }
+            }
+            offsets[++row] = npairs;
         }
-        for (unsigned long int q = p * p; q <= top; q += 2 * p) {
-            odd_composite[q / 128] |= UINT64_C(1) << ((q / 2) % 64);
+        if (q == 0) {
+            break;
         }
+        const unsigned long int md = (m_min + row) * D;
+        needed[slot[(q > md) ? (q - md) : (md - q)]] = 1;
     }
-#define ODD_PRIME(x) (   (((x) & 1) != 0) && ((x) > 1) \
-                      && !((odd_composite[(x) / 128] >> (((x) / 2) % 64)) & 1))
-    for (unsigned int im = 0; im <= deltam; im++) {
-        const unsigned long int md = (unsigned long int) (m_min + im) * D;
-        for (unsigned int j = 1; j <= DO2; j++) {
-            const unsigned long int below = (md >= j) ? (md - j) : (j - md);
-            context->prime_table[im][j] =
-                (ODD_PRIME(md + j) || ODD_PRIME(below)) ? 1 : 0;
-        }
-    }
-#undef ODD_PRIME
-    free(odd_composite);
+    prime_iter_clear(&it);
+    free(needed);
+    context->offsets = offsets;
+    context->pairs   = tifa_realloc(pairs, npairs + 1);
     context->precomputations_done = true;
 
     STOP_TIMER;

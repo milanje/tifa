@@ -72,9 +72,8 @@ struct struct_ecm_params_t {
          */
     uint32_t b1;
         /**
-         * Bound used in the second phase of ECM, at most 2^28, and 2^26 in
-         * GMP arithmetic (larger values are lowered to them). If set to 0, no
-         * second phase is performed.
+         * Bound used in the second phase of ECM, at most 2^28 (larger values
+         * are lowered to it). If set to 0, no second phase is performed.
          *
          * If <tt>b2 > b1</tt>, \c b1 is raised to at least 105 (half the
          * stage 2 step); no second phase is performed if \c b2 does not

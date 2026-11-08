@@ -23,6 +23,7 @@
 // Built with -fsanitize=thread, this catches the data races; otherwise it
 // checks that every result is right.
 
+#include <math.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdlib.h>
@@ -36,6 +37,8 @@
 #include "cofactor.h"
 #include "tifa_factor.h"
 #include "tuning.h"
+#include "ecm_schedule.h"
+#include "stopping.h"
 
 #if !defined(TIFA_TEST_FIXTURE_DIR)
     #error "TIFA_TEST_FIXTURE_DIR must be defined by the build"
@@ -225,6 +228,29 @@ static void run_workers(const shared_params_t* shared, worker_t* workers,
     }
 }
 
+#if TIFA_HAVE_MONT_ECM
+typedef struct {
+    ecm_schedule_t* schedule;
+    mpz_srcptr      n;
+} split_t;
+
+//
+// The level for 90-bit factors alone, for a tenth of a second.
+//
+static void* split_level_90(void* arg) {
+    const split_t* const s = (const split_t*) arg;
+    const tifa_options_t limit = { .time_limit = 0.1 };
+    tifa_call_t call;
+    tifa_call_begin(&call, &limit);
+    mpz_t g;
+    mpz_init(g);
+    ecm_schedule_split(g, s->n, s->schedule, 85, 90, INFINITY);
+    mpz_clear(g);
+    tifa_call_end(&call);
+    return NULL;
+}
+#endif
+
 int main(void) {
     TIFA_TEST_BEGIN("threads");
 
@@ -275,6 +301,42 @@ int main(void) {
     CHECK(memcmp(&shared, &before, sizeof(shared)) == 0,
           "shared parameters left untouched");
     free_cofactor_strategy(shared.cofactor);
+
+#if TIFA_HAVE_MONT_ECM
+    // Searches sharing the plan of a level above 85 bits, which the last one
+    // to end frees, and the next one builds again.
+    {
+        gmp_randstate_t state;
+        gmp_randinit_default(state);
+        gmp_randseed_ui(state, 90);
+        mpz_t p, q, m;
+        mpz_inits(p, q, m, NULL);
+        random_prime(p, state, 100);
+        random_prime(q, state, 100);
+        mpz_mul(m, p, q);
+        split_t s = { alloc_ecm_schedule(100), m };
+        pthread_t t[3];
+        bool started[3];
+        for (unsigned int i = 0; i < 3; i++) {
+            started[i] = (pthread_create(&t[i], NULL, split_level_90, &s) == 0);
+            if (i == 1) {
+                for (unsigned int j = 0; j < 2; j++) {
+                    if (started[j]) {
+                        pthread_join(t[j], NULL);
+                    }
+                }
+            }
+        }
+        if (started[2]) {
+            pthread_join(t[2], NULL);
+        }
+        CHECK(started[0] && started[1] && started[2],
+              "searches sharing a freed plan");
+        free_ecm_schedule(s.schedule);
+        mpz_clears(p, q, m, NULL);
+        gmp_randclear(state);
+    }
+#endif
 
     TIFA_TEST_END();
 }
