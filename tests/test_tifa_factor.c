@@ -157,7 +157,8 @@ int main(void) {
     mpz_set_str(n, "1766847064923008753571539193567776624376842367262499964598644648629358241", 10);
     factor_and_check("(2^40+15)^6 (241 bits)", n);
 
-    // Stopped on a composite root, the split n = root^2 is still found.
+    // Stopped on a composite root, the split n = root^2 is still found
+    // (without 128-bit integers, p - 1 and p + 1 split the root first).
     {
         mpz_t root, q;
         mpz_init(root);
@@ -173,9 +174,12 @@ int main(void) {
         tifa_set_time_limit(1e-9);
         const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION);
         tifa_set_time_limit(0.0);
-        CHECK(   (e == PARTIAL_FACTORIZATION_FOUND) && (f->length == 1)
-              && (m->length == 1) && (mpz_cmp(f->data[0], root) == 0)
-              && (m->data[0] == 2), "stopped: (M89*M107)^2 split as a square");
+        CHECK(   (   (e == PARTIAL_FACTORIZATION_FOUND) && (f->length == 1)
+                  && (m->length == 1) && (mpz_cmp(f->data[0], root) == 0)
+                  && (m->data[0] == 2))
+              || (   (e == COMPLETE_FACTORIZATION_FOUND)
+                  && tifa_is_complete_factorization(n, f, m)),
+              "stopped: (M89*M107)^2 split as a square");
         free_mpz_array(f);
         free_uint32_array(m);
         mpz_clear(root);

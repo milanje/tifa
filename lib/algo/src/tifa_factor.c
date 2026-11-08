@@ -303,13 +303,14 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         }
         const uint32_t old_flength = factors->length;
         const uint32_t old_length  = multis->length;
+        const ecode_t  best        = (ecode_t) mode_to_outcome[mode];
 
         ecode_t ecode = tifa_factor_with_hint(factors, multis, rootn, mode,
                                               hint);
 
         if (   (ecode != COMPLETE_FACTORIZATION_FOUND)
             && (ecode != PARTIAL_FACTORIZATION_FOUND)
-            && (ecode != (ecode_t) mode_to_outcome[mode])) {
+            && (ecode != best)) {
             //
             // Stopped: n = rootn^k is still a split, as add_cofactor gives.
             //
@@ -321,7 +322,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
                 ecode = PARTIAL_FACTORIZATION_FOUND;
             } else if (mode != FIND_SOME_PRIME_FACTORS) {
                 append_mpz_to_array(factors, rootn);
-                ecode = (ecode_t) mode_to_outcome[mode];
+                ecode = best;
             }
         }
         if (mode == FIND_COMPLETE_FACTORIZATION) {
