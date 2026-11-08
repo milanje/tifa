@@ -153,6 +153,21 @@ static const mont_ecm_plan_t* acquire_plan(ecm_schedule_t* const schedule,
         return schedule->plans[i];
     }
     pthread_mutex_lock(&schedule->lock);
+    if ((schedule->plans[i] == NULL) && (levels[i].fbits > KEEP_FBITS)) {
+        //
+        // Outside the lock: up to 0.4 s, which the other searches would
+        // wait, each time the last search using the plan has freed it.
+        //
+        pthread_mutex_unlock(&schedule->lock);
+        mont_ecm_plan_t* const built = alloc_mont_ecm_plan(levels[i].b1,
+                                                           50 * levels[i].b1);
+        pthread_mutex_lock(&schedule->lock);
+        if (schedule->plans[i] == NULL) {
+            schedule->plans[i] = built;
+        } else {
+            free_mont_ecm_plan(built);
+        }
+    }
     if (schedule->plans[i] == NULL) {
         schedule->plans[i] = alloc_mont_ecm_plan(levels[i].b1,
                                                  50 * levels[i].b1);

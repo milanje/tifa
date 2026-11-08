@@ -56,7 +56,8 @@ typedef struct struct_ecm_schedule_t ecm_schedule_t;
     * \brief Allocates the schedule for factors of up to \c max_bits bits.
     *
     * The plans of the levels above 60 bits are built when a search first
-    * reaches them.
+    * reaches them; those above 85 bits, freed when the last search using
+    * them ends.
     */
 ecm_schedule_t* alloc_ecm_schedule(uint32_t max_bits);
 

@@ -239,8 +239,9 @@ static const ecm_level_t ecm_levels[] = {
 //
 #define MAX_ROUNDS_AT_TOP 4
 //
-// Largest stage 2 bound, above the top level's: the stage 2 tables take
-// about a byte per prime (20 MB at 2^28).
+// Largest stage 2 bound, above the top level's: the stage 2 tables take a
+// byte per prime in GMP arithmetic, two in a Montgomery plan (20 and 30 MB
+// at 2^28).
 //
 #define MAX_B2 (1U << 28)
 //
@@ -693,11 +694,6 @@ static void switch_to_level(factoring_machine_t* const machine,
     params->b2      = ECM_B2_RATIO * ecm_levels[level].b1;
     params->ncurves = ecm_levels[level].ncurves;
 
-    //
-    // _TO_DO_: Actually these clear_* are not needed here (except for
-    //          prime_table). We can bypass this memory cleaning by adding a
-    //          little bit of logic in perform_precomputations.
-    //
     clear_precomputations(context);
 
     set_stage1_bound(context, params);

@@ -16,9 +16,9 @@ Stage 2 in GMP arithmetic (above 512 bits, and without 128-bit integers)
 kept a table of two bytes per unit of B2, 135 MB at 2^26, which capped B2
 there: the levels for 95 and 100 bits ran with a B2 of 29 and 15 times
 their B1, rather than 50, and found their factors less often. It now lists
-the primes of each giant step in a byte each, as the Montgomery plans do
-(20 MB at 2^28), with the same products in the same order, and B2 goes up
-to 2^28 there too.
+the primes of each giant step in a byte each (the Montgomery plans take
+two), 20 MB at 2^28, with the same products in the same order, and B2
+goes up to 2^28 there too.
 
 ## 8 November 2026 &mdash; ECM up to factors of 100 bits
 
