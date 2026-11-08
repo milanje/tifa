@@ -30,6 +30,7 @@
 #include "tifa_alloc.h"
 #include "macros.h"
 #include "stopping.h"
+#include "time_limit.h"
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -295,6 +296,10 @@ typedef struct {
     bool       running;
 } prepass_worker_t;
 
+static bool prepass_done(void* const arg) {
+    return __atomic_load_n(&((prepass_t*) arg)->done, __ATOMIC_RELAXED);
+}
+
 static void* run_prepass_curves(void* const arg) {
     const prepass_worker_t* const w = (const prepass_worker_t*) arg;
     prepass_t* const p = w->p;
@@ -302,6 +307,13 @@ static void* run_prepass_curves(void* const arg) {
     uint32_t r = 0;
     mpz_t g;
     mpz_init(g);
+    if (!w->caller) {
+        //
+        // So that the stop checks of the wide curves end this thread's curve
+        // when the calling thread stops.
+        //
+        tifa_set_interrupt_check(prepass_done, p);
+    }
 
     while (!__atomic_load_n(&p->done, __ATOMIC_RELAXED)) {
         const uint32_t k = __atomic_fetch_add(&p->next, 1, __ATOMIC_RELAXED);

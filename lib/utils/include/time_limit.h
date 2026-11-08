@@ -42,7 +42,8 @@ extern "C" {
     * and the algorithms that take long (SIQS, its linear algebra and ECM's
     * curves) give up when they next check the time, and return what they
     * found: a partial factorization at best. The limit is approximate: SIQS
-    * checks it every 16 chunks of its sieve, ECM after each curve, the
+    * checks it every 16 chunks of its sieve, ECM after each curve (and
+    * within it above 256 bits), CFRAC after each batch of residues, the
     * elimination every 256 columns. The other algorithms check only between
     * the runs of a factoring mode other than \c SINGLE_RUN. Each thread has
     * its own limit, which holds until the next call: \c seconds of 0 or

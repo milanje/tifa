@@ -39,6 +39,7 @@
 #include "ecm.h"
 #include "tifa_factor.h"
 #include "ecm_schedule.h"
+#include "stopping.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -300,14 +301,29 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
             //
             return mode_to_outcome[mode];
         }
-        uint32_t old_length = 0;
+        const uint32_t old_flength = factors->length;
+        const uint32_t old_length  = multis->length;
 
-        if (mode == FIND_COMPLETE_FACTORIZATION) {
-            old_length = multis->length;
-        }
         ecode_t ecode = tifa_factor_with_hint(factors, multis, rootn, mode,
                                               hint);
 
+        if (   (ecode != COMPLETE_FACTORIZATION_FOUND)
+            && (ecode != PARTIAL_FACTORIZATION_FOUND)
+            && (ecode != (ecode_t) mode_to_outcome[mode])) {
+            //
+            // Stopped: n = rootn^k is still a split, as add_cofactor gives.
+            //
+            factors->length = old_flength;
+            multis->length  = old_length;
+            if (mode == FIND_COMPLETE_FACTORIZATION) {
+                append_mpz_to_array(factors, rootn);
+                append_uint32_to_array(multis, 1);
+                ecode = PARTIAL_FACTORIZATION_FOUND;
+            } else if (mode != FIND_SOME_PRIME_FACTORS) {
+                append_mpz_to_array(factors, rootn);
+                ecode = (ecode_t) mode_to_outcome[mode];
+            }
+        }
         if (mode == FIND_COMPLETE_FACTORIZATION) {
             for (uint32_t i = old_length; i < multis->length; i++) {
                 multis->data[i] *= k;
@@ -360,6 +376,9 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
     }
     if (ecode != NO_FACTOR_FOUND) {
         return ecode;
+    }
+    if (tifa_should_stop()) {
+        return GIVING_UP;
     }
     siqs_params_t params;
     set_siqs_params_to_default(n, &params);

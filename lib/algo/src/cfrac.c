@@ -41,6 +41,7 @@
 #include "smooth_filter.h"
 #include "factoring_machine.h"
 #include "cfrac.h"
+#include "stopping.h"
 #include "lindep.h"
 #include "tifa_factor.h"
 
@@ -877,6 +878,9 @@ static ecode_t collect_xi_yi_pairs(cfrac_context_t* context) {
                 idle_periods = 0;
             }
             nkept_at_period_end = context->new_accepted_yi.length;
+        }
+        if (tifa_should_stop()) {
+            return GIVING_UP;
         }
 
         PRINT_NRELS_FOUND(

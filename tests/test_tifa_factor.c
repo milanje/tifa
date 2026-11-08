@@ -157,6 +157,31 @@ int main(void) {
     mpz_set_str(n, "1766847064923008753571539193567776624376842367262499964598644648629358241", 10);
     factor_and_check("(2^40+15)^6 (241 bits)", n);
 
+    // Stopped on a composite root, the split n = root^2 is still found.
+    {
+        mpz_t root, q;
+        mpz_init(root);
+        mpz_init(q);
+        mpz_ui_pow_ui(root, 2, 89);
+        mpz_sub_ui(root, root, 1);
+        mpz_ui_pow_ui(q, 2, 107);
+        mpz_sub_ui(q, q, 1);
+        mpz_mul(root, root, q);
+        mpz_mul(n, root, root);
+        mpz_array_t* f    = alloc_mpz_array(4);
+        uint32_array_t* m = alloc_uint32_array(4);
+        tifa_set_time_limit(1e-9);
+        const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION);
+        tifa_set_time_limit(0.0);
+        CHECK(   (e == PARTIAL_FACTORIZATION_FOUND) && (f->length == 1)
+              && (m->length == 1) && (mpz_cmp(f->data[0], root) == 0)
+              && (m->data[0] == 2), "stopped: (M89*M107)^2 split as a square");
+        free_mpz_array(f);
+        free_uint32_array(m);
+        mpz_clear(root);
+        mpz_clear(q);
+    }
+
     // Primes, including those within the trial division bound
     static const unsigned long primes[] = { 3, 997, 8191, 10007, 1000003 };
     for (unsigned i = 0; i < sizeof(primes) / sizeof(primes[0]); i++) {
