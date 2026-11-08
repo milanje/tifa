@@ -218,6 +218,15 @@ def test_too_large_for_siqs():
     assert tifa.factor(a * b, siqs_max_bits=120) == {min(a, b): 1, max(a, b): 1}
 
 
+def test_ecm_max_bits_up_to_100():
+    # Above 100, the largest level: the same search, and the same factors.
+    rng = random.Random(101)
+    r, a, b = random_prime(20, rng), random_prime(40, rng), random_prime(200, rng)
+    for bits in (85, 100, 101, 2**40):
+        assert tifa.factor(r * a * b, siqs_max_bits=100,
+                           ecm_max_bits=bits) == {r: 1, a: 1, b: 1}
+
+
 @pytest.mark.parametrize(
     "bits, error", [(0, ValueError), (-1, ValueError), ("85", TypeError),
                     (True, TypeError), (85.0, TypeError)]

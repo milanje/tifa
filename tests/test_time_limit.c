@@ -202,6 +202,20 @@ int main(void) {
     tifa_call_end(&call);
     CHECK(!tifa_should_stop(), "the limit ends with the call");
 
+    // ecm_max_bits: 0 for the default, at most TIFA_ECM_TOP_BITS.
+    const uint32_t asked[] = { 0, 30, 95, 100, 101, UINT32_MAX };
+    const uint32_t given[] = { 85, 30, 95, 100, 100, 100 };
+    for (uint32_t i = 0; i < sizeof(asked) / sizeof(asked[0]); i++) {
+        const tifa_options_t sized = { .ecm_max_bits = asked[i] };
+        tifa_call_begin(&call, &sized);
+        const uint32_t bits = tifa_ecm_max_bits();
+        tifa_call_end(&call);
+        char msg[80];
+        snprintf(msg, sizeof(msg), "ecm_max_bits %u gives %u", asked[i],
+                 given[i]);
+        CHECK_EQ_UI(bits, given[i], msg);
+    }
+
     // A 64-bit factor of a 240-bit number: ECM searches for long.
     random_prime(p, 64, rng);
     random_prime(q, 176, rng);
