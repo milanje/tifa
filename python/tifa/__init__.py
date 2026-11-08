@@ -87,7 +87,7 @@ class FactorizationError(RuntimeError):
     def __init__(
         self, n: int, factors: dict[int, int], message: Optional[str] = None
     ) -> None:
-        super().__init__(message or f"could not factor {n} completely")
+        super().__init__(message or f"could not factor {_text(n)} completely")
         self.n = n
         self.factors = factors
 
@@ -99,12 +99,23 @@ class FactorizationTimeout(FactorizationError, TimeoutError):
     """
 
 
+def _text(n: int) -> str:
+    # str() refuses ints of more than sys.get_int_max_str_digits() digits.
+    try:
+        return str(n)
+    except ValueError:
+        return f"<{n.bit_length()}-bit integer>"
+
+
 def _deadline(timeout: Optional[float]) -> Optional[float]:
     if timeout is None:
         return None
     if isinstance(timeout, bool) or not isinstance(timeout, numbers.Real):
         raise TypeError(f"timeout must be a number or None, not {timeout!r}")
-    seconds = float(timeout)
+    try:
+        seconds = float(timeout)
+    except OverflowError:
+        seconds = math.inf if timeout > 0 else -math.inf
     if not seconds > 0:
         raise ValueError(f"timeout must be positive, not {timeout!r}")
     return time.monotonic() + seconds
@@ -169,7 +180,8 @@ def factor(
     With ``timeout``, a number of seconds, ``FactorizationTimeout`` is raised
     if ``n`` is not factored (and its factors proven, with ``proof=True``)
     within about that time: the algorithms check the time now and then, so
-    that it can be exceeded, by a few tens of milliseconds at most:
+    that it can be exceeded, by a few tens of milliseconds at most (up to a
+    second for numbers of 16000 bits, whose primality tests take longer):
 
     >>> factor(2**128 + 1, timeout=60)
     {59649589127497217: 1, 5704689200685129054721: 1}
@@ -204,7 +216,7 @@ def factor(
     """
     n = operator.index(n)
     if n < 1:
-        raise ValueError(f"n must be positive, not {n}")
+        raise ValueError(f"n must be positive, not {_text(n)}")
     try:
         code = _HINTS[hint]
     except (KeyError, TypeError):
@@ -224,7 +236,7 @@ def factor(
     if not complete:
         if late:
             raise FactorizationTimeout(
-                n, factors, f"could not factor {n} in {timeout} s"
+                n, factors, f"could not factor {_text(n)} in {timeout} s"
             )
         raise FactorizationError(n, factors)
     if proof:
@@ -234,13 +246,15 @@ def factor(
             status, _, late = _prime_certificate(
                 p, _left(deadline), _interruptible(), nthreads
             )
-            if late:
+            if late and status != _PROVEN:
                 raise FactorizationTimeout(
-                    n, factors, f"could not prove that {p} is prime in {timeout} s"
+                    n,
+                    factors,
+                    f"could not prove that {_text(p)} is prime in {timeout} s",
                 )
             if status != _PROVEN:
                 raise FactorizationError(
-                    n, factors, f"could not prove that {p} is prime"
+                    n, factors, f"could not prove that {_text(p)} is prime"
                 )
     return factors
 
@@ -302,11 +316,13 @@ def prime_certificate(
         p, _left(deadline), _interruptible(), _threads(threads)
     )
     if late and status != _PROVEN:
-        raise TimeoutError(f"could not prove that {p} is prime in {timeout} s")
+        raise TimeoutError(
+            f"could not prove that {_text(p)} is prime in {timeout} s"
+        )
     if status == _NOT_PRIME:
-        raise ValueError(f"{p} is not prime")
+        raise ValueError(f"{_text(p)} is not prime")
     if status != _PROVEN:
-        raise RuntimeError(f"could not prove that {p} is prime")
+        raise RuntimeError(f"could not prove that {_text(p)} is prime")
     return steps
 
 
@@ -340,7 +356,7 @@ def batch_gcd(
     ns = [operator.index(n) for n in moduli]
     for n in ns:
         if n < 1:
-            raise ValueError(f"moduli must be positive, not {n}")
+            raise ValueError(f"moduli must be positive, not {_text(n)}")
     deadline = _deadline(timeout)
     gcds, late = _batch_gcd(ns, _left(deadline), _interruptible())
     if late:
@@ -453,7 +469,7 @@ class Cofactorizer:
         """
         n = operator.index(n)
         if n < 1:
-            raise ValueError(f"n must be positive, not {n}")
+            raise ValueError(f"n must be positive, not {_text(n)}")
         return _cofactor(self._strategy, [n], _interruptible())[0]
 
     def many(self, ns: Iterable[SupportsIndex]) -> list[Optional[dict[int, int]]]:
@@ -465,7 +481,7 @@ class Cofactorizer:
         values = [operator.index(n) for n in ns]
         for n in values:
             if n < 1:
-                raise ValueError(f"ns must be positive, not {n}")
+                raise ValueError(f"ns must be positive, not {_text(n)}")
         return _cofactor(self._strategy, values, _interruptible())
 
 

@@ -70,6 +70,13 @@ def test_invalid_numbers_go_on():
     assert "'-5' is not a positive integer" in out.stderr
 
 
+def test_numbers_of_more_than_4300_digits():
+    n = "2" + "0" * 4399
+    out = run("-e", n, "15")
+    assert out.returncode == 0, out.stderr
+    assert out.stdout == f"{n}: 2^4400 5^4399\n15: 3 5\n"
+
+
 def test_timeout():
     n = (2**107 - 1) * (2**127 - 1)
     out = run("--timeout", "0.01", "--hint", "balanced", str(n), "6")

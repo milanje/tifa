@@ -275,6 +275,44 @@ def test_signal_handler_interrupts():
     assert tifa.factor(2**64 + 1) == {274177: 1, 67280421310721: 1}
 
 
+def test_signal_handler_calling_tifa():
+    # The handler's call gives the outer one back its time limit, then its
+    # interrupt check.
+    rings = []
+
+    def ring(signum, frame):
+        rings.append(tifa.factor(15))
+        if len(rings) == 2:
+            raise Alarm
+
+    rng = random.Random(241)
+    n = random_prime(120, rng) * random_prime(120, rng)
+    old = signal.signal(signal.SIGALRM, ring)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, 0.05)
+        start = time.monotonic()
+        with pytest.raises(tifa.FactorizationTimeout):
+            tifa.factor(n, timeout=0.3, threads=2)
+        assert time.monotonic() - start < 2
+        assert rings == [{3: 1, 5: 1}]
+        rings.clear()
+        signal.setitimer(signal.ITIMER_REAL, 0.05, 0.05)
+        start = time.monotonic()
+        with pytest.raises(Alarm):
+            tifa.factor(n)
+        assert time.monotonic() - start < 2
+        assert rings == [{3: 1, 5: 1}] * 2
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)
+
+
+def test_huge_numbers_in_messages():
+    # Above sys.get_int_max_str_digits() digits, str() raises ValueError.
+    with pytest.raises(ValueError, match="15001-bit integer> is not prime"):
+        tifa.prime_certificate(2**15000 + 1)
+
+
 def test_ctrl_c_interrupts():
     rng = random.Random(240)
     n = random_prime(120, rng) * random_prime(120, rng)

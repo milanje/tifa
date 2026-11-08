@@ -42,6 +42,8 @@ def _line(n: int, factors: dict[int, int], exponents: bool) -> str:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    if hasattr(sys, "set_int_max_str_digits"):
+        sys.set_int_max_str_digits(0)
     parser = argparse.ArgumentParser(
         prog="python -m tifa",
         description=(
