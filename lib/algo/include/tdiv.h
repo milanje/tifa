@@ -34,16 +34,16 @@
     */
 #define _TIFA_TDIV_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <inttypes.h>
 #include <gmp.h>
 
 #include "array.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \def TDIV_DFLT_NPRIMES_TDIV

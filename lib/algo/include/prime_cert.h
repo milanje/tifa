@@ -92,10 +92,6 @@
     */
 #define _TIFA_PRIME_CERT_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -103,6 +99,10 @@ extern "C" {
 
 #include "array.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \enum prime_cert_status_enum

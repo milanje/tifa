@@ -40,10 +40,6 @@
     */
 #define _TIFA_CFRAC_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <gmp.h>
 
@@ -53,6 +49,10 @@ extern "C" {
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \def CFRAC_DFLT_NRELATIONS

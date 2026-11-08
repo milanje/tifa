@@ -43,10 +43,6 @@
     */
 #define _TIFA_FERMAT_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdlib.h>
 #include <gmp.h>
 
@@ -54,6 +50,10 @@ extern "C" {
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \struct struct_fermat_params_t fermat.h lib/algo/include/fermat.h

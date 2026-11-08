@@ -38,15 +38,15 @@
     */
 #define _TIFA_COFACTOR_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #include <gmp.h>
 
 #include "array.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \enum cofactor_status_enum

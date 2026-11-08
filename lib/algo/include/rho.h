@@ -32,10 +32,6 @@
 #if !defined(_TIFA_RHO_H_)
 #define _TIFA_RHO_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <inttypes.h>
 #include <gmp.h>
 
@@ -43,6 +39,10 @@ extern "C" {
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \enum rho_method_enum

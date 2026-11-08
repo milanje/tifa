@@ -36,11 +36,6 @@
     */
 #define _TIFA_BITSTRING_T_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 //
 // tifa_config.h is included to get the type TIFA_BITSTRING_T. This type
 // could alternatively be defined here but it may be of interest to users
@@ -48,6 +43,10 @@ extern "C" {
 // tifa_config.h headers.
 //
 #include "tifa_config.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //
 // sizeof and number of bits of the native C type used to represent sets

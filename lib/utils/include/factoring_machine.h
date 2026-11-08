@@ -34,15 +34,15 @@
     */
 #define _TIFA_FACTORING_MACHINE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <gmp.h>
 
 #include "array.h"
 #include "exit_codes.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \enum factoring_mode_enum

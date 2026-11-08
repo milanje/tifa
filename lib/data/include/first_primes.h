@@ -40,6 +40,10 @@
 #include "array.h"
 #include "tifa_config.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \def NFIRST_PRIMES
  * Number of precomputed primes in the \c first_primes array.
@@ -68,6 +72,10 @@ extern TIFA_API const uint32_t LARGEST_PRIME MAYBE_UNUSED;
  * if \c free_uint32_array is inadvertently called on \c first_primes_array.
  */
 extern TIFA_API const uint32_array_t first_primes_array MAYBE_UNUSED;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

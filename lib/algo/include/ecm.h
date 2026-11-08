@@ -47,16 +47,16 @@
     */
 #define _TIFA_ECM_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gmp.h>
 
 #include "array.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \struct struct_ecm_params_t ecm.h lib/algo/include/ecm.h

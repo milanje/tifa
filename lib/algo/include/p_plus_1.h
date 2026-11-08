@@ -41,10 +41,6 @@
 #if !defined(_TIFA_P_PLUS_1_H_)
 #define _TIFA_P_PLUS_1_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <inttypes.h>
 #include <gmp.h>
 
@@ -52,6 +48,10 @@ extern "C" {
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \struct struct_p_plus_1_params_t p_plus_1.h lib/algo/include/p_plus_1.h

@@ -51,6 +51,23 @@ tifa_add_test(test_threads)
 target_link_libraries(test_threads PRIVATE Threads::Threads)
 target_compile_definitions(test_threads PRIVATE
     TIFA_TEST_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+# The public headers from C++, where a C++ compiler is found.
+include(CheckLanguage)
+check_language(CXX)
+if(CMAKE_CXX_COMPILER)
+    enable_language(CXX)
+    add_executable(test_cxx_headers test_cxx_headers.cpp)
+    target_include_directories(test_cxx_headers PRIVATE
+                               ${TIFA_TEST_INCLUDE_DIRS}
+                               "${PROJECT_SOURCE_DIR}/lib")
+    target_link_libraries(test_cxx_headers PRIVATE tifa_static)
+    # The flags of the C build (sanitizers, -U__SIZEOF_INT128__) apply to
+    # this C++ program too.
+    separate_arguments(_tifa_cflags NATIVE_COMMAND "${CMAKE_C_FLAGS}")
+    target_compile_options(test_cxx_headers PRIVATE ${_tifa_cflags})
+    target_link_options(test_cxx_headers PRIVATE ${_tifa_cflags})
+    add_test(NAME test_cxx_headers COMMAND test_cxx_headers)
+endif()
 
 # The tifa-factor command-line program: a 60-bit semiprime, and
 # 2^3 . 3^2 . 1000000007^2 . 1000000009 (repeated factors, several sizes). The

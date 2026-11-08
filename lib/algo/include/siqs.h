@@ -32,10 +32,6 @@
     */
 #define _TIFA_SIQS_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <inttypes.h>
 #include <gmp.h>
@@ -45,6 +41,10 @@ extern "C" {
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \def SIQS_DFLT_NRELATIONS

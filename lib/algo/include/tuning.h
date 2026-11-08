@@ -55,14 +55,14 @@
 #if !defined(_TIFA_TUNING_H_)
 #define _TIFA_TUNING_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <inttypes.h>
 #include <stdbool.h>
 
 #include "tifa_config.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \def TIFA_TUNING_MAX_COLS

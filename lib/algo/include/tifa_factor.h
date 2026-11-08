@@ -35,16 +35,16 @@
     */
 #define _TIFA_TIFA_FACTOR_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gmp.h>
 
 #include "array.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
 #include "tifa_options.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
    /**
     * \brief Generic Integer factorization.
