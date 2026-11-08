@@ -73,8 +73,8 @@ static void hinted_and_check(const char* label, const mpz_t n,
     free_uint32_array(multis);
 }
 
-// Modes other than FIND_COMPLETE_FACTORIZATION may pass a NULL multis array.
-// An algorithm that splits n completely (SIQS) may say so in any mode.
+// Modes other than FIND_COMPLETE_FACTORIZATION may pass a NULL multis array,
+// and their outcome follows the mode, even when n is split completely.
 static void some_factors_and_check(const char* label, const mpz_t n) {
     mpz_array_t* factors = alloc_mpz_array(8);
 
@@ -82,8 +82,7 @@ static void some_factors_and_check(const char* label, const mpz_t n) {
 
     char msg[160];
     snprintf(msg, sizeof(msg), "%s: rc == SOME_FACTORS_FOUND", label);
-    CHECK(   (rc == SOME_FACTORS_FOUND)
-          || (rc == COMPLETE_FACTORIZATION_FOUND), msg);
+    CHECK(rc == SOME_FACTORS_FOUND, msg);
 
     int ok = (factors->length > 0);
     for (uint32_t i = 0; i < factors->length; i++) {
@@ -230,16 +229,15 @@ int main(void) {
         mpz_mul_ui(n, n, 1000033UL);
         mpz_mul(n, n, n);
         static const factoring_mode_t modes[] = {
-            SINGLE_RUN, FIND_SOME_FACTORS, FIND_SOME_COPRIME_FACTORS,
-            FIND_SOME_PRIME_FACTORS
+            SINGLE_RUN, FIND_SOME_FACTORS, FIND_SOME_COPRIME_FACTORS
         };
-        for (unsigned i = 0; i < 4; i++) {
+        const tifa_options_t limit = { .time_limit = 1e-9 };
+        for (unsigned i = 0; i < 3; i++) {
             for (int limited = 0; limited < 2; limited++) {
                 const mpz_ptr x = limited ? big : n;
                 mpz_array_t* f = alloc_mpz_array(4);
-                tifa_set_time_limit(limited ? 1e-9 : 0.0);
-                const ecode_t e = tifa_factor(f, NULL, x, modes[i]);
-                tifa_set_time_limit(0.0);
+                const ecode_t e = tifa_factor(f, NULL, x, modes[i],
+                                              limited ? &limit : NULL);
                 bool ok = (e != FATAL_INTERNAL_ERROR);
                 for (uint32_t j = 0; j < f->length; j++) {
                     ok = ok && (mpz_cmp_ui(f->data[j], 1) > 0)
@@ -342,8 +340,7 @@ int main(void) {
         mpz_array_t* factors = alloc_mpz_array(4);
         const tifa_options_t options = { .hint = hint };
         ecode_t rc = tifa_factor(factors, NULL, n, FIND_SOME_FACTORS, &options);
-        CHECK(   ((rc == SOME_FACTORS_FOUND)
-                  || (rc == COMPLETE_FACTORIZATION_FOUND))
+        CHECK(   (rc == SOME_FACTORS_FOUND)
               && (factors->length > 0)
               && mpz_divisible_p(n, factors->data[0]),
               "FIND_SOME_FACTORS with a hint (128 bits)");

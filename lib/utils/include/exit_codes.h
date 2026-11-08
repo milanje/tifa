@@ -57,12 +57,6 @@ enum ecode_enum {
          */
     SOME_FACTORS_FOUND,
         /**
-         * Used by the factorization algorithm to indicate that \e some prime
-         * factors were found. In that case, the factors' multiplicities are
-         * not computed.
-         */
-    SOME_PRIME_FACTORS_FOUND,
-        /**
          * Used by the factorization algorithm to indicate that \e some coprime
          * factors were found. In that case, the factors' multiplicities are
          * not computed.
@@ -119,7 +113,14 @@ enum ecode_enum {
         /**
          * Generic exit code used to indicate that an operation failed.
          */
-    FAILURE
+    FAILURE,
+        /**
+         * Used by \c tifa_factor to indicate a partial factorization (as
+         * with \c PARTIAL_FACTORIZATION_FOUND) whose composite factors are
+         * all above the options' \c siqs_max_bits, and have no factor of up
+         * to \c ecm_max_bits bits that ECM found.
+         */
+    FACTORS_TOO_LARGE
 };
 
    /**
@@ -134,7 +135,6 @@ typedef enum ecode_enum ecode_t;
 static const char* const ecode_to_str[14] = {
     "unknown factoring mode",
     "some factors found",
-    "some prime factors found",
     "some coprime factors found",
     "partial factorization found",
     "complete factorization found",
@@ -145,7 +145,8 @@ static const char* const ecode_to_str[14] = {
     "giving up",
     "number to factor is too large",
     "success",
-    "failure"
+    "failure",
+    "factors too large for SIQS"
 };
 
    /**

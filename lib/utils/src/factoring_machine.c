@@ -44,12 +44,8 @@ ecode_t find_some_factors(factoring_machine_t*);
 //------------------------------------------------------------------------------
 ecode_t find_some_coprime_factors(factoring_machine_t*);
 //------------------------------------------------------------------------------
-ecode_t find_some_prime_factors(factoring_machine_t*);
-//------------------------------------------------------------------------------
 ecode_t find_complete_factorization(factoring_machine_t*);
 //-----------------------------------------------------------------------------
-bool are_all_prime(const mpz_array_t* const);
-//------------------------------------------------------------------------------
 ecode_t compute_multiplicities(
     uint32_array_t* const multis,
     const mpz_t n,
@@ -89,9 +85,6 @@ ecode_t run_machine(factoring_machine_t* machine) {
         case FIND_SOME_FACTORS:
             ecode = find_some_factors(machine);
             break;
-        case FIND_SOME_PRIME_FACTORS:
-            ecode = find_some_prime_factors(machine);
-            break;
         case FIND_SOME_COPRIME_FACTORS:
             ecode = find_some_coprime_factors(machine);
             break;
@@ -101,12 +94,25 @@ ecode_t run_machine(factoring_machine_t* machine) {
         default:
             break;
     }
+    //
+    // The outcome follows the mode: complete and partial factorizations, and
+    // multiplicities, in FIND_COMPLETE_FACTORIZATION alone (SIQS ends with
+    // both primes of a semiprime in any mode).
+    //
+    const bool complete_mode = (machine->mode == FIND_COMPLETE_FACTORIZATION);
+    if (   !complete_mode
+        && (   (ecode == COMPLETE_FACTORIZATION_FOUND)
+            || (ecode == PARTIAL_FACTORIZATION_FOUND))) {
+        ecode = (ecode_t) mode_to_outcome[machine->mode];
+    }
     append_mpz_array(factors, machine->factors);
     free_mpz_array(machine->factors);
     machine->factors = factors;
 
     if (multis != NULL) {
-        append_uint32_array(multis, machine->multis);
+        if (complete_mode) {
+            append_uint32_array(multis, machine->multis);
+        }
         free_uint32_array(machine->multis);
         machine->multis = multis;
     }
@@ -277,91 +283,6 @@ ecode_t find_some_coprime_factors(factoring_machine_t* machine) {
                         machine->recurse_func
                     );
         machine->success = true;
-        break;
-
-    case COMPLETE_FACTORIZATION_FOUND:
-        machine->success = true;
-        break;
-    
-    default:
-        machine->success = false;
-    }
-    return exit_code;
-}
-//-----------------------------------------------------------------------------
-ecode_t find_some_prime_factors(factoring_machine_t* machine) {
-    //
-    // Try to find "some prime factors" but don't try to find _all_ prime
-    // factors.
-    //
-    // Compared to find_some_factors(), this involves some processing on the
-    // found factors (to obtain a coprime base) and some compositeness checks.
-    // Note that we fail (SOME_COPRIME_FACTORS_FOUND, success false) as soon as
-    // one of the found factors is NOT prime: success is restricted to the case
-    // where all found factors (after processing) are prime. It is debatable
-    // whether or not this is a suitable behaviour. Indeed we could succeed as
-    // soon as _one_ of the found factors is prime, which would actually better match
-    // the name of the function. But then, what would be the point of such a
-    // factoring mode? Heck, I'm "not even sure" (to put it mildly) that it
-    // is useful at all the way it is...
-    //
-    ecode_t exit_code = NO_FACTOR_FOUND;
-
-    exit_code = machine->init_context_func(machine);
-    if (exit_code != SUCCESS) {
-        //
-        // Context initialization failed: do not run the algorithm on a
-        // half-built context. Clean up and report the failure.
-        //
-        machine->clear_context_func(machine);
-        machine->success = false;
-        return exit_code;
-    }
-    exit_code = machine->perform_algo_func(machine);
-
-    while (true) {
-        //
-        // Try again and again until we either:
-        //    - find some factor(s)
-        //    - reach the abort limit
-        //    - or end up with a really bad error...
-        //
-        if (exit_code == SOME_FACTORS_FOUND) {
-            break;
-        }
-        if (exit_code == COMPLETE_FACTORIZATION_FOUND) {
-            break;
-        }
-        if (exit_code == FATAL_INTERNAL_ERROR) {
-            break;
-        }
-        if (tifa_should_stop()) {
-            break;
-        }
-        exit_code = machine->update_context_func(machine);
-
-        if (exit_code != SUCCESS) {
-            break;
-        }
-        exit_code = machine->perform_algo_func(machine);
-    }
-    machine->clear_context_func(machine);
-
-
-    switch (exit_code) {
-    case SOME_FACTORS_FOUND:
-        //
-        // _NOTE_: We fail as soon as one element in the coprime base is
-        //         not prime. Is that a sensible behavior?
-        //
-        exit_code = process_found_factors(
-                        machine->factors,
-                        machine->multis,
-                        machine->n,
-                        FIND_SOME_PRIME_FACTORS,
-                        machine->recurse_func
-                    );
-        machine->success = (exit_code == SOME_PRIME_FACTORS_FOUND);
         break;
 
     case COMPLETE_FACTORIZATION_FOUND:
@@ -618,13 +539,6 @@ ecode_t process_found_factors(mpz_array_t* const factors,
         replace_by_coprime_base(factors, n);
         return SOME_COPRIME_FACTORS_FOUND;
 
-    case FIND_SOME_PRIME_FACTORS:
-        replace_by_coprime_base(factors, n);
-        if (are_all_prime(factors)) {
-            return SOME_PRIME_FACTORS_FOUND;
-        }
-        return SOME_COPRIME_FACTORS_FOUND;
-
     case FIND_COMPLETE_FACTORIZATION:
         return complete_factorization(factors, multis, n, recurse);
 
@@ -640,21 +554,6 @@ ecode_t process_found_factors(mpz_array_t* const factors,
  *-----------------------------------------------------------------------------
  */
 
-//-----------------------------------------------------------------------------
-bool are_all_prime(const mpz_array_t* const array) {
-    //
-    // Returns true if all elements in array are (probably) prime.
-    // Returns false otherwise.
-    //
-    bool all_prime = true;
-    for (uint32_t i = 0; i < array->length; i++) {
-        if (!MPZ_IS_PRIME(array->data[i])) {
-            all_prime = false;
-            break;
-        }
-    }
-    return all_prime;
-}
 //-----------------------------------------------------------------------------
 ecode_t compute_multiplicities(uint32_array_t* const multis,
                                const mpz_t n,

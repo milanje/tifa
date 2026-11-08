@@ -114,9 +114,7 @@ static ecode_t add_cofactor(mpz_array_t* const factors,
                             const factoring_mode_t mode,
                             const tifa_factor_hint_t hint) {
     if (mode != FIND_COMPLETE_FACTORIZATION) {
-        if (mode != FIND_SOME_PRIME_FACTORS) {
-            append_mpz_to_array(factors, c);
-        }
+        append_mpz_to_array(factors, c);
         return mode_to_outcome[mode];
     }
     mpz_array_t*    cfactors = alloc_mpz_array(ELONGATION);
@@ -325,7 +323,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
                 append_mpz_to_array(factors, rootn);
                 append_uint32_to_array(multis, 1);
                 ecode = PARTIAL_FACTORIZATION_FOUND;
-            } else if (mode != FIND_SOME_PRIME_FACTORS) {
+            } else {
                 append_mpz_to_array(factors, rootn);
                 ecode = best;
             }

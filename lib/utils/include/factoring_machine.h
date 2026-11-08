@@ -49,6 +49,13 @@ extern "C" {
     *
     * An enumeration of the factoring mode available to the implemented
     * factorization algorithm.
+    *
+    * The outcome follows the mode: \c SOME_FACTORS_FOUND for \c SINGLE_RUN
+    * and \c FIND_SOME_FACTORS, \c SOME_COPRIME_FACTORS_FOUND for
+    * \c FIND_SOME_COPRIME_FACTORS, and only for
+    * \c FIND_COMPLETE_FACTORIZATION a complete or partial factorization,
+    * with multiplicities (or \c FACTORS_TOO_LARGE from \c tifa_factor); in
+    * any mode, \c NO_FACTOR_FOUND, \c GIVING_UP or an error otherwise.
     */
 enum factoring_mode_enum {
        /**
@@ -67,17 +74,6 @@ enum factoring_mode_enum {
         */
     FIND_SOME_COPRIME_FACTORS,
        /**
-        * Run the factorization algorithm until either some factors are found
-        * or the abort limit (defined on a per-algorithm basis) is reached,
-        * then reduce them to a coprime base: succeeds only if all its
-        * elements are prime.
-        *
-        * \note This is probably not useful at all. Why would we discard found
-        * factors even if they are not prime? This should better be left to
-        * the client application.
-        */
-    FIND_SOME_PRIME_FACTORS,
-       /**
         * Run the factorization algorithm until either the complete
         * factorization (as a product of prime numbers) is found or the abort
         * limit (defined on a per-algorithm basis) is reached.
@@ -94,11 +90,10 @@ typedef enum factoring_mode_enum factoring_mode_t;
     * Global constant array mapping factoring modes to their respective best
     * outcome.
     */
-static const int mode_to_outcome[5] = {
+static const int mode_to_outcome[4] = {
     SOME_FACTORS_FOUND,
     SOME_FACTORS_FOUND,
     SOME_COPRIME_FACTORS_FOUND,
-    SOME_PRIME_FACTORS_FOUND,
     COMPLETE_FACTORIZATION_FOUND
 };
 

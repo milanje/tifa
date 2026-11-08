@@ -87,8 +87,8 @@ int main(int argc, char** argv) {
 
         factors->length = 0;
         multis->length  = 0;
-        const ecode_t ecode = siqs(factors, multis, n, &params, SINGLE_RUN,
-                                   NULL);
+        const ecode_t ecode = siqs(factors, multis, n, &params,
+                                   FIND_COMPLETE_FACTORIZATION, NULL);
 
         bool bad = false;
         for (uint32_t j = 0; j < factors->length; j++) {
