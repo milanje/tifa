@@ -20,7 +20,8 @@
  * \file    mont_ecm_wide.c
  *
  * \brief ECM curves, p-1 and p+1 in fixed-size Montgomery arithmetic, for
- *        moduli of five to eight 64-bit limbs (see mont_ecm.c).
+ *        moduli of five to eight 64-bit limbs, and the long curves on fewer
+ *        (see mont_ecm.c).
  */
 
 #include "mont_ecm.h"
@@ -31,11 +32,24 @@
 #include "mont_ecm_internal.h"
 #include "stopping.h"
 //
-// A curve takes up to a second here: it checks the time limit and the
-// interrupt now and then (not on fewer limbs, whose code stays the same).
+// A curve takes up to seconds here: it checks the time limit and the
+// interrupt now and then (not on fewer limbs, whose code stays the same,
+// but for the long curves).
 //
 #define MONT_ECM_STOP_CHECKS
 
+#define NL 1
+#include "mont_ecm_impl.h"
+#undef NL
+#define NL 2
+#include "mont_ecm_impl.h"
+#undef NL
+#define NL 3
+#include "mont_ecm_impl.h"
+#undef NL
+#define NL 4
+#include "mont_ecm_impl.h"
+#undef NL
 #define NL 5
 #include "mont_ecm_impl.h"
 #include "mont_pm1_impl.h"
@@ -65,6 +79,18 @@ bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0z,
 
     int found = 0;
     switch (m.nl) {
+        case 1:
+            RUN_CURVE(1);
+            break;
+        case 2:
+            RUN_CURVE(2);
+            break;
+        case 3:
+            RUN_CURVE(3);
+            break;
+        case 4:
+            RUN_CURVE(4);
+            break;
         case 5:
             RUN_CURVE(5);
             break;

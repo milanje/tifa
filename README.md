@@ -73,8 +73,9 @@ changes and their measurements; the changes on master since 0.5.0 are in
   the primes below 1000, a short ECM search for factors of up to 60 bits (85
   above 256 bits; without 128-bit integers, single p-1 and p+1 runs), then
   SIQS. Composites above 320 bits, where SIQS would take hours to years, go
-  to ECM alone, for factors of up to 85 bits (about 12 minutes at 520 bits
-  on an Apple M5 Pro); what it does not split is left, with the outcome
+  to ECM alone, for factors of up to 85 bits by default, 100 at most (about
+  12 minutes at 520 bits on an Apple M5 Pro at 85, each 5 bits more doubling
+  it); what it does not split is left, with the outcome
   `FACTORS_TOO_LARGE`, so that a call always ends.
 - Each function that can run long takes options (`tifa_options.h`), NULL for
   the defaults: a time limit, after which SIQS, its linear algebra and ECM

@@ -66,8 +66,8 @@ extern "C" {
     *
     * Composites above the options' \c siqs_max_bits (320 by default) never
     * go to SIQS: ECM alone searches them, for factors of up to
-    * \c ecm_max_bits bits (85 by default), and those it does not split give
-    * \c FACTORS_TOO_LARGE, so that the call always ends.
+    * \c ecm_max_bits bits (85 by default, 100 at most), and those it does
+    * not split give \c FACTORS_TOO_LARGE, so that the call always ends.
     *
     * \note If the factoring mode used is different from
     * \c FIND_COMPLETE_FACTORIZATION, \c multis is allowed to be a NULL

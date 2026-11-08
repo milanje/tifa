@@ -63,87 +63,31 @@
 //------------------------------------------------------------------------------
 
 typedef struct {
-    uint64_t* data;
-    uint32_t  length;
-    uint32_t  alloced;
-} u64_vec_t;
-
-static void push_u64(u64_vec_t* const v, const uint64_t x) {
-    if (v->length == v->alloced) {
-        v->alloced = (v->alloced == 0) ? 64 : 2 * v->alloced;
-        v->data    = tifa_realloc(v->data, v->alloced * sizeof(uint64_t));
-    }
-    v->data[v->length++] = x;
-}
-
-//
-// Calls visit(q, data) for every prime q in [lo, hi], in increasing order:
-// from the prime table, then from a segmented sieve beyond it.
-//
-static void for_each_prime(const uint32_t lo, const uint32_t hi,
-                           void (*visit)(uint32_t, void*), void* const data) {
-    uint32_t ip = 0;
-    while ((ip < NFIRST_PRIMES) && (first_primes[ip] < lo)) {
-        ip++;
-    }
-    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= hi)) {
-        visit(first_primes[ip], data);
-        ip++;
-    }
-    if (hi <= LARGEST_PRIME) {
-        return;
-    }
-    const uint64_t first = (lo > (uint64_t) LARGEST_PRIME + 1)
-                           ? lo : (uint64_t) LARGEST_PRIME + 1;
-    const uint64_t SEG   = 1 << 16;
-    uint8_t* const composite = tifa_malloc(SEG);
-
-    for (uint64_t s = first; s <= hi; s += SEG) {
-        const uint64_t e = (s + SEG - 1 < hi) ? (s + SEG - 1) : hi;
-        memset(composite, 0, SEG);
-        for (uint32_t i = 0; i < NFIRST_PRIMES; i++) {
-            const uint64_t p = first_primes[i];
-            if (p * p > e) {
-                break;
-            }
-            uint64_t x = ((s + p - 1) / p) * p;
-            if (x < p * p) {
-                x = p * p;
-            }
-            for (; x <= e; x += p) {
-                composite[x - s] = 1;
-            }
-        }
-        for (uint64_t x = s; x <= e; x++) {
-            if (!composite[x - s]) {
-                visit((uint32_t) x, data);
-            }
-        }
-    }
-    free(composite);
-}
-
-typedef struct {
     mont_ecm_plan_t* plan;
-    u64_vec_t        pairs;
+    uint16_t*        pairs;
+    uint32_t         npairs;
+    uint32_t         alloced;
     uint8_t*         needed;
     uint32_t         cur_m;
 } stage2_builder_t;
 
 static void flush_giant_step(stage2_builder_t* const sb) {
     mont_ecm_plan_t* const plan = sb->plan;
+    if (sb->alloced - sb->npairs < plan->nbaby) {
+        sb->alloced = 2 * sb->alloced + plan->nbaby;
+        sb->pairs   = tifa_realloc(sb->pairs, sb->alloced * sizeof(uint16_t));
+    }
     for (uint32_t i = 0; i < plan->nbaby; i++) {
         if (sb->needed[i]) {
-            push_u64(&sb->pairs, i);
+            sb->pairs[sb->npairs++] = (uint16_t) i;
             sb->needed[i] = 0;
         }
     }
-    plan->offsets[sb->cur_m - plan->m_first + 1] = sb->pairs.length;
+    plan->offsets[sb->cur_m - plan->m_first + 1] = sb->npairs;
 }
 
-static void add_stage2_prime(const uint32_t q, void* const data) {
-    stage2_builder_t* const sb   = (stage2_builder_t*) data;
-    mont_ecm_plan_t*  const plan = sb->plan;
+static void add_stage2_prime(stage2_builder_t* const sb, const uint32_t q) {
+    mont_ecm_plan_t* const plan = sb->plan;
 
     // In 64 bits: q may be within d of 2^32.
     const uint32_t m = (uint32_t) (((uint64_t) q + plan->d / 2) / plan->d);
@@ -184,50 +128,31 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
     plan->offsets = tifa_calloc(plan->nm + 1, sizeof(uint32_t));
 
     stage2_builder_t sb;
-    sb.plan   = plan;
-    sb.pairs.data    = NULL;
-    sb.pairs.length  = 0;
-    sb.pairs.alloced = 0;
-    sb.needed = tifa_calloc(plan->nbaby, sizeof(uint8_t));
-    sb.cur_m  = plan->m_first;
+    sb.plan    = plan;
+    sb.pairs   = NULL;
+    sb.npairs  = 0;
+    sb.alloced = 0;
+    sb.needed  = tifa_calloc(plan->nbaby, sizeof(uint8_t));
+    sb.cur_m   = plan->m_first;
 
-    for_each_prime(plan->b1 + 1, plan->b2, add_stage2_prime, &sb);
+    prime_iter_t it;
+    prime_iter_init(&it, plan->b1 + 1, plan->b2);
+    for (uint32_t q; (q = prime_iter_next(&it)) != 0; ) {
+        add_stage2_prime(&sb, q);
+    }
+    prime_iter_clear(&it);
 
     while (sb.cur_m <= m_last) {
         flush_giant_step(&sb);
         sb.cur_m++;
     }
-    plan->pairs = tifa_malloc((sb.pairs.length + 1) * sizeof(uint16_t));
-    for (uint32_t i = 0; i < sb.pairs.length; i++) {
-        plan->pairs[i] = (uint16_t) sb.pairs.data[i];
-    }
-    free(sb.pairs.data);
+    plan->pairs = tifa_realloc(sb.pairs, (sb.npairs + 1) * sizeof(uint16_t));
     free(sb.needed);
-}
-
-//
-// e <- scalars[lo] * ... * scalars[hi - 1], as a balanced product tree.
-//
-static void product_of_scalars(mpz_t e, const uint64_t* const scalars,
-                               const uint32_t lo, const uint32_t hi) {
-    if (hi - lo == 1) {
-        mpz_import(e, 1, -1, sizeof(uint64_t), 0, 0, &scalars[lo]);
-        return;
-    }
-    mpz_t right;
-    mpz_init(right);
-    product_of_scalars(e, scalars, lo, lo + (hi - lo) / 2);
-    product_of_scalars(right, scalars, lo + (hi - lo) / 2, hi);
-    mpz_mul(e, e, right);
-    mpz_clear(right);
 }
 
 mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
     mont_ecm_plan_t* const plan = tifa_calloc(1, sizeof(mont_ecm_plan_t));
 
-    if (b1 > LARGEST_PRIME) {
-        b1 = LARGEST_PRIME;
-    }
     //
     // d = 2310 needs fewer giant steps, but 577 baby steps and stage 1 up
     // to d/2: worth it only for wide stage 2 ranges.
@@ -245,28 +170,14 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
     plan->b1 = b1;
     plan->b2 = b2;
     plan->d  = d;
-
-    u64_vec_t scalars = { NULL, 0, 0 };
-    uint64_t  k = 1;
-    for (uint32_t ip = 0; (ip < NFIRST_PRIMES) && (first_primes[ip] <= b1);
-         ip++) {
-        const uint64_t p = first_primes[ip];
-        uint64_t q = p;
-        while (q <= b1 / p) {
-            q *= p;
-        }
-        if (k > UINT64_MAX / q) {
-            push_u64(&scalars, k);
-            k = 1;
-        }
-        k *= q;
-    }
-    push_u64(&scalars, k);
+    //
+    // Beyond the bounds of the levels for 85-bit factors: up to seconds.
+    //
+    plan->long_curves = (b1 > LARGEST_PRIME) || (b2 > 50 * LARGEST_PRIME);
 
     mpz_t e;
     mpz_init(e);
-    product_of_scalars(e, scalars.data, 0, scalars.length);
-    free(scalars.data);
+    prime_powers_product(e, b1);
     plan->ebits = mpz_sizeinbase(e, 2);
     plan->e     = tifa_malloc((plan->ebits / 64 + 1) * sizeof(uint64_t));
     mpz_export(plan->e, &plan->ne, -1, sizeof(uint64_t), 0, 0, e);
@@ -428,7 +339,12 @@ static bool setup_and_run(mpz_t factor, const mpz_t n, const uint32_t k,
     mpz_inits(x0, a24, NULL);
     bool found;
     if (setup(x0, a24, factor, n, k)) {
-        found = run_curve(factor, n, x0, a24, plan);
+        //
+        // Not in run_curve, which then no longer inlines stage 2 (1% slower
+        // on three limbs).
+        //
+        found = plan->long_curves ? mont_ecm_wide_run(factor, n, x0, a24, plan)
+                                  : run_curve(factor, n, x0, a24, plan);
     } else {
         found = (mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0);
     }

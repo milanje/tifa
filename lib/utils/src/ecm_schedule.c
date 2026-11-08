@@ -40,7 +40,8 @@
 // curves that takes, and the time of one curve on two limbs (us, Apple M
 // series), which only matters relative to siqs_cost. From 65 bits, B1
 // doubles from level to level and the curve counts, from 20 to 80 factors
-// per level, are rounded up.
+// per level, are rounded up; from 90, they are Dickman's estimates scaled to
+// those counted on 219 factors of 85 to 100 bits.
 //
 static const struct {
     uint32_t fbits;
@@ -48,21 +49,24 @@ static const struct {
     uint32_t ncurves;
     double   cost;
 } levels[] = {
-    { 15,     50,  2,    11.7 },
-    { 20,    100,  2,    13.5 },
-    { 25,    200,  3,    22.9 },
-    { 30,    400,  4,    41.3 },
-    { 35,    800,  7,    77.4 },
-    { 40,   1600,  8,   152.0 },
-    { 45,   3200, 10,   280.0 },
-    { 50,   6400, 15,   535.0 },
-    { 55,  12800, 17,  1030.0 },
-    { 60,  25600, 25,  2050.0 },
-    { 65,  51200, 32,  3930.0 },
-    { 70, 102400, 38,  7850.0 },
-    { 75, 204800, 45, 15700.0 },
-    { 80, 409600, 48, 30900.0 },
-    { 85, 819200, 50, 63000.0 }
+    {  15,      50,  2,     11.7 },
+    {  20,     100,  2,     13.5 },
+    {  25,     200,  3,     22.9 },
+    {  30,     400,  4,     41.3 },
+    {  35,     800,  7,     77.4 },
+    {  40,    1600,  8,    152.0 },
+    {  45,    3200, 10,    280.0 },
+    {  50,    6400, 15,    535.0 },
+    {  55,   12800, 17,   1030.0 },
+    {  60,   25600, 25,   2050.0 },
+    {  65,   51200, 32,   3930.0 },
+    {  70,  102400, 38,   7850.0 },
+    {  75,  204800, 45,  15700.0 },
+    {  80,  409600, 48,  30900.0 },
+    {  85,  819200, 50,  63000.0 },
+    {  90, 1638400, 65, 123000.0 },
+    {  95, 3276800, 75, 246000.0 },
+    { 100, 6553600, 85, 489000.0 }
 };
 #define NLEVELS (sizeof(levels) / sizeof(levels[0]))
 //
@@ -90,8 +94,8 @@ static const struct {
 #define PM1_B1 315
 //
 // The plans of the levels up to EAGER_FBITS bits are built with the
-// schedule, those above (7 to 70 ms each, about one curve) when a search
-// first reaches them, under the lock.
+// schedule, those above (7 to 380 ms each, about one curve; 57 MB from 90
+// bits) when a search first reaches them, under the lock.
 //
 #define EAGER_FBITS 60
 

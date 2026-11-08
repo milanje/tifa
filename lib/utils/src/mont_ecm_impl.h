@@ -273,18 +273,17 @@ static int FN(stage1_backtrack)(mpz_t factor, const uint64_t* const x0,
         p.x[j] = x0[j];
         p.z[j] = m->one[j];
     }
-    for (uint32_t i = 0; (i < NFIRST_PRIMES) && (first_primes[i] <= plan->b1);
-         i++) {
-        const uint64_t q = first_primes[i];
-        for (uint64_t qe = q; qe <= plan->b1; qe *= q) {
+    int found = 0;
+    prime_iter_t it;
+    prime_iter_init(&it, 2, plan->b1);
+    for (uint64_t q; (found == 0) && ((q = prime_iter_next(&it)) != 0); ) {
+        for (uint64_t qe = q; (found == 0) && (qe <= plan->b1); qe *= q) {
             FN(ladder)(&p, &p, q, a24, m);
-            const int found = limbs_gcd(factor, p.z, NL, n);
-            if (found != 0) {
-                return found;
-            }
+            found = limbs_gcd(factor, p.z, NL, n);
         }
     }
-    return -1;
+    prime_iter_clear(&it);
+    return (found != 0) ? found : -1;
 }
 
 //

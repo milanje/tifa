@@ -127,23 +127,22 @@ static int FN(pp1_stage1_backtrack)(mpz_t factor, const uint64_t* const p,
     for (int j = 0; j < NL; j++) {
         v[j] = p[j];
     }
-    for (uint32_t i = 0; (i < NFIRST_PRIMES) && (first_primes[i] <= plan->b1);
-         i++) {
-        const uint64_t q = first_primes[i];
-        for (uint64_t qe = q; qe <= plan->b1; qe *= q) {
+    int found = 0;
+    prime_iter_t it;
+    prime_iter_init(&it, 2, plan->b1);
+    for (uint64_t q; (found == 0) && ((q = prime_iter_next(&it)) != 0); ) {
+        for (uint64_t qe = q; (found == 0) && (qe <= plan->b1); qe *= q) {
             uint64_t base[NL];
             for (int j = 0; j < NL; j++) {
                 base[j] = v[j];
             }
             FN(lucas_ladder)(v, v1, base, q, m);
             FN(sub)(t, v, two, m);
-            const int found = limbs_gcd(factor, t, NL, n);
-            if (found != 0) {
-                return found;
-            }
+            found = limbs_gcd(factor, t, NL, n);
         }
     }
-    return -1;
+    prime_iter_clear(&it);
+    return (found != 0) ? found : -1;
 }
 
 //

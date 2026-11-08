@@ -17,8 +17,8 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
 //
-// What mont_ecm.c (one to four limbs) and mont_ecm_wide.c (five to eight)
-// share: the plan, the modulus, and the runs of a curve, of p-1 and of p+1
+// What mont_ecm.c (one to four limbs) and mont_ecm_wide.c (five to eight,
+// and the long curves on fewer) share: the plan, the modulus, and the runs of a curve, of p-1 and of p+1
 // on NLIMBS limbs. The includer defines MONT_MOD_LIMBS, its largest modulus
 // in limbs.
 //
@@ -27,7 +27,7 @@
 #define _TIFA_MONT_ECM_INTERNAL_H_
 
 #include "mont_ecm.h"
-#include "first_primes.h"
+#include "primes.h"
 #include "tifa_alloc.h"
 
 #define MONT_ECM_NARROW_LIMBS 4
@@ -58,6 +58,11 @@ struct struct_mont_ecm_plan_t {
     uint32_t  nm;
     uint32_t* offsets;
     uint16_t* pairs;
+    //
+    // Curves long enough to check the time limit and the interrupt (on all
+    // limb counts, see mont_ecm_wide.c).
+    //
+    bool      long_curves;
 };
 
 typedef struct {

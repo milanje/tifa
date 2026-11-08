@@ -39,9 +39,9 @@ Composites of more than 320 bits, where the quadratic sieve would take hours
 to years, are searched by elliptic curves alone, for factors of up to 85
 bits: `factor` always returns, but a composite left raises
 `FactorizationError`, its `factors` holding what was found. Both sizes are
-options: a larger `siqs_max_bits` lets SIQS take longer, a smaller
-`ecm_max_bits` gives up sooner (each 5 bits less halve about its time; 85
-is the most):
+options: a larger `siqs_max_bits` lets SIQS take longer, a larger
+`ecm_max_bits` searches for larger factors (100 bits at most; each 5 bits
+more double about its time), and a smaller one gives up sooner:
 
 ```python
 tifa.factor(n, siqs_max_bits=340, ecm_max_bits=70)

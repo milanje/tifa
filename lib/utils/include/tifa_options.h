@@ -93,10 +93,10 @@ typedef enum tifa_factor_hint_enum tifa_factor_hint_t;
 
    /**
     * \def TIFA_ECM_TOP_BITS
-    * The largest \c ecm_max_bits: ECM's levels stop at factors of this size
-    * (stage 1 takes its primes from the table of first_primes.h).
+    * The largest \c ecm_max_bits: ECM's levels stop at factors of this
+    * size.
     */
-#define TIFA_ECM_TOP_BITS 85
+#define TIFA_ECM_TOP_BITS 100
 
    /**
     * \struct struct_tifa_options_t tifa_options.h
@@ -174,9 +174,10 @@ struct struct_tifa_options_t {
         /**
          * The size, in bits, of the largest factors ECM searches for, by
          * itself (\c ecm) and on the composites above \c siqs_max_bits: 0
-         * for \c TIFA_ECM_MAX_BITS (85 bits, also the largest: 12 minutes at
-         * 520 bits on an Apple M5 Pro). Each 5 bits less halve about the
-         * time, for an earlier \c FACTORS_TOO_LARGE.
+         * for \c TIFA_ECM_MAX_BITS (85 bits: 12 minutes at 520 bits on an
+         * Apple M5 Pro), \c TIFA_ECM_TOP_BITS (100) at most. Each 5 bits
+         * more double about the time, each 5 bits less halve it, for an
+         * earlier \c FACTORS_TOO_LARGE.
          */
     uint32_t ecm_max_bits;
         /**

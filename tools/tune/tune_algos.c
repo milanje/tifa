@@ -235,8 +235,8 @@ static void build_grid_ecm(uint32_t bitsize, bool descent, grid_t* g) {
     memset(&d, 0, sizeof(d));
     set_ecm_params_for_factor_size(factor_bits, &d);
 
-    grid_add_axis_mul(g, (double) d.b1,      R3, 3, 100, LARGEST_PRIME);  // b1
-    grid_add_axis_mul(g, (double) d.b2,      R3, 3, 200, LARGEST_PRIME);  // b2
+    grid_add_axis_mul(g, (double) d.b1,      R3, 3, 100, 1U << 24);       // b1
+    grid_add_axis_mul(g, (double) d.b2,      R3, 3, 200, 1U << 28);       // b2
     grid_add_axis_mul(g, (double) d.ncurves, R3, 3, 1,   100000);         // ncurves
 }
 
@@ -245,8 +245,8 @@ static bool run_ecm(const mpz_t n, const mpz_t p, const uint32_t cols[],
     (void) p;
     ecm_params_t params;
     memset(&params, 0, sizeof(params));       // seed is set internally by ECM
-    params.b1      = (cols[0] > LARGEST_PRIME) ? LARGEST_PRIME : cols[0];
-    params.b2      = (cols[1] > LARGEST_PRIME) ? LARGEST_PRIME : cols[1];
+    params.b1      = cols[0];
+    params.b2      = cols[1];
     params.ncurves = cols[2];
     // Below 105, ecm() would raise b1 to make room for stage 2: skip it.
     if ((params.b2 != 0) && (params.b2 <= 105)) {

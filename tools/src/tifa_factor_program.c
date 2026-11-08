@@ -61,7 +61,7 @@ static void print_usage(factoring_program_t* const program) {
                     "SIQS (320 by\ndefault); larger ones are searched by ECM "
                     "alone.\n\n");
     fprintf(stderr, "--ecm-max-bits <n>: the largest factors, in bits, that "
-                    "ECM searches for\nthere (85 by default and at "
+                    "ECM searches for\nthere (85 by default, 100 at "
                     "most).\n\n");
     print_exit_statuses();
 }

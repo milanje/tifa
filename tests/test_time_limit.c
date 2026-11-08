@@ -253,6 +253,21 @@ int main(void) {
     elapsed = now() - start;
     CHECK(elapsed < 0.3, "an eight-limb curve stops soon after the limit");
     free_mont_ecm_plan(plan);
+    //
+    // And on four limbs, the curves of the level for 100-bit factors (1.3 s
+    // each).
+    //
+    random_prime(p, 125, rng);
+    random_prime(q, 125, rng);
+    mpz_mul(n, p, q);
+    mont_ecm_plan_t* const long_plan = alloc_mont_ecm_plan(6553600, 0);
+    start = now();
+    tifa_call_begin(&call, &short_limit);
+    mont_ecm_curve(p, n, 6, long_plan);
+    tifa_call_end(&call);
+    elapsed = now() - start;
+    CHECK(elapsed < 0.3, "a long four-limb curve stops soon after the limit");
+    free_mont_ecm_plan(long_plan);
 #endif
     free_mpz_array(found);
 

@@ -30,7 +30,7 @@
 #include <pthread.h>
 
 #include "tifa_config.h"
-#include "first_primes.h"
+#include "primes.h"
 #include "z2z8_curves.h"
 #include "array.h"
 #include "funcs.h"
@@ -110,10 +110,6 @@ struct struct_ecm_context_t {
     // the Z/2 x Z/8 table (see mont_ecm_nth_curve).
     //
     uint32_t nmont_curves;
-    //
-    // Index of first "large prime" i.e. smallest prime greater than B1
-    //
-    uint32_t  first_lp_index;
     //
     // Temporary variable used in computations...
     //
@@ -200,9 +196,11 @@ typedef struct struct_ecm_context_t ecm_context_t;
 // Bounds by size of the smallest factor sought (fbits): the B1 minimizing
 // the expected time to find such a factor (mean curves times time per
 // curve, measured with mont_ecm_nth_curve on 120-bit numbers and B2 =
-// ECM_B2_RATIO.B1) and the mean number of curves that takes. B1 cannot
-// exceed the largest tabulated prime (stage 1 takes its primes from the
-// table); above 60 bits, the bounds and curve counts are extrapolated.
+// ECM_B2_RATIO.B1) and the mean number of curves that takes. Above 60 bits,
+// the bounds and curve counts are extrapolated; from 90, B1 doubles and the
+// counts are ecm_schedule.c's, scaled by Dickman's estimates for both bounds
+// (in GMP arithmetic, where B2 stops at MAX_B2, the levels of 95 and 100 bits
+// find their factors less often).
 //
 typedef struct {
     uint32_t fbits;
@@ -211,21 +209,24 @@ typedef struct {
 } ecm_level_t;
 
 static const ecm_level_t ecm_levels[] = {
-    { 15,     50,  1 },
-    { 20,     70,  2 },
-    { 25,    100,  3 },
-    { 30,    200,  5 },
-    { 35,    560,  6 },
-    { 40,    800, 13 },
-    { 45,   1600, 16 },
-    { 50,   4480, 15 },
-    { 55,   8960, 20 },
-    { 60,  17920, 18 },
-    { 65,  36000, 28 },
-    { 70,  72000, 32 },
-    { 75, 144000, 40 },
-    { 80, 288000, 50 },
-    { 85, 576000, 64 }
+    {  15,      50,   1 },
+    {  20,      70,   2 },
+    {  25,     100,   3 },
+    {  30,     200,   5 },
+    {  35,     560,   6 },
+    {  40,     800,  13 },
+    {  45,    1600,  16 },
+    {  50,    4480,  15 },
+    {  55,    8960,  20 },
+    {  60,   17920,  18 },
+    {  65,   36000,  28 },
+    {  70,   72000,  32 },
+    {  75,  144000,  40 },
+    {  80,  288000,  50 },
+    {  85,  576000,  64 },
+    {  90, 1152000,  80 },
+    {  95, 2304000,  91 },
+    { 100, 4608000, 103 }
 };
 #define NLEVELS (sizeof(ecm_levels) / sizeof(ecm_levels[0]))
 
@@ -236,10 +237,17 @@ static const ecm_level_t ecm_levels[] = {
 //
 #define MAX_ROUNDS_AT_TOP 4
 //
-// Largest stage 2 bound, above the top level's: the GMP stage 2 table takes
-// about two bytes per unit of b2.
+// Largest stage 2 bound in GMP arithmetic, whose stage 2 table takes about
+// two bytes per unit of b2, and on the Montgomery curves (one per ten), above
+// the top level's.
 //
-#define MAX_B2 (1U << 26)
+#define MAX_B2      (1U << 26)
+#define MAX_MONT_B2 (1U << 28)
+//
+// Largest stage 1 bound of the caller's parameters (factors of about 150
+// bits): the exponent of stage 1 takes about 1.44 bits per unit of b1.
+//
+#define MAX_B1 (1U << 24)
 #if TIFA_HAVE_MONT_ECM
 //
 // The plans of the levels for factors of up to SHARED_PLAN_FBITS bits, with
@@ -340,7 +348,8 @@ ecode_t ecm_impl(mpz_array_t* const factors, uint32_array_t* const multis,
     // A copy: the algorithm adjusts it, and the caller's may be shared.
     //
     ecm_params_t own_params = *params;
-    own_params.b2 = MIN(own_params.b2, MAX_B2);
+    own_params.b1 = MIN(own_params.b1, MAX_B1);
+    own_params.b2 = MIN(own_params.b2, MAX_MONT_B2);
 
     factoring_machine_t machine;
 
@@ -416,13 +425,6 @@ void set_ecm_params_for_factor_size(const uint32_t fbits,
 //------------------------------------------------------------------------------
 static void set_stage1_bound(ecm_context_t* const context,
                              ecm_params_t* const params) {
-    if (params->b1 > LARGEST_PRIME) {
-        //
-        // Stage 1 takes its primes from the precomputed table; stage 2 then
-        // starts right after it.
-        //
-        params->b1 = LARGEST_PRIME;
-    }
 #if TIFA_HAVE_MONT_ECM
     if (context->use_mont) {
         //
@@ -435,6 +437,7 @@ static void set_stage1_bound(ecm_context_t* const context,
     // Stage 2 takes giant steps of D = 210 from b1 + D/2: as on the
     // Montgomery curves, it needs b1 >= D/2, and b2 > b1.
     //
+    params->b2 = MIN(params->b2, MAX_B2);
     if (params->b1 < 2) {
         params->b1 = 2;
     }
@@ -444,33 +447,7 @@ static void set_stage1_bound(ecm_context_t* const context,
     if (params->b2 <= params->b1) {
         params->b2 = 0;
     }
-    //
-    // Compute context->k = Prod_{pi<=B1} pi^{log(B1)/log(pi)} via a product
-    // tree...
-    //
-    unsigned int ip    = 0;
-    unsigned int power = 0;
-    double       logb1 = log(params->b1);
-
-    while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
-        ip++;
-    }
-    context->first_lp_index = ip;
-
-    uint32_array_t* ppowers = alloc_uint32_array(ip);
-
-    for (uint32_t i = 0; i < ip; i++) {
-        power = (unsigned int) (logb1 / log(first_primes[i]));
-        ppowers->data[i] = pow(first_primes[i], power);
-    }
-    ppowers->length = ip;
-
-    mpz_tree_t* ptree = prod_tree_ui(ppowers);
-
-    mpz_set(context->k, ptree->data[0]);
-
-    free_mpz_tree(ptree);
-    free_uint32_array(ppowers);
+    prime_powers_product(context->k, params->b1);
 }
 #if TIFA_HAVE_MONT_ECM
 //------------------------------------------------------------------------------
@@ -840,20 +817,22 @@ static void backtrack_phase_1(mpz_t g, factoring_machine_t* const machine) {
     mpz_init_set(z, context->z0);
     mpz_init(q);
 
-    for (uint32_t ip = 0;
-         (ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1); ip++) {
-        mpz_set_ui(q, first_primes[ip]);
-        for (uint64_t pe = first_primes[ip]; pe <= params->b1;
-             pe *= first_primes[ip]) {
+    mpz_set_ui(g, 1);
+    prime_iter_t it;
+    prime_iter_init(&it, 2, params->b1);
+    for (uint64_t p; (mpz_cmp_ui(g, 1) == 0)
+                     && ((p = prime_iter_next(&it)) != 0); ) {
+        mpz_set_ui(q, p);
+        for (uint64_t pe = p; (mpz_cmp_ui(g, 1) == 0) && (pe <= params->b1);
+             pe *= p) {
             multiply_point(x, z, x, z, q, context);
             mpz_gcd(g, z, machine->n);
-            if (mpz_cmp_ui(g, 1) != 0) {
-                mpz_clears(x, z, q, NULL);
-                return;
-            }
         }
     }
-    mpz_set(g, machine->n);
+    prime_iter_clear(&it);
+    if (mpz_cmp_ui(g, 1) == 0) {
+        mpz_set(g, machine->n);
+    }
     mpz_clears(x, z, q, NULL);
 }
 //------------------------------------------------------------------------------

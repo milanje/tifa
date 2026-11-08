@@ -100,7 +100,8 @@
 #define TFACTOR_WIDE_ECM_BITS 256
 //
 // Above this size (that of mont_ecm), ecm() in GMP arithmetic searches for
-// factors of up to 85 bits, without a budget: SIQS would take years.
+// factors of up to ecm_max_bits bits, without a budget: SIQS would take
+// years.
 //
 #define TFACTOR_GMP_ECM_BITS 512
 //-----------------------------------------------------------------------------

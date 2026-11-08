@@ -34,7 +34,7 @@
  * Hardware", K. Gaj et al., <i>Cryptographic Hardware and Embedded Systems -
  * CHES 2006</i>.
  *
- * On odd numbers of up to four 64-bit limbs, the curves run in fixed-limb
+ * On odd numbers of up to eight 64-bit limbs, the curves run in fixed-limb
  * Montgomery arithmetic (mont_ecm.h), where the compiler has 128-bit
  * integers; other numbers use the GMP code. Large numbers are, of course, out
  * of the scope of this library.
@@ -67,14 +67,14 @@ extern "C" {
     */
 struct struct_ecm_params_t {
         /**
-         * Bound used in the first phase of ECM. Values above the largest
-         * tabulated prime (see \c LARGEST_PRIME in first_primes.h) are
-         * lowered to it.
+         * Bound used in the first phase of ECM, at most 2^24 (larger values
+         * are lowered to it).
          */
     uint32_t b1;
         /**
-         * Bound used in the second phase of ECM, at most 2^26 (larger values
-         * are lowered to it). If set to 0, no second phase is performed.
+         * Bound used in the second phase of ECM, at most 2^28, and 2^26 in
+         * GMP arithmetic (larger values are lowered to them). If set to 0, no
+         * second phase is performed.
          *
          * If <tt>b2 > b1</tt>, \c b1 is raised to at least 105 (half the
          * stage 2 step); no second phase is performed if \c b2 does not
@@ -108,9 +108,10 @@ typedef struct struct_ecm_params_t ecm_params_t;
     * Sets the bounds suited to the smallest factors (15 bits). In modes
     * other than SINGLE_RUN, \c ecm then moves up to the bounds for larger
     * factors, 5 bits at a time, as long as no factor is found, up to factors
-    * of half the size of \c n (85 bits at most), and tries that last level a
-    * few more times before giving up. The tuning file rows for the size of
-    * \c n (see tuning.h), interpolated, override the starting values.
+    * of half the size of \c n, or of the options' \c ecm_max_bits (85 by
+    * default, 100 at most), and tries that last level a few more times
+    * before giving up. The tuning file rows for the size of \c n (see
+    * tuning.h), interpolated, override the starting values.
     *
     * \param[in]  n The \c mpz_t integer to factor.
     * \param[out] params A pointer to the \c ecm_params_t structure to fill.
@@ -123,7 +124,7 @@ TIFA_API void set_ecm_params_to_default(const mpz_t n,
     *
     * Sets \c b1 and \c b2 to the bounds minimizing the expected time to
     * find a prime factor of \c fbits bits, and \c ncurves to the mean number
-    * of curves that takes, for the first tabulated size (15 to 85 bits, by 5)
+    * of curves that takes, for the first tabulated size (15 to 100 bits, by 5)
     * not below \c fbits. Sets \c seed to 0.
     *
     * \param[in]  fbits The size of the factor sought, in bits.

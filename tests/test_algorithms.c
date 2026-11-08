@@ -26,6 +26,7 @@
 
 #include "cfrac.h"
 #include "ecm.h"
+#include "mont_ecm.h"
 #include "fermat.h"
 #include "rho.h"
 #include "p_minus_1.h"
@@ -489,6 +490,37 @@ int main(void) {
         check("ecm", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
+    }
+
+    // ---- ECM, stage 1 beyond the prime table ---- the one curve run (the
+    // first Z/2 x Z/8 curve on the Montgomery code, else sigma 801 from
+    // this seed) needs a prime in (821641, 900000] to catch pz (or pa).
+    {
+        const unsigned long pa = 2739551959UL;
+        const unsigned long pz = 3777065563UL;
+        mpz_set_str(n, "2305843009213693951", 10);
+        mpz_mul_ui(n, n, pa);
+        mpz_mul_ui(n, n, pz);
+        mpz_array_t* f = alloc_mpz_array(8);
+        ecm_params_t params;
+        params.b1      = 900000U;
+        params.b2      = 0U;
+        params.ncurves = 1U;
+        params.seed    = 26249578U;
+        ecode_t rc = ecm(f, NULL, n, &params, SINGLE_RUN, NULL);
+        const unsigned long p = TIFA_HAVE_MONT_ECM ? pz : pa;
+        int found = 0;
+        for (uint32_t i = 0; i < f->length; i++) {
+            found |= mpz_divisible_ui_p(f->data[i], p)
+                     && (mpz_cmp(f->data[i], n) != 0);
+        }
+        CHECK((rc == SOME_FACTORS_FOUND) && found,
+              "ecm: stage 1 beyond the prime table");
+        f->length = 0;
+        params.b1 = 821641U;
+        rc = ecm(f, NULL, n, &params, SINGLE_RUN, NULL);
+        CHECK(rc != SOME_FACTORS_FOUND, "ecm: not within the prime table");
+        free_mpz_array(f);
     }
 
     // ---- ECM, default bounds ---- a 40-bit factor of a 189-bit n: the

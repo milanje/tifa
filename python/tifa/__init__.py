@@ -176,8 +176,8 @@ def factor(
     factored in seconds at most, and up to about 280 bits in minutes; beyond,
     the time keeps growing quickly. Composites of more than ``siqs_max_bits``
     bits (320 by default, about 40 minutes of SIQS) are searched by ECM
-    alone, for factors of up to ``ecm_max_bits`` bits (85 by default and at
-    most; each 5 bits less halve about the time): ``factor`` always returns,
+    alone, for factors of up to ``ecm_max_bits`` bits (85 by default, 100
+    at most; each 5 bits more double about the time): ``factor`` always returns,
     but those it does not split raise ``FactorizationError``.
 
     ``hint`` says what is known of ``n``, to save time: ``"balanced"`` if it

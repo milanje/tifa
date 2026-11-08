@@ -52,6 +52,7 @@ set(TIFA_SOURCES
     algo/src/batch_gcd.c
     utils/src/block_lanczos.c
     algo/src/api.c
+    utils/src/primes.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the

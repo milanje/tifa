@@ -100,6 +100,23 @@ static int proper_gcd(mpz_t g, const mpz_t a, const mpz_t n) {
     return (mpz_cmp_ui(g, 1) > 0) && (mpz_cmp(g, n) < 0);
 }
 
+// k <- the product of the largest powers of the primes up to b1 that do not
+// exceed b1.
+static void ref_exponent(mpz_t k, uint32_t b1) {
+    mpz_t q;
+    mpz_init_set_ui(q, 1);
+    mpz_set_ui(k, 1);
+    for (mpz_nextprime(q, q); mpz_cmp_ui(q, b1) <= 0; mpz_nextprime(q, q)) {
+        const unsigned long p = mpz_get_ui(q);
+        unsigned long pe = p;
+        while (pe <= b1 / p) {
+            pe *= p;
+        }
+        mpz_mul_ui(k, k, pe);
+    }
+    mpz_clear(q);
+}
+
 // Reference ECM curve: same Suyama curve, stage 1 to b1, then (if b2 > b1)
 // q.Q for every prime q in (b1, b2]. Returns 1 if a proper factor is found.
 static int ref_curve(mpz_t g, const mpz_t n, uint32_t sigma, uint32_t b1,
@@ -133,14 +150,7 @@ static int ref_curve(mpz_t g, const mpz_t n, uint32_t sigma, uint32_t b1,
     mpz_mul(a24, a24, t);
     mpz_mod(a24, a24, n);
 
-    mpz_set_ui(k, 1);
-    for (uint32_t i = 0; first_primes[i] <= b1; i++) {
-        unsigned long q = first_primes[i];
-        while (q <= b1 / first_primes[i]) {
-            q *= first_primes[i];
-        }
-        mpz_mul_ui(k, k, q);
-    }
+    ref_exponent(k, b1);
     ref_ladder(&p, &p, k, a24, n);
     found = proper_gcd(g, p.z, n);
     mpz_gcd(t, p.z, n);
@@ -150,11 +160,8 @@ static int ref_curve(mpz_t g, const mpz_t n, uint32_t sigma, uint32_t b1,
     ref_pt_t q;
     mpz_inits(q.x, q.z, NULL);
     mpz_set_ui(t, 1);
-    for (uint32_t i = 0; first_primes[i] <= b2; i++) {
-        if (first_primes[i] <= b1) {
-            continue;
-        }
-        mpz_set_ui(k, first_primes[i]);
+    mpz_set_ui(k, b1);
+    for (mpz_nextprime(k, k); mpz_cmp_ui(k, b2) <= 0; mpz_nextprime(k, k)) {
         ref_ladder(&q, &p, k, a24, n);
         mpz_mul(t, t, q.z);
         mpz_mod(t, t, n);
@@ -174,14 +181,8 @@ static int ref_stage1(mpz_t g, const mpz_t n, const mpz_t x0, const mpz_t a24,
     mpz_init_set(p.x, x0);
     mpz_init_set_ui(p.z, 1);
     mpz_t k;
-    mpz_init_set_ui(k, 1);
-    for (uint32_t i = 0; first_primes[i] <= b1; i++) {
-        unsigned long q = first_primes[i];
-        while (q <= b1 / first_primes[i]) {
-            q *= first_primes[i];
-        }
-        mpz_mul_ui(k, k, q);
-    }
+    mpz_init(k);
+    ref_exponent(k, b1);
     ref_ladder(&p, &p, k, a24, n);
     const int found = proper_gcd(g, p.z, n);
     mpz_clears(p.x, p.z, k, NULL);
@@ -339,6 +340,28 @@ int main(void) {
     }
     CHECK(found && (mpz_cmp(g, p) == 0 || mpz_cmp(g, q) == 0),
           "36-bit factor with b2 beyond the prime table");
+
+    // Stage 1 beyond the prime table (it ends at 821641): with sigma 801,
+    // the curve orders mod p and q need the primes 864733 and 899447.
+    {
+        mont_ecm_plan_t* const table = alloc_mont_ecm_plan(LARGEST_PRIME, 0);
+        mont_ecm_plan_t* const wide  = alloc_mont_ecm_plan(900000, 0);
+        mpz_set_ui(p, 2739551959UL);
+        mpz_set_ui(q, 2406989621UL);
+        mpz_set_str(n, "2305843009213693951", 10);
+        mpz_mul(n, n, p);
+        CHECK(!mont_ecm_curve(g, n, 801, table),
+              "stage 1 to the end of the table misses p");
+        CHECK(mont_ecm_curve(g, n, 801, wide) && (mpz_cmp(g, p) == 0),
+              "stage 1 beyond the table finds p");
+        CHECK(ref_curve(gref, n, 801, 900000, 0) && (mpz_cmp(gref, p) == 0),
+              "so does the reference");
+        mpz_mul(n, p, q);
+        CHECK(mont_ecm_curve(g, n, 801, wide) && (mpz_cmp(g, p) == 0),
+              "backtrack beyond the table splits p q");
+        free_mont_ecm_plan(table);
+        free_mont_ecm_plan(wide);
+    }
 
     free_mont_ecm_plan(plan1);
     free_mont_ecm_plan(plan2);

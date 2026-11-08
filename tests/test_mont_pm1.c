@@ -231,6 +231,37 @@ int main(void) {
         }
     }
 
+    // Stage 1 beyond the prime table (it ends at 821641): p - 1 and q - 1
+    // have the prime factors 864733 and 899447, which the orders of 2 and of
+    // the p+1 root of seed 26 take (that root lies in GF(p) and GF(q)). The
+    // cofactor 2.r + 1 (r prime) has neither smooth.
+    {
+        mont_ecm_plan_t* const table = alloc_mont_ecm_plan(LARGEST_PRIME, 0);
+        mont_ecm_plan_t* const mid   = alloc_mont_ecm_plan(880000, 0);
+        mont_ecm_plan_t* const wide  = alloc_mont_ecm_plan(900000, 0);
+        mpz_set_ui(p, 1767514253UL);    // p - 1 = 2^2.7.73.864733
+        mpz_set_ui(q, 1807888471UL);    // q - 1 = 2.3.5.67.899447
+        mpz_set_str(n, "2305843009213691579", 10);
+        mpz_mul(n, n, p);
+        CHECK(mont_pm1(g, n, 2, table) == 0,
+              "p-1 to the end of the table misses p");
+        CHECK((mont_pm1(g, n, 2, wide) == 1) && (mpz_cmp(g, p) == 0),
+              "p-1 beyond the table finds p");
+        CHECK(mont_pp1(g, n, 26, table) == 0,
+              "p+1 to the end of the table misses p");
+        CHECK((mont_pp1(g, n, 26, wide) == 1) && (mpz_cmp(g, p) == 0),
+              "p+1 beyond the table finds p");
+        mpz_mul(n, p, q);
+        CHECK((mont_pm1(g, n, 2, mid) == 1) && (mpz_cmp(g, p) == 0),
+              "p-1 beyond the table splits p q");
+        CHECK(mont_pm1(g, n, 2, wide) == -1, "p-1 catches p and q at once");
+        CHECK((mont_pp1(g, n, 26, wide) == 1) && (mpz_cmp(g, p) == 0),
+              "p+1 backtrack beyond the table splits p q");
+        free_mont_ecm_plan(table);
+        free_mont_ecm_plan(mid);
+        free_mont_ecm_plan(wide);
+    }
+
     free_mont_ecm_plan(plan1);
     free_mont_ecm_plan(plan2);
     mpz_clears(n, p, q, g, gref, NULL);
