@@ -225,13 +225,7 @@ static const ecm_level_t ecm_levels[] = {
     { 70,  72000, 32 },
     { 75, 144000, 40 },
     { 80, 288000, 50 },
-    { 85, 576000, 64 },
-    //
-    // Extrapolated, for ecm_max_bits above 85 (stage 2 at most MAX_B2).
-    //
-    { 90, 1152000, 80 },
-    { 95, 2304000, 100 },
-    { 100, 4608000, 128 }
+    { 85, 576000, 64 }
 };
 #define NLEVELS (sizeof(ecm_levels) / sizeof(ecm_levels[0]))
 
@@ -415,7 +409,7 @@ void set_ecm_params_for_factor_size(const uint32_t fbits,
         i++;
     }
     params->b1      = ecm_levels[i].b1;
-    params->b2      = MIN(ECM_B2_RATIO * ecm_levels[i].b1, MAX_B2);
+    params->b2      = ECM_B2_RATIO * ecm_levels[i].b1;
     params->ncurves = ecm_levels[i].ncurves;
     params->seed    = 0;
 }
@@ -724,7 +718,7 @@ static void switch_to_level(factoring_machine_t* const machine,
     ecm_params_t*  params  = (ecm_params_t*)  machine->params;
 
     params->b1      = ecm_levels[level].b1;
-    params->b2      = MIN(ECM_B2_RATIO * ecm_levels[level].b1, MAX_B2);
+    params->b2      = ECM_B2_RATIO * ecm_levels[level].b1;
     params->ncurves = ecm_levels[level].ncurves;
 
     //

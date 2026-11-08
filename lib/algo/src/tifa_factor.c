@@ -273,29 +273,27 @@ static ecode_t run_gmp_ecm(mpz_array_t* const factors,
 //-----------------------------------------------------------------------------
 //
 // A composite above siqs_max_bits: ECM alone searches it, for factors of up
-// to ecm_max_bits bits (none with the balanced hint), and what it does not
-// split is left, with FACTORS_TOO_LARGE.
+// to ecm_max_bits bits, whatever the hint (so that a hint never changes the
+// factors found), and what it does not split is left, with
+// FACTORS_TOO_LARGE.
 //
 static ecode_t beyond_siqs(mpz_array_t* const factors,
                            uint32_array_t* const multis,
-                           const mpz_t n, const factoring_mode_t mode,
-                           const tifa_factor_hint_t hint) {
+                           const mpz_t n, const factoring_mode_t mode) {
     ecode_t ecode = NO_FACTOR_FOUND;
-    if (hint != TIFA_FACTOR_BALANCED) {
 #if TIFA_HAVE_MONT_ECM
-        const bool ecm = mont_ecm_handles(n);
-        if (ecm) {
-            ecode = run_ecm_prepass(factors, multis, n, mode, INFINITY);
-        }
+    const bool ecm = mont_ecm_handles(n);
+    if (ecm) {
+        ecode = run_ecm_prepass(factors, multis, n, mode, INFINITY);
+    }
 #else
-        const bool ecm = false;
+    const bool ecm = false;
 #endif
-        if (!ecm && (mpz_sizeinbase(n, 2) >= TFACTOR_PRESTAGE_THRESH)) {
-            ecode = run_prestages(factors, multis, n, mode);
-        }
-        if (!ecm && (ecode == NO_FACTOR_FOUND)) {
-            ecode = run_gmp_ecm(factors, multis, n, mode);
-        }
+    if (!ecm && (mpz_sizeinbase(n, 2) >= TFACTOR_PRESTAGE_THRESH)) {
+        ecode = run_prestages(factors, multis, n, mode);
+    }
+    if (!ecm && (ecode == NO_FACTOR_FOUND)) {
+        ecode = run_gmp_ecm(factors, multis, n, mode);
     }
     if (ecode != NO_FACTOR_FOUND) {
         return ecode;
@@ -359,12 +357,18 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
 
         ecode_t ecode = tifa_factor_impl(factors, multis, rootn, mode, hint);
 
-        if (   (ecode != COMPLETE_FACTORIZATION_FOUND)
-            && (ecode != PARTIAL_FACTORIZATION_FOUND)
-            && (ecode != FACTORS_TOO_LARGE)
-            && (ecode != best)) {
+        //
+        // In the other modes, FACTORS_TOO_LARGE comes without factors.
+        //
+        const bool split =
+            complete ? (   (ecode == COMPLETE_FACTORIZATION_FOUND)
+                        || (ecode == PARTIAL_FACTORIZATION_FOUND)
+                        || (ecode == FACTORS_TOO_LARGE))
+                     : (ecode == best);
+        if (!split) {
             //
-            // Stopped: n = rootn^k is still a split, as add_cofactor gives.
+            // Stopped, or too large (without factors outside the complete
+            // mode): n = rootn^k is still a split, as add_cofactor gives.
             //
             factors->length = old_flength;
             if (complete) {
@@ -400,7 +404,8 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         set_squfof_params_to_default(&params);
         ecode_t ecode = squfof_impl(factors, multis, n, &params, mode);
         if (   (ecode == (ecode_t) mode_to_outcome[mode])
-            || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
+            || (ecode == PARTIAL_FACTORIZATION_FOUND)
+            || (ecode == FACTORS_TOO_LARGE)) {
             return ecode;
         }
         //
@@ -408,7 +413,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         //
     }
     if (sizen > tifa_siqs_max_bits()) {
-        return beyond_siqs(factors, multis, n, mode, hint);
+        return beyond_siqs(factors, multis, n, mode);
     }
     ecode_t ecode = NO_FACTOR_FOUND;
     const bool prepass = (hint != TIFA_FACTOR_BALANCED);
@@ -486,7 +491,7 @@ ecode_t tifa_factor_impl(mpz_array_t* const factors,
     if (mode > FIND_COMPLETE_FACTORIZATION) {
         return UNKNOWN_FACTORING_MODE;
     }
-    if (hint > TIFA_FACTOR_UNBALANCED) {
+    if ((unsigned int) hint > TIFA_FACTOR_UNBALANCED) {
         return FAILURE;
     }
     if (mpz_cmp_ui(n, 1) <= 0) {

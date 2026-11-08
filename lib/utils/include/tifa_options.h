@@ -51,7 +51,7 @@ typedef bool (*tifa_interrupt_check_t)(void* arg);
     * A hint never changes the factors found, only the time taken to find
     * them. It applies to the prime factors of n above 1000, and is ignored up
     * to 64 bits (58 without 128-bit integers), where machine words (or
-    * SQUFOF) factor n.
+    * SQUFOF) factor n, and above \c siqs_max_bits, where ECM alone searches.
     */
 enum tifa_factor_hint_enum {
         /**
@@ -93,9 +93,10 @@ typedef enum tifa_factor_hint_enum tifa_factor_hint_t;
 
    /**
     * \def TIFA_ECM_TOP_BITS
-    * The largest \c ecm_max_bits: ECM's levels stop at factors of this size.
+    * The largest \c ecm_max_bits: ECM's levels stop at factors of this size
+    * (stage 1 takes its primes from the table of first_primes.h).
     */
-#define TIFA_ECM_TOP_BITS 100
+#define TIFA_ECM_TOP_BITS 85
 
    /**
     * \struct struct_tifa_options_t tifa_options.h
@@ -105,10 +106,13 @@ typedef enum tifa_factor_hint_enum tifa_factor_hint_t;
     * The functions that can run long take a pointer to them, or NULL for the
     * defaults: \c tifa_factor, \c tifa_prove_prime, \c tifa_cofactor,
     * \c tifa_batch_gcd and the algorithms (\c siqs, \c ecm, ...). They hold
-    * for that call only, the calls it makes included, and several threads
-    * can share the same options. A call with options made from within
-    * another (from its interrupt check, for instance) has its own, and gives
-    * the outer call back its own when it returns.
+    * for that call only, the calls it makes included. A call made from within
+    * another (from its interrupt check, for instance) has its own, or the
+    * defaults, and gives the outer call back its own when it returns; the
+    * interrupt check is not called again from there. Several threads can
+    * share the same options: their interrupt check is then called from each
+    * of them, with the same argument. A time limit counts from each call:
+    * for one budget over several calls, give each the time left.
     *
     * \code
     * tifa_options_t options = { .time_limit = 10, .threads = 4 };
@@ -156,8 +160,8 @@ struct struct_tifa_options_t {
          */
     void* interrupt_arg;
         /**
-         * What is known of the number given to \c tifa_factor (ignored by
-         * the other functions).
+         * What is known of the number given to \c tifa_factor, which refuses
+         * an unknown one with \c FAILURE (the other functions ignore it).
          */
     tifa_factor_hint_t hint;
         /**
@@ -170,9 +174,9 @@ struct struct_tifa_options_t {
         /**
          * The size, in bits, of the largest factors ECM searches for, by
          * itself (\c ecm) and on the composites above \c siqs_max_bits: 0
-         * for \c TIFA_ECM_MAX_BITS (85 bits: 12 minutes at 520 bits on an
-         * Apple M5 Pro), at most \c TIFA_ECM_TOP_BITS. Each 5 bits more
-         * take about twice as long.
+         * for \c TIFA_ECM_MAX_BITS (85 bits, also the largest: 12 minutes at
+         * 520 bits on an Apple M5 Pro). Each 5 bits less halve about the
+         * time, for an earlier \c FACTORS_TOO_LARGE.
          */
     uint32_t ecm_max_bits;
         /**

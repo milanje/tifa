@@ -120,6 +120,7 @@ prime_cert_status_t tifa_prove_prime(prime_cert_t* cert, const mpz_t n,
                                      const tifa_options_t* const options) {
     tifa_call_t call;
     if (!tifa_call_begin(&call, options)) {
+        cert->nsteps = 0;
         return PRIME_NOT_PROVEN;
     }
     const prime_cert_status_t status = tifa_prove_prime_impl(cert, n);

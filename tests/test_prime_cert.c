@@ -488,6 +488,15 @@ int main(void) {
     CHECK(!tifa_check_prime_cert(c, n) && tifa_check_prime_cert(c, m),
           "certificate replaced");
 
+    // Refused options leave no certificate behind; a hint is ignored.
+    const tifa_options_t refusing = { .reserved = { 0, 1 } };
+    CHECK(   (tifa_prove_prime(c, n, &refusing) == PRIME_NOT_PROVEN)
+          && (c->nsteps == 0) && !tifa_check_prime_cert(c, m),
+          "refused options: no certificate left");
+    const tifa_options_t odd_hint = { .hint = (tifa_factor_hint_t) 3 };
+    CHECK(tifa_prove_prime(c, m, &odd_hint) == PRIME_PROVEN,
+          "tifa_prove_prime ignores the hint");
+
     gmp_randclear(state);
     mpz_clears(n, m, NULL);
     free_prime_cert(c);

@@ -62,14 +62,7 @@ static const struct {
     { 70, 102400, 38,  7850.0 },
     { 75, 204800, 45, 15700.0 },
     { 80, 409600, 48, 30900.0 },
-    { 85, 819200, 50, 63000.0 },
-    //
-    // Extrapolated, for the searches above the reach of SIQS (stage 2 at
-    // most MAX_PLAN_B2).
-    //
-    { 90, 1638400, 60, 126000.0 },
-    { 95, 3276800, 72, 252000.0 },
-    { 100, 6553600, 86, 504000.0 }
+    { 85, 819200, 50, 63000.0 }
 };
 #define NLEVELS (sizeof(levels) / sizeof(levels[0]))
 //
@@ -93,15 +86,6 @@ static const struct {
     { 280, 98000000 }, { 288, 185000000 }
 };
 #define NSIQS_COSTS (sizeof(siqs_costs) / sizeof(siqs_costs[0]))
-
-//
-// Largest stage 2 bound of a level: 40 MB and 0.2 s to build its plan.
-//
-#define MAX_PLAN_B2 (1U << 26)
-
-static uint32_t level_b2(const uint32_t b1) {
-    return (b1 < MAX_PLAN_B2 / 50) ? 50 * b1 : MAX_PLAN_B2;
-}
 
 #define PM1_B1 315
 //
@@ -133,7 +117,7 @@ ecm_schedule_t* alloc_ecm_schedule(const uint32_t max_bits) {
         if (levels[s->nlevels].fbits <= EAGER_FBITS) {
             s->plans[s->nlevels] = alloc_mont_ecm_plan(
                                        levels[s->nlevels].b1,
-                                       level_b2(levels[s->nlevels].b1)
+                                       50 * levels[s->nlevels].b1
                                    );
             s->neager++;
         }
@@ -162,7 +146,7 @@ static const mont_ecm_plan_t* level_plan(ecm_schedule_t* const schedule,
     pthread_mutex_lock(&schedule->lock);
     if (schedule->plans[i] == NULL) {
         schedule->plans[i] = alloc_mont_ecm_plan(levels[i].b1,
-                                                 level_b2(levels[i].b1));
+                                                 50 * levels[i].b1);
     }
     const mont_ecm_plan_t* const plan = schedule->plans[i];
     pthread_mutex_unlock(&schedule->lock);
@@ -280,12 +264,6 @@ bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
         return run_levels_threaded(g, n, schedule, &it);
     }
     return run_levels(g, n, schedule, &it);
-}
-//------------------------------------------------------------------------------
-bool ecm_schedule_search(mpz_t g, const mpz_t n,
-                         ecm_schedule_t* const schedule,
-                         const double max_bits) {
-    return ecm_schedule_prepass(g, n, schedule, INFINITY, max_bits);
 }
 //------------------------------------------------------------------------------
 //

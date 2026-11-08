@@ -85,24 +85,44 @@ static bool valid(const tifa_options_t* const options) {
             return false;
         }
     }
-    return (options->hint == TIFA_FACTOR_RANDOM)
-           || (options->hint == TIFA_FACTOR_BALANCED)
-           || (options->hint == TIFA_FACTOR_UNBALANCED);
+    return true;
 }
+
+static bool is_default(const tifa_stop_state_t* const s) {
+    return    !s->limited && (s->check == NULL) && (s->threads <= 1)
+           && (s->siqs_max_bits == 0) && (s->ecm_max_bits == 0);
+}
+
+static const tifa_options_t defaults;
 
 //------------------------------------------------------------------------------
 bool tifa_call_begin(tifa_call_t* const call,
-                     const tifa_options_t* const options) {
+                     const tifa_options_t* options) {
     call->installed = false;
     if (options == NULL) {
-        return true;
+        //
+        // The defaults, which the thread has unless within a call with
+        // options (from its interrupt check): nothing to install then.
+        //
+        const tifa_stop_state_t* const s = key_ok()
+                                         ? pthread_getspecific(state_key)
+                                         : NULL;
+        if ((s == NULL) || is_default(s)) {
+            return true;
+        }
+        options = &defaults;
     }
     if (!valid(options)) {
         return false;
     }
     tifa_stop_state_t* const s = state(true);
     if (s == NULL) {
-        return true;
+        //
+        // Options that can not hold are refused rather than dropped.
+        //
+        return    !(isfinite(options->time_limit) && (options->time_limit > 0))
+               && (options->interrupt == NULL) && (options->threads <= 1)
+               && (options->siqs_max_bits == 0) && (options->ecm_max_bits == 0);
     }
     call->saved     = *s;
     call->installed = true;
@@ -155,8 +175,17 @@ bool tifa_should_stop(void) {
     if (s->interrupted || (s->limited && passed(s))) {
         return true;
     }
-    if ((s->check != NULL) && s->check(s->arg)) {
-        s->interrupted = true;
+    if (s->check != NULL) {
+        //
+        // Not called again by the calls the check makes.
+        //
+        const tifa_interrupt_check_t check = s->check;
+        s->check = NULL;
+        const bool stop = check(s->arg);
+        s->check = check;
+        if (stop) {
+            s->interrupted = true;
+        }
     }
     return s->interrupted;
 }

@@ -31,6 +31,7 @@
 #include "ecm.h"
 #include "mont_ecm.h"
 #include "tifa_factor.h"
+#include "batch_gcd.h"
 #include "tifa_options.h"
 #include "stopping.h"
 
@@ -103,6 +104,57 @@ static bool nested_call(void* arg) {
         free_uint32_array(m);
         mpz_clear(k);
     }
+    return false;
+}
+
+//
+// An interrupt check that factors a 120-bit semiprime without options, once,
+// and notes how deep it is called within itself.
+//
+typedef struct {
+    unsigned depth;
+    unsigned max_depth;
+    unsigned ncalls;
+    ecode_t  inner;
+} defaults_check_t;
+
+static bool factor_with_defaults(void* arg) {
+    defaults_check_t* const c = arg;
+    c->depth++;
+    if (c->depth > c->max_depth) {
+        c->max_depth = c->depth;
+    }
+    if (c->ncalls++ == 0) {
+        mpz_t k;
+        mpz_init_set_str(k, "664613997892458106507825459650105571", 10);
+        mpz_array_t* f    = alloc_mpz_array(4);
+        uint32_array_t* m = alloc_uint32_array(4);
+        c->inner = tifa_factor(f, m, k, FIND_COMPLETE_FACTORIZATION, NULL);
+        free_mpz_array(f);
+        free_uint32_array(m);
+        mpz_clear(k);
+    }
+    c->depth--;
+    return false;
+}
+
+//
+// An interrupt check that runs a batch gcd without options each time.
+//
+static bool gcd_each_time(void* arg) {
+    unsigned* const ncalls = arg;
+    (*ncalls)++;
+    mpz_array_t* moduli = alloc_mpz_array(2);
+    mpz_array_t* gcds   = alloc_mpz_array(2);
+    mpz_t x;
+    mpz_init_set_ui(x, 15);
+    append_mpz_to_array(moduli, x);
+    mpz_set_ui(x, 21);
+    append_mpz_to_array(moduli, x);
+    tifa_batch_gcd(gcds, moduli, NULL);
+    mpz_clear(x);
+    free_mpz_array(moduli);
+    free_mpz_array(gcds);
     return false;
 }
 
@@ -246,6 +298,43 @@ int main(void) {
     CHECK(ncalls > 1, "its check holds after the nested call");
     free_mpz_array(g);
     free_uint32_array(h);
+
+    // A call without options made from an interrupt check has the defaults,
+    // not the outer call's options, and does not call the check again.
+    {
+        defaults_check_t c = { 0, 0, 0, FAILURE };
+        const tifa_options_t outer = { .siqs_max_bits = 60, .ecm_max_bits = 20,
+                                       .interrupt     = factor_with_defaults,
+                                       .interrupt_arg = &c };
+        random_prime(p, 50, rng);
+        random_prime(q, 50, rng);
+        mpz_mul(n, p, q);
+        mpz_array_t* cf    = alloc_mpz_array(4);
+        uint32_array_t* cm = alloc_uint32_array(4);
+        tifa_factor(cf, cm, n, FIND_COMPLETE_FACTORIZATION, &outer);
+        CHECK(c.ncalls > 0, "the outer check is called");
+        CHECK(c.inner == COMPLETE_FACTORIZATION_FOUND,
+              "the inner call without options has the defaults");
+        CHECK(c.max_depth == 1, "the check is not called within itself");
+        free_mpz_array(cf);
+        free_uint32_array(cm);
+    }
+    {
+        unsigned ncalls = 0;
+        const tifa_options_t each = { .interrupt = gcd_each_time,
+                                      .interrupt_arg = &ncalls,
+                                      .hint = TIFA_FACTOR_BALANCED };
+        random_prime(p, 60, rng);
+        random_prime(q, 60, rng);
+        mpz_mul(n, p, q);
+        mpz_array_t* cf    = alloc_mpz_array(4);
+        uint32_array_t* cm = alloc_uint32_array(4);
+        CHECK(   (tifa_factor(cf, cm, n, FIND_COMPLETE_FACTORIZATION, &each)
+                  == COMPLETE_FACTORIZATION_FOUND) && (ncalls > 0),
+              "a check calling the library at each call does not recurse");
+        free_mpz_array(cf);
+        free_uint32_array(cm);
+    }
 
     // Stopped early, a composite is never said to have no factor.
     static const char* const composites[] = {

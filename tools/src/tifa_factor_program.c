@@ -61,7 +61,8 @@ static void print_usage(factoring_program_t* const program) {
                     "SIQS (320 by\ndefault); larger ones are searched by ECM "
                     "alone.\n\n");
     fprintf(stderr, "--ecm-max-bits <n>: the largest factors, in bits, that "
-                    "ECM searches for\nthere (85 by default, at most 100).\n\n");
+                    "ECM searches for\nthere (85 by default and at "
+                    "most).\n\n");
     print_exit_statuses();
 }
 //------------------------------------------------------------------------------
@@ -211,7 +212,7 @@ int main(int argc, char** argv) {
     if (bad_arg) {
         fprintf(stderr, "--threads takes a number of threads, from 1 to "
                         "1024, --siqs-max-bits\nand --ecm-max-bits a number "
-                        "of bits, from 1.\n\n");
+                        "of bits, from 1 to 100000.\n\n");
         print_usage(&program);
         return TIFA_EXIT_USAGE;
     }

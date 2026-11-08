@@ -28,6 +28,7 @@
 #include "tifa_factor.h"
 #include "mont_ecm.h"
 #include "tifa_options.h"
+#include "squfof.h"
 
 //
 // The options of factor_and_check: threads in the last tests.
@@ -465,8 +466,8 @@ int main(void) {
                                           .ecm_max_bits  = 30,
                                           .hint = TIFA_FACTOR_BALANCED };
         e = tifa_factor(f, m, x, FIND_COMPLETE_FACTORIZATION, &balanced);
-        CHECK((e == FACTORS_TOO_LARGE) && same_pairs(f, m, &x, ones, 1),
-              "balanced hint: no ECM above siqs_max_bits");
+        CHECK((e == FACTORS_TOO_LARGE) && same_pairs(f, m, expected, ones, 2),
+              "the balanced hint changes nothing above siqs_max_bits");
 
         prime_of(a, state, 100);
         mpz_mul(x, a, r);
@@ -504,6 +505,30 @@ int main(void) {
         CHECK(   (e == COMPLETE_FACTORIZATION_FOUND)
               && tifa_is_complete_factorization(x, f, m),
               "ecm_max_bits above the top level is the top level");
+
+        // A square of a composite too large for SIQS, in the other modes:
+        // its root is a factor still.
+        prime_of(a, state, 60);
+        prime_of(b, state, 59);
+        mpz_mul(ab, a, b);
+        mpz_mul(x, ab, ab);
+        const tifa_options_t smaller = { .siqs_max_bits = 100,
+                                         .ecm_max_bits  = 15 };
+        reset_mpz_array(f);
+        e = tifa_factor(f, NULL, x, FIND_SOME_FACTORS, &smaller);
+        CHECK(   (e == SOME_FACTORS_FOUND) && (f->length == 1)
+              && (mpz_cmp(f->data[0], ab) == 0),
+              "a square too large for SIQS: its root, outside complete mode");
+
+        // An unknown hint is refused by tifa_factor alone.
+        const tifa_options_t odd_hint = { .hint = (tifa_factor_hint_t) 3 };
+        squfof_params_t sp;
+        set_squfof_params_to_default(&sp);
+        mpz_set_ui(x, 1000003UL);
+        mpz_mul_ui(x, x, 1000033UL);
+        reset_mpz_array(f);
+        CHECK(squfof(f, NULL, x, &sp, FIND_SOME_FACTORS, &odd_hint)
+                  == SOME_FACTORS_FOUND, "squfof ignores the hint");
 
         mpz_clears(expected[0], expected[1], NULL);
         free_mpz_array(f);

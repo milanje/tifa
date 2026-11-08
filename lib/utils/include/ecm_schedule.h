@@ -83,7 +83,8 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
                         double target_bits, double budget);
 
    /**
-    * \brief Searches \c n for a factor of at most half its size before SIQS.
+    * \brief Searches \c n for a factor of at most half its size, and of at
+    * most \c max_bits bits, before SIQS (with an infinite budget: instead).
     *
     * As \c ecm_schedule_split, except that the first level runs whole as
     * soon as one of its curves fits in the budget. With a budget of 0.2, the
@@ -103,17 +104,6 @@ bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
                           ecm_schedule_t* schedule, double budget,
                           double max_bits);
 
-   /**
-    * \brief Searches \c n for a factor of up to \c max_bits bits, without a
-    * budget: p-1, then every level up to the one that holds \c max_bits,
-    * in threads as \c ecm_schedule_prepass. For composites SIQS will not
-    * factor.
-    * \param[out] g A proper factor of \c n, if one is found.
-    * \param[in]  n The odd composite to search (see \c mont_ecm_handles).
-    * \return true if a proper factor was found.
-    */
-bool ecm_schedule_search(mpz_t g, const mpz_t n, ecm_schedule_t* schedule,
-                         double max_bits);
 
 #endif
 

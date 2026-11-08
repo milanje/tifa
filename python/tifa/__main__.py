@@ -84,7 +84,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     parser.add_argument(
         "--ecm-max-bits", type=int, metavar="BITS",
-        help="the largest factors ECM searches for there (default 85)",
+        help="the largest factors ECM searches for there (default and most 85)",
     )
     parser.add_argument(
         "--version", action="version", version=f"tifa {tifa.__version__}"
