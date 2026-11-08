@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(Tifa
-    VERSION 0.4.9
+    VERSION 0.4.10
     DESCRIPTION "TIFA - Tools for Integer FActorization"
     LANGUAGES C
 )

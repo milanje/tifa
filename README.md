@@ -39,6 +39,17 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+**Version 0.4.10 (November 2026)** runs SIQS, and the ECM search that
+`tifa_factor()` runs before it, in several threads with
+`tifa_set_threads()`, `--threads` or Python's `threads=`: in six threads on
+an Apple M5 Pro, `tifa_factor()` takes 0.41 of the time of one thread at
+140 bits, 0.27 at 180 and 0.22 at 240; in one thread, the default, nothing
+changes. A bug hunt over the whole code fixed, among others, a block
+Lanczos loop without end, CFRAC's rows, Python calls from a signal handler
+and the programs' exit statuses (see
+[readme/releases/0.4.10.md](./readme/releases/0.4.10.md)). The ABI only
+grows (`libtifa.so.0.4`).
+
 **Version 0.4.9 (November 2026)** gives SIQS a third linear algebra,
 Montgomery's block Lanczos on a sparse matrix, from 12000 primes in its
 factor base (about 230 bits): on an Apple M5 Pro, from 240 to 280 bits, the
@@ -49,21 +60,9 @@ of a tuning file (see
 [readme/releases/0.4.9.md](./readme/releases/0.4.9.md)). The ABI only grows
 (`libtifa.so.0.4`).
 
-**Version 0.4.8 (November 2026)** runs ECM in Montgomery arithmetic up to 512
-bits and in GMP arithmetic above, so that `tifa_factor()` finds the small
-factors of numbers of any size, where it ran SIQS for hours or without end: a
-40-bit factor of a 264-bit number in 11 ms rather than 31 s on an Apple M5 Pro,
-of a 1024-bit number in 92 ms. `tifa_batch_gcd()` and the `tifa-batch-gcd`
-program find, among many RSA moduli, those sharing a prime (100,000 of 2048
-bits in 30 s). The Python package gains `Cofactorizer`, `batch_gcd()`, Ctrl-C,
-`python -m tifa` and, in the wheels, the `tifa-factor` and `tifa-batch-gcd`
-programs; `tifa_factor()` is back to 0.4.6's speed at 70 and 80 bits (see
-[readme/releases/0.4.8.md](./readme/releases/0.4.8.md)). The ABI only grows
-(`libtifa.so.0.4`).
-
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
-changes and their measurements; the changes on master since 0.4.9 are in
+changes and their measurements; the changes on master since 0.4.10 are in
 [readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there

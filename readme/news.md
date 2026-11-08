@@ -13,6 +13,20 @@ Nothing yet.
 
 [Release notes](./releases/unreleased.md)
 
+## 0.4.10 &mdash; 2026-11-08
+
+- SIQS, and the ECM search before it, in several threads
+  (`tifa_set_threads()`, `--threads`, Python's `threads=`): in six
+  threads, `tifa_factor()` takes 0.41 of the time at 140 bits, 0.22 at
+  240.
+- Fixes from a bug hunt over the whole code: block Lanczos without end on
+  some CFRAC matrices, CFRAC's `FATAL_INTERNAL_ERROR` when `nprimes_tdiv`
+  was below the base, Python calls from a signal handler, the programs'
+  exit statuses, and more.
+- ABI grows (`libtifa.so.0.4`).
+
+[Release notes](./releases/0.4.10.md)
+
 ## 0.4.9 &mdash; 2026-11-07
 
 - Block Lanczos (`BLOCK_LANCZOS`), for SIQS from about 230 bits: at 280
