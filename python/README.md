@@ -32,6 +32,18 @@ Numbers with small factors take much less. From 180 bits the time doubles
 about every 10 to 12 bits: on an Apple M5 Pro, about 9 s at 240 bits, 24 s
 at 256 and 2 minutes at 280.
 
+## Large numbers
+
+Composites of more than 320 bits, where the quadratic sieve would take hours
+to years, are searched by elliptic curves alone, for factors of up to 85
+bits: `factor` always returns, but a composite left raises
+`FactorizationError`, its `factors` holding what was found. Both sizes are
+options (each 5 bits of factor take about twice as long, up to 100):
+
+```python
+tifa.factor(n, siqs_max_bits=340, ecm_max_bits=95)
+```
+
 ## Hints
 
 When something is known of `n`, a hint saves time:
@@ -111,10 +123,11 @@ the example above takes a few hours.
 
 ## Errors
 
-`TypeError` if `n` or `threads` is not an integer or `timeout` not a
-number, `ValueError` if one of them is not positive or the hint is
-unknown. In the rare event that `n` can not be factored
-completely (or, with `proof=True`, a factor not proven prime),
+`TypeError` if `n`, `threads`, `siqs_max_bits` or `ecm_max_bits` is not
+an integer or `timeout` not a number, `ValueError` if one of them is not
+positive or the hint is unknown. When `n` can not be factored completely
+(composites too large, see [Large numbers](#large-numbers), or rarely a
+failure, or with `proof=True` a factor not proven prime),
 `tifa.FactorizationError` is raised, its `factors` attribute holding what
 was found (factors that multiply to `n`, some of them not prime).
 
@@ -210,7 +223,8 @@ $ python -m tifa --exponents 360
 360: 2^3 3^2 5
 ```
 
-`--proof`, `--hint`, `--timeout` and `--threads` are those of `factor`; an
+`--proof`, `--hint`, `--timeout`, `--threads`, `--siqs-max-bits` and
+`--ecm-max-bits` are those of `factor`; an
 integer that is invalid or not factored is reported on the standard error,
 and makes the exit status 1. The package also installs the programs of the C library
 `tifa-factor`, `tifa-batch-gcd` (see [Shared primes](#shared-primes)) and

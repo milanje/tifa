@@ -148,11 +148,11 @@ Here are some short term objectives:
         sieving from 240 to 280 bits (0.994 to 1.002): no placement to fix.
         Measure such effects in alternation: the M5 slows by about 3% over a
         few minutes of load, which a sweep in order takes for an effect.
-      - Threads (tifa_set_threads, November 2026): at 240 bits in 6 threads
-        the collection takes 1.23 s, near a sixth of 6.79 s, but the trial
-        division of the relations (0.08 s) and the linear algebra (0.10 s)
-        stay in one thread, 13% of the run. The batch test under the lock
-        costs little: the threads wait for it 2% of the time.
+      - Threads (November 2026): at 240 bits in 6 threads the collection
+        takes 1.23 s, near a sixth of 6.79 s, but the trial division of the
+        relations (0.08 s) and the linear algebra (0.10 s) stay in one
+        thread, 13% of the run. The batch test under the lock costs little:
+        the threads wait for it 2% of the time.
       - From seven primes in 'a', the approximer sorts up to 18424 triples
         of primes per run (0.5 ms, 0.5% at 170 bits): pairs, which fixed six
         primes, gave slower 'a' there, but finding the best triple without

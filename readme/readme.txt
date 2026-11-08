@@ -96,9 +96,10 @@
   tifa_prime_cert_to_str() writes as text and tifa_prime_cert_from_str()
   reads back. tifa_batch_gcd() finds, among many integers (RSA moduli, say),
   those sharing a prime with another, from product and remainder trees.
-  tifa_set_time_limit() bounds the time of the factorizations of a thread,
-  approximately, and tifa_set_threads() runs SIQS and the ECM search before
-  it in several threads, for one large number.
+  Their options (tifa_options.h) bound the time of a call, approximately,
+  let a function interrupt it, run SIQS and the ECM search before it in
+  several threads, for one large number, and set the size above which
+  tifa_factor() searches composites with ECM alone, so that it always ends.
 
   Needless to say, this library is not intended to break any factorization
   records. :-)

@@ -9,7 +9,12 @@ say otherwise.
 
 ## Unreleased
 
-Nothing yet.
+- Options per call (`tifa_options.h`) instead of thread-local setters:
+  time limit, interrupt, threads, hint, sizes. ABI and API change.
+- The outcome follows the factoring mode; `FIND_SOME_PRIME_FACTORS` gone.
+- `tifa_factor()` always ends: composites above 320 bits go to ECM alone,
+  and those it does not split give `FACTORS_TOO_LARGE`.
+- A crash of 0.4.10 fixed (`multis` NULL, powers of composites).
 
 [Release notes](./releases/unreleased.md)
 

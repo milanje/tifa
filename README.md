@@ -70,20 +70,21 @@ changes and their measurements; the changes on master since 0.4.10 are in
 - `tifa_factor()` (`tifa_factor.h`) factors an integer completely, choosing the
   methods by size: machine-word arithmetic below 2^64; above, trial division by
   the primes below 1000, a short ECM search for factors of up to 60 bits (85
-  above 256 bits; without 128-bit integers, single p-1 and p+1 runs up to 512
-  bits), then SIQS. Above 512 bits, where SIQS would take years, single p-1
-  and p+1 runs and ECM in GMP arithmetic look for factors of up to 85 bits,
-  for as long as that takes (about 12 minutes at 520 bits on an Apple M5 Pro).
-  `tifa_factor_with_hint()` does the same, told what is known of the number:
-  two prime factors of about the same size (SIQS runs right away), or one
-  below a third of its size (ECM searches for longer).
-- `tifa_set_time_limit()` (`time_limit.h`) limits the time of the calling
-  thread's factorizations: SIQS, its linear algebra and ECM give up soon
-  after it, or when the function given to `tifa_set_interrupt_check()` says
-  so (Ctrl-C in Python). `tifa_set_threads()` lets them run SIQS and the ECM
-  search before it in several threads (`tifa_factor()` 4.5 times as fast in
-  6 threads at 240 bits on an Apple M5 Pro); one thread, the default, runs
-  as before.
+  above 256 bits; without 128-bit integers, single p-1 and p+1 runs), then
+  SIQS. Composites above 320 bits, where SIQS would take hours to years, go
+  to ECM alone, for factors of up to 85 bits (about 12 minutes at 520 bits
+  on an Apple M5 Pro); what it does not split is left, with the outcome
+  `FACTORS_TOO_LARGE`, so that a call always ends.
+- Each function that can run long takes options (`tifa_options.h`), NULL for
+  the defaults: a time limit, after which SIQS, its linear algebra and ECM
+  give up soon; a function that can interrupt them (Ctrl-C in Python);
+  threads for SIQS and the ECM search before it (`tifa_factor()` 4.5 times
+  as fast in 6 threads at 240 bits on an Apple M5 Pro; one thread, the
+  default, runs as before); what is known of the number (two prime factors
+  of about the same size: SIQS runs right away; one below a third of its
+  size: ECM searches for longer); and the sizes above, `siqs_max_bits` and
+  `ecm_max_bits`. They hold for the call alone:
+  `tifa_options_t options = { .time_limit = 10, .threads = 4 };`.
 - `tifa_cofactor()` (`cofactor.h`) decides whether an integer splits into primes
   below a bound, as the cofactorization step of a sieve asks (see
   [Cofactorization](#cofactorization) below).
@@ -119,8 +120,8 @@ changes and their measurements; the changes on master since 0.4.10 are in
 All of them can run in several threads at once. SIQS keeps its largest arrays
 from one run to the next in each thread (170 KiB at most, freed when the thread
 exits). To factor many numbers, as a sieve's cofactorization does, one
-factorization per thread uses the cores best; `tifa_set_threads()` is for a
-single large number.
+factorization per thread uses the cores best; the options' `threads` are for
+a single large number.
 
 The [readme.txt](./readme/readme.txt) file in the `readme` directory has more
 detail on the algorithms and the source layout; its build and installation
@@ -172,7 +173,9 @@ With `--prove`, `tifa-factor` also proves the prime factors and prints
 their certificates in JSON, as `tifa.check_certificate` takes them (see
 [Python](#python)); a factor it cannot prove prime makes the factorization
 partial. With `--threads <n>`, it runs SIQS and the ECM search before it in
-up to `n` threads (see `tifa_set_threads()`).
+up to `n` threads (see `tifa_options.h`); `--siqs-max-bits` and
+`--ecm-max-bits` set the sizes above which ECM alone searches, and up to
+which.
 
 The other programs run one algorithm each (`tifa-cfrac`, `tifa-ecm`,
 `tifa-fermat`, `tifa-siqs`, `tifa-squfof`, `tifa-rho`, `tifa-p-minus-1`,
@@ -455,7 +458,7 @@ are never installed):
   and counts the incomplete and wrong results; the test suite runs it from 50
   to 120 bits.
 - With `--threads <n>`, `siqs-bench` and `factor-bench` run in up to `n`
-  threads (`tifa_set_threads()`) and time the runs by the wall clock.
+  threads (the options' `threads`) and time the runs by the wall clock.
 - `bench/ab.sh <base> <new> <args...>` compares two builds, or two sets of
   options: it runs both alternately over four rounds, each order twice, and
   prints the ratio of their times.
