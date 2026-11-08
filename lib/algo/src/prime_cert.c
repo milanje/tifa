@@ -122,7 +122,7 @@ prime_cert_t* alloc_prime_cert(void) {
     return cert;
 }
 //-----------------------------------------------------------------------------
-static void clear_prime_cert(prime_cert_t* const cert) {
+void prime_cert_clear(prime_cert_t* const cert) {
     for (uint32_t i = 0; i < cert->nsteps; i++) {
         prime_cert_step_t* const step = &cert->steps[i];
         mpz_clear(step->p);
@@ -136,7 +136,7 @@ static void clear_prime_cert(prime_cert_t* const cert) {
 //-----------------------------------------------------------------------------
 void free_prime_cert(prime_cert_t* cert) {
     if (cert != NULL) {
-        clear_prime_cert(cert);
+        prime_cert_clear(cert);
         free(cert->steps);
         free(cert);
     }
@@ -848,10 +848,10 @@ static prime_cert_status_t prove(prime_cert_t* const cert, const mpz_t n) {
 }
 //-----------------------------------------------------------------------------
 prime_cert_status_t tifa_prove_prime_impl(prime_cert_t* cert, const mpz_t n) {
-    clear_prime_cert(cert);
+    prime_cert_clear(cert);
     const prime_cert_status_t status = prove(cert, n);
     if (status != PRIME_PROVEN) {
-        clear_prime_cert(cert);
+        prime_cert_clear(cert);
     }
     return status;
 }
@@ -1033,7 +1033,7 @@ static bool read_step(reader_t* const r, prime_cert_t* const cert) {
 }
 //-----------------------------------------------------------------------------
 bool tifa_prime_cert_from_str(prime_cert_t* cert, const char* str) {
-    clear_prime_cert(cert);
+    prime_cert_clear(cert);
 
     reader_t r;
     r.s = skip_spaces(str);
@@ -1053,7 +1053,7 @@ bool tifa_prime_cert_from_str(prime_cert_t* cert, const char* str) {
     ok = ok && (*r.s == '\0');
 
     if (!ok) {
-        clear_prime_cert(cert);
+        prime_cert_clear(cert);
     }
     mpz_clear(r.p);
     mpz_clear(r.x);

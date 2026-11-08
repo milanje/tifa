@@ -82,6 +82,10 @@ ecode_t squfof_impl(mpz_array_t* const factors, uint32_array_t* const multis,
                     const factoring_mode_t mode);
 
 prime_cert_status_t tifa_prove_prime_impl(prime_cert_t* cert, const mpz_t n);
+//
+// Drops the steps of a certificate.
+//
+void prime_cert_clear(prime_cert_t* const cert);
 cofactor_status_t tifa_cofactor_impl(mpz_array_t* factors,
                                      uint32_array_t* multis, const mpz_t n,
                                      const cofactor_strategy_t* strategy);
