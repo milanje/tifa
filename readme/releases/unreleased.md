@@ -3,7 +3,7 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
-## 9 November 2026 &mdash; The headers from C++
+## 8 November 2026 &mdash; The headers from C++
 
 The public headers included `<gmp.h>`, and the others, inside their
 `extern "C"` block, which C++ refuses (`templates must have C++ linkage`
