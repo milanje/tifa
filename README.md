@@ -39,6 +39,17 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+**Version 0.5.0 (November 2026)** changes the interface: the functions
+that can run long take their options per call (time limit, interrupt
+check, threads, hint, sizes; `tifa_options.h`), NULL for the defaults,
+instead of thread-local setters, and the outcome of a factorization follows
+its mode. `tifa_factor()` always ends: composites above 320 bits go to ECM
+alone, and those it does not split give `FACTORS_TOO_LARGE` (a 400-bit RSA
+modulus after 9 s in 6 threads, where SIQS ran without end). The headers
+work from C++. The release notes have a table for moving from 0.4 (see
+[readme/releases/0.5.0.md](./readme/releases/0.5.0.md)); the shared
+library becomes `libtifa.so.0.5`.
+
 **Version 0.4.10 (November 2026)** runs SIQS, and the ECM search that
 `tifa_factor()` runs before it, in several threads with
 `tifa_set_threads()`, `--threads` or Python's `threads=`: in six threads on
@@ -50,19 +61,9 @@ and the programs' exit statuses (see
 [readme/releases/0.4.10.md](./readme/releases/0.4.10.md)). The ABI only
 grows (`libtifa.so.0.4`).
 
-**Version 0.4.9 (November 2026)** gives SIQS a third linear algebra,
-Montgomery's block Lanczos on a sparse matrix, from 12000 primes in its
-factor base (about 230 bits): on an Apple M5 Pro, from 240 to 280 bits, the
-linear algebra takes 0.55 to 0.16 of the time of the filtered elimination,
-the whole factorization 0.98 to 0.94, and the peak memory 30 to 83 MB
-rather than 181 to 721. The default linear algebra follows the factor base
-of a tuning file (see
-[readme/releases/0.4.9.md](./readme/releases/0.4.9.md)). The ABI only grows
-(`libtifa.so.0.4`).
-
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
-changes and their measurements; the changes on master since 0.4.10 are in
+changes and their measurements; the changes on master since 0.5.0 are in
 [readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there

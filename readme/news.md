@@ -9,15 +9,24 @@ say otherwise.
 
 ## Unreleased
 
+Nothing yet.
+
+[Release notes](./releases/unreleased.md)
+
+## 0.5.0 &mdash; 2026-11-08
+
 - Options per call (`tifa_options.h`) instead of thread-local setters:
-  time limit, interrupt, threads, hint, sizes. ABI and API change.
+  time limit, interrupt, threads, hint, sizes; a call made from within
+  another keeps the outer one's.
 - The outcome follows the factoring mode; `FIND_SOME_PRIME_FACTORS` gone.
 - `tifa_factor()` always ends: composites above 320 bits go to ECM alone,
   and those it does not split give `FACTORS_TOO_LARGE`.
-- A crash of 0.4.10 fixed (`multis` NULL, powers of composites), and
+- The headers work from C++.
+- Fixed: a crash of 0.4.10 (`multis` NULL, powers of composites), and
   `NO_FACTOR_FOUND` for composites stopped by a time limit.
+- ABI changes: `libtifa.so.0.5`.
 
-[Release notes](./releases/unreleased.md)
+[Release notes](./releases/0.5.0.md)
 
 ## 0.4.10 &mdash; 2026-11-08
 
