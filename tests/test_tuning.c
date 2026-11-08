@@ -248,6 +248,15 @@ int main(void) {
         tifa_tuning_row_for("nonexistent_algo", TIFA_TUNING_NCOLS_P_MINUS_1, 60);
     CHECK(none == NULL, "resolver returns NULL for a missing algorithm file");
 
+    // A name too long for the cache takes none of its 16 slots.
+    tifa_tuning_set_dir(TIFA_TEST_FIXTURE_DIR);
+    for (int i = 0; i < 20; i++) {
+        tifa_tuning_row_for("an_algorithm_name_of_more_than_31_characters",
+                            TIFA_TUNING_NCOLS_P_MINUS_1, 60);
+    }
+    CHECK(tifa_tuning_row_for("p_minus_1", TIFA_TUNING_NCOLS_P_MINUS_1, 60)
+          != NULL, "long names leave room in the cache");
+
     // A directory without the file must make the resolver miss again (unless
     // baked tables are compiled in, in which case the baked layer answers).
     // Not NULL: that falls back to the installed tuning directory, if any.

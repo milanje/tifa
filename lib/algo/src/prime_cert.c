@@ -395,6 +395,10 @@ static bool is_proven(const index_entry_t* const index, const uint32_t nsteps,
     return (found != NULL) && (found->step < before);
 }
 //-----------------------------------------------------------------------------
+static unsigned long abs_d(const int32_t d) {
+    return (d < 0) ? 0UL - (unsigned long) d : (unsigned long) d;
+}
+//-----------------------------------------------------------------------------
 static bool check_step(const prime_cert_t* const cert,
                        const index_entry_t* const index, const uint32_t i) {
     const prime_cert_step_t* const step = &cert->steps[i];
@@ -407,8 +411,7 @@ static bool check_step(const prime_cert_t* const cert,
         || (step->pp1_witnesses->length != rs->length)
         || ((rs->length != 0)
             && ((step->pp1_d == 0)
-                || (mpz_gcd_ui(NULL, step->p,
-                               (unsigned long) labs(step->pp1_d)) != 1)))) {
+                || (mpz_gcd_ui(NULL, step->p, abs_d(step->pp1_d)) != 1)))) {
         return false;
     }
     mpz_t pm1, pp1, f1, f2;
@@ -594,8 +597,9 @@ static void search_side(side_t* const s) {
 }
 //-----------------------------------------------------------------------------
 //
-// Factors the smallest composite left on either side, by SIQS (the ECM
-// pre-pass has run already). Returns false if there was none.
+// Factors the smallest composite left on either side: by SIQS if the ECM
+// pre-pass searched it, otherwise as tifa_factor does. Returns false if there
+// was none.
 //
 static bool factor_smallest_hard(side_t* const sides, const uint32_t nsides) {
     side_t*  side = NULL;
@@ -618,7 +622,12 @@ static bool factor_smallest_hard(side_t* const sides, const uint32_t nsides) {
     mpz_array_t* const hard = side->hard;
     mpz_swap(hard->data[at], hard->data[hard->length - 1]);
     hard->length--;
-    factor_fully(side, c, TIFA_FACTOR_BALANCED);
+#if TIFA_HAVE_MONT_ECM
+    const bool searched = mont_ecm_handles(c);
+#else
+    const bool searched = false;
+#endif
+    factor_fully(side, c, searched ? TIFA_FACTOR_BALANCED : TIFA_FACTOR_RANDOM);
     mpz_clear(c);
     return true;
 }
@@ -996,7 +1005,7 @@ static bool read_pairs(reader_t* const r, const int side) {
 }
 //-----------------------------------------------------------------------------
 //
-// 0 means no D, and labs(INT32_MIN) overflows where long has 32 bits.
+// 0 means no D.
 //
 static bool read_step(reader_t* const r, prime_cert_t* const cert) {
     int64_t d = 0;

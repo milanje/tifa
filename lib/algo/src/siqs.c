@@ -825,12 +825,19 @@ static ecode_t init_siqs_context(factoring_machine_t* const machine) {
     init_factor_base_data(context, nmodp_known, legendre_known, nknown);
 
     const uint32_t* const fb = context->factor_base->data;
+#if GMP_LIMB_BITS == 64
+    const bool precheck =    params->use_large_primes
+                          && (mpz_sizeinbase(context->n, 2) >= PRECHECK_MIN_BITS);
+#else
+    //
+    // The pre-check reads limbs of 64 bits.
+    //
+    const bool precheck = false;
+#endif
     context->max_cofactor_bits =
-        (   params->use_large_primes
-         && (mpz_sizeinbase(context->n, 2) >= PRECHECK_MIN_BITS))
-        ? log2((double) fb[context->factor_base->length - 1])
-          + PRECHECK_MARGIN_BITS
-        : 0;
+        precheck ? log2((double) fb[context->factor_base->length - 1])
+                   + PRECHECK_MARGIN_BITS
+                 : 0;
     for (uint32_t j = 0; j < MIN(context->factor_base->length,
                                  PRECHECK_SMALL_PRIMES); j++) {
         const uint32_t p  = fb[j];

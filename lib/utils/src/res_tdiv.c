@@ -190,10 +190,10 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
 
         if (0 == mpz_cmpabs_ui(y, 1)) {
 
-            mpz_init_set(acc_yi->data[acc_yi->length], in_yi->data[k]);
+            mpz_set(acc_yi->data[acc_yi->length], in_yi->data[k]);
             acc_yi->length++;
 
-            mpz_init_set(acc_xi->data[acc_xi->length], in_xi->data[k]);
+            mpz_set(acc_xi->data[acc_xi->length], in_xi->data[k]);
             acc_xi->length++;
 
             if (acc_xi->length == acc_xi->alloced) {
@@ -237,8 +237,6 @@ uint32_t res_tdiv_no_ea(smooth_filter_t* const filter) {
                         // particular prime number: we can compute a new
                         // pair to add in our arrays xi and smooth_yi
                         //
-                        mpz_init(acc_yi->data[acc_yi->length]);
-                        mpz_init(acc_xi->data[acc_xi->length]);
 
                         mpz_mul(
                             acc_yi->data[acc_yi->length],
@@ -434,8 +432,8 @@ uint32_t res_tdiv_step(smooth_filter_t* const filter, unsigned long int step) {
 
         if (0 == mpz_cmpabs_ui(y, 1)) {
 
-            mpz_init_set(acc_yi->data[next_acc], in_yi->data[k]);
-            mpz_init_set(acc_xi->data[next_acc], in_xi->data[k]);
+            mpz_set(acc_yi->data[next_acc], in_yi->data[k]);
+            mpz_set(acc_xi->data[next_acc], in_xi->data[k]);
 
             mpz_mul(
                 acc_yi->data[next_acc],
@@ -614,8 +612,8 @@ uint32_t res_tdiv_first(smooth_filter_t* const filter) {
 
         if (0 == mpz_cmpabs_ui(y, 1)) {
 
-            mpz_init_set(acc_yi->data[next_acc], in_yi->data[k]);
-            mpz_init_set(acc_xi->data[next_acc], in_xi->data[k]);
+            mpz_set(acc_yi->data[next_acc], in_yi->data[k]);
+            mpz_set(acc_xi->data[next_acc], in_xi->data[k]);
 
             acc_yi->length++;
             acc_xi->length++;
@@ -778,8 +776,8 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
 
         if (0 == mpz_cmpabs_ui(y, 1)) {
 
-            mpz_init_set(acc_yi->data[next], in_yi->data[k]);
-            mpz_init_set(acc_xi->data[next], in_xi->data[k]);
+            mpz_set(acc_yi->data[next], in_yi->data[k]);
+            mpz_set(acc_xi->data[next], in_xi->data[k]);
 
             mpz_mul(acc_yi->data[next], acc_yi->data[next], cofact->data[k]);
 
@@ -827,8 +825,6 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                         // particular prime number: we can compute a new
                         // pair to add in our accepted_* arrays.
                         //
-                        mpz_init(acc_yi->data[next]);
-                        mpz_init(acc_xi->data[next]);
 
                         mpz_mul(acc_yi->data[next], in_yi->data[k], found->y);
                         mpz_mul(acc_xi->data[next], in_xi->data[k], found->x);
@@ -864,9 +860,6 @@ uint32_t res_tdiv_last(smooth_filter_t* const filter) {
                             // cumbersome, so we just ignore it...
                             //
                             free(key);
-
-                            mpz_clear(acc_yi->data[next]);
-                            mpz_clear(acc_xi->data[next]);
                             continue;
                         }
                         acc_yi->length++;

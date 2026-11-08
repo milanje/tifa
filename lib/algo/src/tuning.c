@@ -385,9 +385,12 @@ static void tuning_cache_reset(void) {
 
 //
 // Returns the cache entry for algo, allocating a slot on first use. Returns NULL
-// only if the cache is full (cannot happen for the built-in algorithm set).
+// if the name does not fit or the cache is full.
 //
 static tuning_cache_entry_t* tuning_cache_entry(const char* algo) {
+    if (strlen(algo) >= TIFA_TUNING_NAME_MAX) {
+        return NULL;
+    }
     tuning_cache_entry_t* free_slot = NULL;
     for (uint32_t i = 0; i < TUNING_CACHE_SIZE; i++) {
         if (tuning_cache[i].in_use) {

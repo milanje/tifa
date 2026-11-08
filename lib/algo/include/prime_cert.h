@@ -74,11 +74,14 @@
  * division and ECM, then p + 1 if they are not enough, and, if still not,
  * factors the smallest composite left by SIQS. It keeps the smallest primes
  * found until one of the conditions above holds (from p - 1 alone if it
- * can), and proves those above 2^64 in the same way. There is no time
- * limit. On an Apple M5 Pro, a proof took 0.5 ms on average for random
- * primes of 128 bits, 1.4 ms at 160 bits, 5.5 ms at 192 bits, 53 ms at 224
- * bits (1.1 s at most, when both p - 1 and p + 1 needed SIQS) and 66 ms at
- * 256 bits; a check takes less than 0.5 ms.
+ * can), and proves those above 2^64 in the same way. On an Apple M5 Pro, a
+ * proof took 0.5 ms on average for random primes of 128 bits, 1.4 ms at 160
+ * bits, 5.5 ms at 192 bits, 53 ms at 224 bits (1.1 s at most, when both
+ * p - 1 and p + 1 needed SIQS) and 66 ms at 256 bits; a check takes less
+ * than 0.5 ms. Above, the composites left grow with p: a proof can take as
+ * long as SIQS on a composite of almost its size (minutes at 280 bits, far
+ * longer above), unless the thread's time limit (\c tifa_set_time_limit)
+ * stops it with \c PRIME_NOT_PROVEN.
  */
 
 #if !defined(_TIFA_PRIME_CERT_H_)
