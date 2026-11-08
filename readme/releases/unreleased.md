@@ -3,6 +3,47 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 8 November 2026 &mdash; Fixes from a bug hunt over the whole code
+
+Five reviews, one per part of the code, and randomized checks against
+known factorizations under ASan, UBSan and TSan, with and without 128-bit
+integers, found the following.
+
+- Block Lanczos could not drop empty columns (relations that are squares):
+  with more than 100 of them, it looped forever, past any time limit. CFRAC
+  met them on some numbers. After a breakdown near the end, on small
+  matrices, it now keeps the dependencies its check accepts rather than
+  losing the attempt.
+- CFRAC put the primes the batch test found in a second run's relations
+  into the first run's rows, a FATAL_INTERNAL_ERROR whenever `nprimes_tdiv`
+  was below the base; with `nprimes_tdiv` 0, the batch test never found 2.
+  It now checks the time limit while collecting relations too.
+- With threads, the ECM search's other threads ran their curves to the end
+  once the calling thread had stopped, and `tifa_factor()` then started
+  SIQS anyway: 0.2 to 0.6 s past a time limit at 500 bits, 0.01 s now.
+- Stopped on the composite root of a perfect power, `tifa_factor()` gave
+  up with nothing; it now returns the power, as for other cofactors.
+- With GMP's limbs of 32 bits, SIQS dropped every candidate from 140 bits:
+  its pre-check reads 64-bit limbs, and is now off there.
+- `tifa_prove_prime()` ran SIQS on composites that ECM had not searched
+  (above 512 bits, or without 128-bit integers); its documentation now
+  says what a proof can take above 256 bits.
+- A tuning name of 32 characters or more, looked up 16 times, turned the
+  tuning files off. CFRAC's trial division could clear a relation twice.
+- Python: a call made from a signal handler during another call removed
+  the outer call's time limit, threads and Ctrl-C. Integers of more than
+  4300 digits turned the errors meant into a `ValueError`, and stopped
+  `python -m tifa`.
+- The algorithms' programs said "not complete" (exit status 1) for
+  complete factorizations, and lost the exponent of a power; numbers of
+  4095 digits are read from the standard input too. `tifa-tune` reported
+  success over an empty file when a write failed; it now writes through a
+  temporary file. `tifa-batch-gcd` dropped what followed a NUL byte.
+
+In one thread, against the polish before it: the same instructions within
+0.03% for SIQS, `tifa_factor()` and `tifa_cofactor()`, and 0.996 to 1.006
+of the time in both orders.
+
 ## 7 November 2026 &mdash; Fixes to the threads, and polish
 
 - In several threads, SIQS built the other threads' sieves on its half
