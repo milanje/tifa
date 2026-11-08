@@ -21,16 +21,17 @@ elliptic curves and smaller methods, chosen by the size of the number.
 ## Speed
 
 One thread, balanced semiprimes (the hardest numbers of a size), on an AMD
-EPYC 9V45:
+EPYC 9V74 (a GitHub runner), the same numbers for both:
 
 | bits | 100 | 140 | 180 | 220 |
 |---|---:|---:|---:|---:|
-| `tifa.factor` | 0.7 ms | 9.6 ms | 0.18 s | 3.0 s |
-| PARI/GP 2.15 `factorint` | 1.9 ms | 39 ms | 0.55 s | 9.0 s |
+| `tifa.factor` | 0.84 ms | 13 ms | 0.25 s | 4.3 s |
+| PARI/GP 2.17 `factorint` | 2.0 ms | 46 ms | 0.64 s | 10.3 s |
 
-Numbers with small factors take much less. From 180 bits the time doubles
-about every 10 to 12 bits: on an Apple M5 Pro, about 9 s at 240 bits, 24 s
-at 256 and 2 minutes at 280.
+Numbers with small factors take much less. On an Apple M5 Pro, the same
+sizes take 0.39 ms, 5.7 ms, 0.10 s and 2.0 s; from 180 bits the time
+doubles about every 10 to 12 bits there: 9 s at 240 bits, 21 s at 256 and
+1.6 minutes at 280.
 
 ## Large numbers
 
@@ -209,7 +210,7 @@ misses 0.25% to 0.30% of the smooth integers with three large primes and
 `max_siqs_bits = 2 * lpb`. Calls release the GIL, and threads may share a
 `Cofactorizer`; it pickles, for processes. On an Apple M5 Pro, on integers
 of 33 to 64 bits without prime factors below 2^23 (lpb 32, two large
-primes), `many` takes 1.53 us per integer, 3% more than the C function, and
+primes), `many` takes 1.56 us per integer, 5% more than the C function, and
 calls one by one 1.92 us.
 
 ## Command line
