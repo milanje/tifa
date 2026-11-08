@@ -60,6 +60,7 @@
 #include "macros.h"
 #include "factoring_machine.h"
 #include "squfof.h"
+#include "impl.h"
 #include "tifa_factor.h"
 #include "tifa_alloc.h"
 
@@ -409,7 +410,7 @@ void set_squfof_params_to_default(squfof_params_t* const params
 static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
                        const mpz_t n, factoring_mode_t mode) {
 
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_rec(factors, multis, n, mode);
 
     //
     // The following code should be used to factor a number using _only_ SQUFOF.
@@ -419,9 +420,9 @@ static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
     //return squfof(factors, multis, n, &params, mode);
 }
 //-----------------------------------------------------------------------------
-ecode_t squfof(mpz_array_t* const factors, uint32_array_t* const multis,
-               const mpz_t n, const squfof_params_t* const params,
-               const factoring_mode_t mode) {
+ecode_t squfof_impl(mpz_array_t* const factors, uint32_array_t* const multis,
+                    const mpz_t n, const squfof_params_t* const params,
+                    const factoring_mode_t mode) {
 
     PRINT_INTRO_MSG("square form");
     INIT_TIMER;

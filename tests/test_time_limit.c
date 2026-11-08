@@ -17,8 +17,8 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
 
-// tifa_set_time_limit and tifa_set_interrupt_check: SIQS and ECM stop soon
-// after the limit, or the interrupt, which are the calling thread's alone.
+// The time limit and the interrupt check of the options: SIQS and ECM stop
+// soon after them, which hold for the call alone.
 
 #if !defined(_POSIX_C_SOURCE)
 #define _POSIX_C_SOURCE 200112L
@@ -31,7 +31,8 @@
 #include "ecm.h"
 #include "mont_ecm.h"
 #include "tifa_factor.h"
-#include "time_limit.h"
+#include "tifa_options.h"
+#include "stopping.h"
 
 static double now(void) {
     struct timespec t;
@@ -50,13 +51,14 @@ static void random_prime(mpz_t p, uint32_t bits, gmp_randstate_t rng) {
 // factorization was complete in *complete.
 //
 static double factor_limited(const mpz_t n, tifa_factor_hint_t hint,
-                             bool* complete) {
+                             uint32_t threads, bool* complete) {
     mpz_array_t* f    = alloc_mpz_array(4);
     uint32_array_t* m = alloc_uint32_array(4);
+    const tifa_options_t options = { .time_limit = 0.05, .hint = hint,
+                                     .threads = threads };
     const double start = now();
-    tifa_set_time_limit(0.05);
-    const ecode_t e = tifa_factor_with_hint(f, m, n,
-                                            FIND_COMPLETE_FACTORIZATION, hint);
+    const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION,
+                                  &options);
     const double elapsed = now() - start;
     *complete = (e == COMPLETE_FACTORIZATION_FOUND);
     free_mpz_array(f);
@@ -64,8 +66,8 @@ static double factor_limited(const mpz_t n, tifa_factor_hint_t hint,
     return elapsed;
 }
 
-static void* limit_seen(void* arg) {
-    *(bool*) arg = tifa_time_limit_reached();
+static void* not_stopped(void* arg) {
+    *(bool*) arg = tifa_should_stop();
     return NULL;
 }
 
@@ -84,10 +86,30 @@ static void* raise_flag(void* arg) {
     return NULL;
 }
 
+//
+// An interrupt check that factors a number of its own, with options of its
+// own, the first time it is called.
+//
+static bool nested_call(void* arg) {
+    unsigned* const ncalls = arg;
+    if ((*ncalls)++ == 0) {
+        mpz_t k;
+        mpz_init_set_ui(k, 15);
+        mpz_array_t* f    = alloc_mpz_array(4);
+        uint32_array_t* m = alloc_uint32_array(4);
+        const tifa_options_t own = { .threads = 1 };
+        tifa_factor(f, m, k, FIND_COMPLETE_FACTORIZATION, &own);
+        free_mpz_array(f);
+        free_uint32_array(m);
+        mpz_clear(k);
+    }
+    return false;
+}
+
 int main(void) {
     TIFA_TEST_BEGIN("time limit");
 
-    CHECK(!tifa_time_limit_reached(), "no limit at first");
+    CHECK(!tifa_should_stop(), "no limit at first");
 
     gmp_randstate_t rng;
     gmp_randinit_default(rng);
@@ -100,41 +122,46 @@ int main(void) {
     random_prime(q, 100, rng);
     mpz_mul(n, p, q);
     bool complete;
-    double elapsed = factor_limited(n, TIFA_FACTOR_BALANCED, &complete);
+    double elapsed = factor_limited(n, TIFA_FACTOR_BALANCED, 1, &complete);
     CHECK(!complete, "SIQS stops at the limit");
     CHECK(elapsed < 1.0, "SIQS stops soon after the limit");
-    CHECK(tifa_time_limit_reached(), "the limit has passed");
+    CHECK(!tifa_should_stop(), "the limit ends with the call");
 
     // In several threads: the calling one checks the limit for all.
-    tifa_set_threads(4);
     random_prime(p, 100, rng);
     random_prime(q, 100, rng);
     mpz_mul(n, p, q);
-    elapsed = factor_limited(n, TIFA_FACTOR_BALANCED, &complete);
+    elapsed = factor_limited(n, TIFA_FACTOR_BALANCED, 4, &complete);
     CHECK(!complete, "SIQS in 4 threads stops at the limit");
     CHECK(elapsed < 1.0, "SIQS in 4 threads stops soon after the limit");
-    tifa_set_threads(1);
 
+    // The options of a call hold in its thread alone.
+    tifa_call_t call;
+    const tifa_options_t passed = { .time_limit = 1e-9 };
+    tifa_call_begin(&call, &passed);
+    while (!tifa_should_stop()) {
+    }
     bool other = true;
     pthread_t thread;
-    CHECK(pthread_create(&thread, NULL, limit_seen, &other) == 0,
+    CHECK(pthread_create(&thread, NULL, not_stopped, &other) == 0,
           "thread started");
     pthread_join(thread, NULL);
-    CHECK(!other, "the limit is the thread's alone");
+    CHECK(!other, "the limit is the call's thread's alone");
+    tifa_call_end(&call);
+    CHECK(!tifa_should_stop(), "the limit ends with the call");
 
     // A 64-bit factor of a 240-bit number: ECM searches for long.
     random_prime(p, 64, rng);
     random_prime(q, 176, rng);
     mpz_mul(n, p, q);
-    elapsed = factor_limited(n, TIFA_FACTOR_UNBALANCED, &complete);
+    elapsed = factor_limited(n, TIFA_FACTOR_UNBALANCED, 1, &complete);
     CHECK(!complete, "ECM stops at the limit");
     CHECK(elapsed < 1.0, "ECM stops soon after the limit");
 
-    tifa_set_threads(4);
     random_prime(p, 80, rng);
     random_prime(q, 160, rng);
     mpz_mul(n, p, q);
-    elapsed = factor_limited(n, TIFA_FACTOR_UNBALANCED, &complete);
+    elapsed = factor_limited(n, TIFA_FACTOR_UNBALANCED, 4, &complete);
     CHECK(!complete, "ECM in 4 threads stops at the limit");
     CHECK(elapsed < 1.0, "ECM in 4 threads stops soon after the limit");
 
@@ -144,11 +171,10 @@ int main(void) {
     random_prime(p, 250, rng);
     random_prime(q, 250, rng);
     mpz_mul(n, p, q);
-    elapsed = factor_limited(n, TIFA_FACTOR_RANDOM, &complete);
+    elapsed = factor_limited(n, TIFA_FACTOR_RANDOM, 4, &complete);
     CHECK(!complete, "tifa_factor in 4 threads stops at the limit");
     CHECK(elapsed < 0.2, "tifa_factor in 4 threads stops soon at 500 bits");
 #endif
-    tifa_set_threads(1);
 
     // The longest curves stop within themselves: in GMP arithmetic above
     // 512 bits (2.5 s each at 600 bits on an Apple M5 Pro), and on eight
@@ -157,10 +183,10 @@ int main(void) {
     random_prime(q, 300, rng);
     mpz_mul(n, p, q);
     ecm_params_t ecm_params = { 576000, 50 * 576000, 4, 1 };
+    const tifa_options_t short_limit = { .time_limit = 0.05 };
     mpz_array_t* found = alloc_mpz_array(4);
     double start = now();
-    tifa_set_time_limit(0.05);
-    ecm(found, NULL, n, &ecm_params, SINGLE_RUN);
+    ecm(found, NULL, n, &ecm_params, SINGLE_RUN, &short_limit);
     elapsed = now() - start;
     CHECK(elapsed < 0.5, "a GMP curve stops soon after the limit");
 #if TIFA_HAVE_MONT_ECM
@@ -169,46 +195,62 @@ int main(void) {
     mpz_mul(n, p, q);
     mont_ecm_plan_t* const plan = alloc_mont_ecm_plan(819200, 50 * 819200);
     start = now();
-    tifa_set_time_limit(0.05);
+    tifa_call_begin(&call, &short_limit);
     mont_ecm_curve(p, n, 6, plan);
+    tifa_call_end(&call);
     elapsed = now() - start;
     CHECK(elapsed < 0.3, "an eight-limb curve stops soon after the limit");
     free_mont_ecm_plan(plan);
 #endif
     free_mpz_array(found);
 
-    tifa_set_time_limit(0.0);
-    CHECK(!tifa_time_limit_reached(), "the limit is removed");
-
     // Another thread asks SIQS to stop, through a flag.
     random_prime(p, 100, rng);
     random_prime(q, 100, rng);
     mpz_mul(n, p, q);
     unsigned ncalls = 0;
-    tifa_set_interrupt_check(read_flag, &ncalls);
+    const tifa_options_t flagged = { .interrupt     = read_flag,
+                                     .interrupt_arg = &ncalls,
+                                     .hint          = TIFA_FACTOR_BALANCED };
     CHECK(pthread_create(&thread, NULL, raise_flag, NULL) == 0,
           "thread started");
     mpz_array_t* g    = alloc_mpz_array(4);
     uint32_array_t* h = alloc_uint32_array(4);
     start = now();
-    const ecode_t e = tifa_factor_with_hint(g, h, n,
-                                            FIND_COMPLETE_FACTORIZATION,
-                                            TIFA_FACTOR_BALANCED);
+    ecode_t e = tifa_factor(g, h, n, FIND_COMPLETE_FACTORIZATION, &flagged);
     elapsed = now() - start;
     pthread_join(thread, NULL);
     CHECK(e != COMPLETE_FACTORIZATION_FOUND, "SIQS stops when interrupted");
     CHECK(elapsed < 1.0, "SIQS stops soon after the interrupt");
-    CHECK(tifa_interrupted(), "interrupted");
-    CHECK(!tifa_time_limit_reached(), "not timed out");
     CHECK(ncalls > 1, "the check is called again and again");
-    tifa_set_interrupt_check(NULL, NULL);
-    CHECK(!tifa_interrupted(), "no longer interrupted");
+    CHECK(!tifa_should_stop(), "the interrupt ends with the call");
+
+    // A call made from the interrupt check, with options of its own, gives
+    // the outer call back its time limit.
+    random_prime(p, 100, rng);
+    random_prime(q, 100, rng);
+    mpz_mul(n, p, q);
+    ncalls = 0;
+    const tifa_options_t nesting = { .time_limit    = 0.05,
+                                     .interrupt     = nested_call,
+                                     .interrupt_arg = &ncalls,
+                                     .hint          = TIFA_FACTOR_BALANCED };
+    g->length = 0;
+    h->length = 0;
+    start = now();
+    e = tifa_factor(g, h, n, FIND_COMPLETE_FACTORIZATION, &nesting);
+    elapsed = now() - start;
+    CHECK(e != COMPLETE_FACTORIZATION_FOUND, "the outer call stops");
+    CHECK(elapsed < 1.0,
+          "the outer call stops at its limit after a nested call");
+    CHECK(ncalls > 1, "its check holds after the nested call");
     free_mpz_array(g);
     free_uint32_array(h);
+
     mpz_set_str(n, "19409887069306060631113", 10);
     mpz_array_t* f    = alloc_mpz_array(4);
     uint32_array_t* m = alloc_uint32_array(4);
-    CHECK(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION)
+    CHECK(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL)
           == COMPLETE_FACTORIZATION_FOUND, "factors without a limit");
     free_mpz_array(f);
     free_uint32_array(m);

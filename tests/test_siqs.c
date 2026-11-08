@@ -24,7 +24,12 @@
 #include "tifa_test.h"
 
 #include "siqs.h"
-#include "time_limit.h"
+#include "tifa_options.h"
+
+//
+// The options of the siqs() calls: threads in the last tests.
+//
+static const tifa_options_t* opts = NULL;
 
 static int siqs_factors(const mpz_t n) {
     mpz_array_t*    f = alloc_mpz_array(8);
@@ -32,7 +37,7 @@ static int siqs_factors(const mpz_t n) {
     siqs_params_t params;
     set_siqs_params_to_default(n, &params);
 
-    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, opts);
     int ok = (rc == COMPLETE_FACTORIZATION_FOUND)
              && tifa_is_complete_factorization(n, f, m);
 
@@ -53,7 +58,7 @@ static ecode_t siqs_with(const mpz_t n, uint32_t fb, uint32_t th, uint32_t hw,
     params.threshold        = th;
     params.sieve_half_width = hw;
 
-    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, opts);
     *valid = (rc != COMPLETE_FACTORIZATION_FOUND)
              || tifa_is_complete_factorization(n, f, m);
 
@@ -77,7 +82,7 @@ static int siqs_lanczos(const mpz_t n, const uint32_t fb) {
     }
     params.linalg_method = BLOCK_LANCZOS;
 
-    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, opts);
     int ok = (rc == COMPLETE_FACTORIZATION_FOUND)
              && tifa_is_complete_factorization(n, f, m);
 
@@ -88,7 +93,7 @@ static int siqs_lanczos(const mpz_t n, const uint32_t fb) {
 
 //
 // A complete factorization with a factor base of fb primes (the default if
-// 0), in the threads set by tifa_set_threads.
+// 0).
 //
 static int siqs_fb(const mpz_t n, const uint32_t fb) {
     mpz_array_t*    f = alloc_mpz_array(8);
@@ -100,7 +105,7 @@ static int siqs_fb(const mpz_t n, const uint32_t fb) {
         params.nprimes_tdiv    = fb;
         params.linalg_method   = siqs_dflt_linalg_method(fb);
     }
-    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+    ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, opts);
     int ok = (rc == COMPLETE_FACTORIZATION_FOUND)
              && tifa_is_complete_factorization(n, f, m);
 
@@ -205,7 +210,8 @@ int main(void) {
         params.nprimes_tdiv    = 34000;
         mpz_array_t*    f = alloc_mpz_array(8);
         uint32_array_t* m = alloc_uint32_array(8);
-        const ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        const ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                                opts);
         CHECK((rc == COMPLETE_FACTORIZATION_FOUND)
               && tifa_is_complete_factorization(n, f, m),
               "34000 primes in the base: factored");
@@ -245,7 +251,8 @@ int main(void) {
     // Several threads. The hard inputs above with 400 primes in the base,
     // for 4 threads: few polynomials, many duplicates, and retries.
     //
-    tifa_set_threads(4);
+    static const tifa_options_t four = { .threads = 4 };
+    opts = &four;
     {
         static const char* const hard[] = {
             "45844815609288407", "1066778129149670260218683",
@@ -298,7 +305,7 @@ int main(void) {
         params.nprimes_tdiv     = 400;
         params.sieve_half_width = 65537;
         params.linalg_method    = siqs_dflt_linalg_method(400);
-        ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, opts);
         CHECK(   (rc == COMPLETE_FACTORIZATION_FOUND)
               && tifa_is_complete_factorization(n, f, m),
               "4 threads, half width 65537: factored");
@@ -314,14 +321,14 @@ int main(void) {
         params.nrelations      = 600;
         params.linalg_method   = siqs_dflt_linalg_method(400);
         f->length = 0;
-        rc = siqs(f, NULL, n, &params, FIND_SOME_FACTORS);
+        rc = siqs(f, NULL, n, &params, FIND_SOME_FACTORS, opts);
         CHECK((rc != SOME_FACTORS_FOUND) && (f->length == 0),
               "4 threads, a prime, 600 more relations a round: no factor");
         free_mpz_array(f);
         free_uint32_array(m);
         mpz_clear(n);
     }
-    tifa_set_threads(1);
+    opts = NULL;
 
     TIFA_TEST_END();
 }

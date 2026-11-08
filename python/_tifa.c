@@ -19,9 +19,8 @@
 //
 
 //
-// tifa._tifa: tifa_factor_with_hint, tifa_prove_prime, tifa_batch_gcd,
-// tifa_cofactor, tifa_tuning_set_dir, tifa_set_time_limit and
-// tifa_set_interrupt_check for Python. The argument
+// tifa._tifa: tifa_factor, tifa_prove_prime, tifa_batch_gcd, tifa_cofactor
+// and tifa_tuning_set_dir for Python, with their options. The argument
 // checks and the shape of the results are left to tifa/__init__.py.
 //
 #if !defined(Py_LIMITED_API)
@@ -44,7 +43,7 @@
 #include "factoring_machine.h"
 #include "prime_cert.h"
 #include "tifa_factor.h"
-#include "time_limit.h"
+#include "tifa_options.h"
 #include "tuning.h"
 
 //
@@ -60,65 +59,51 @@ static double monotonic_now(void) {
     return (double) t.tv_sec + 1e-9 * (double) t.tv_nsec;
 }
 
-static bool check_signals(void* const arg) {
-    double* const next = arg;
-    const double now = monotonic_now();
-    if (now < *next) {
-        return false;
-    }
-    *next = now + SIGNAL_POLL_SECONDS;
-    const PyGILState_STATE gil = PyGILState_Ensure();
-    const int raised = PyErr_CheckSignals();
-    PyGILState_Release(gil);
-    return raised != 0;
-}
-
 //
-// A signal handler run by check_signals can call in again, on the same
-// thread: the nested call gives the outer one back its stop state.
+// One call's polling of the signal handlers: when it next polls, and
+// whether a handler raised an exception.
 //
 typedef struct {
-    double       deadline;
-    unsigned int threads;
-    double*      next_poll;
-} call_t;
+    double next;
+    bool   raised;
+} poll_t;
 
-static Py_tss_t* current_call = NULL;
-
-static void apply_call(const call_t* const c) {
-    double left = 0.0;
-    if (c->deadline > 0.0) {
-        left = c->deadline - monotonic_now();
-        if (!(left > 1e-9)) {
-            left = 1e-9;
-        }
+static bool check_signals(void* const arg) {
+    poll_t* const poll = arg;
+    if (poll->raised) {
+        return true;
     }
-    tifa_set_time_limit(left);
-    tifa_set_threads(c->threads);
-    tifa_set_interrupt_check((c->next_poll != NULL) ? check_signals : NULL,
-                             c->next_poll);
+    const double now = monotonic_now();
+    if (now < poll->next) {
+        return false;
+    }
+    poll->next = now + SIGNAL_POLL_SECONDS;
+    const PyGILState_STATE gil = PyGILState_Ensure();
+    poll->raised = (PyErr_CheckSignals() != 0);
+    PyGILState_Release(gil);
+    return poll->raised;
 }
 
-static call_t* begin_call(call_t* const c, const double timeout,
-                          const unsigned int threads, double* const next_poll) {
-    c->deadline  = (timeout > 0.0) ? monotonic_now() + timeout : 0.0;
-    c->threads   = threads;
-    c->next_poll = next_poll;
-    call_t* const outer = PyThread_tss_get(current_call);
-    PyThread_tss_set(current_call, c);
-    apply_call(c);
-    return outer;
+//
+// The options of a call: its time limit and threads, and the polling of the
+// signal handlers if interruptible. A call made from a handler has its own.
+//
+static void set_options(tifa_options_t* const options, poll_t* const poll,
+                        const double timeout, const unsigned int threads,
+                        const bool interruptible) {
+    memset(options, 0, sizeof(*options));
+    options->time_limit = timeout;
+    options->threads    = threads;
+    poll->next   = monotonic_now() + SIGNAL_POLL_SECONDS;
+    poll->raised = false;
+    if (interruptible) {
+        options->interrupt     = check_signals;
+        options->interrupt_arg = poll;
+    }
 }
 
-static void end_call(call_t* const outer) {
-    PyThread_tss_set(current_call, outer);
-    if (outer != NULL) {
-        apply_call(outer);
-        return;
-    }
-    tifa_set_interrupt_check(NULL, NULL);
-    tifa_set_threads(1);
-    tifa_set_time_limit(0.0);
+static bool passed(const double start, const double timeout) {
+    return (timeout > 0.0) && (monotonic_now() - start >= timeout);
 }
 
 //
@@ -214,10 +199,10 @@ static PyObject* pairs_from_arrays(const mpz_array_t* const factors,
 
 PyDoc_STRVAR(factor_doc,
 "_factor(n, hint, timeout, interruptible, threads, /)\n--\n\n"
-"Factor the int n > 1 with tifa_factor_with_hint (hint 0, 1 or 2), within\n"
-"timeout seconds if it is positive and finite, and stopping for the\n"
-"exception of a signal handler if interruptible (in the main thread), SIQS\n"
-"and the ECM search in up to threads threads (tifa_set_threads). Return\n"
+"Factor the int n > 1 with tifa_factor (hint 0, 1 or 2), within timeout\n"
+"seconds if it is positive and finite, and stopping for the exception of a\n"
+"signal handler if interruptible (in the main thread), SIQS and the ECM\n"
+"search in up to threads threads. Return\n"
 "(complete, [(factor, exponent), ...], timed_out), complete being False when\n"
 "some factors may not be prime.");
 
@@ -249,18 +234,17 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     int prime = 0;
     bool timed_out;
     bool interrupted;
-    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
-    call_t call;
+    tifa_options_t options;
+    poll_t poll;
+    set_options(&options, &poll, timeout, threads, interruptible);
+    options.hint = (tifa_factor_hint_t) hint;
+    const double start = monotonic_now();
 
     Py_BEGIN_ALLOW_THREADS
-    call_t* const outer = begin_call(&call, timeout, threads,
-                                     interruptible ? &next_poll : NULL);
-    ecode = tifa_factor_with_hint(factors, multis, n,
-                                  FIND_COMPLETE_FACTORIZATION,
-                                  (tifa_factor_hint_t) hint);
-    timed_out   = tifa_time_limit_reached();
-    interrupted = tifa_interrupted();
-    end_call(outer);
+    ecode = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION,
+                        &options);
+    timed_out   = passed(start, timeout);
+    interrupted = poll.raised;
     if ((ecode == NO_FACTOR_FOUND) && !timed_out && !interrupted) {
         prime = (mpz_probab_prime_p(n, 30) != 0);
     }
@@ -370,16 +354,15 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     prime_cert_status_t status;
     bool timed_out;
     bool interrupted;
-    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
-    call_t call;
+    tifa_options_t options;
+    poll_t poll;
+    set_options(&options, &poll, timeout, threads, interruptible);
+    const double start = monotonic_now();
 
     Py_BEGIN_ALLOW_THREADS
-    call_t* const outer = begin_call(&call, timeout, threads,
-                                     interruptible ? &next_poll : NULL);
-    status      = tifa_prove_prime(cert, n);
-    timed_out   = tifa_time_limit_reached();
-    interrupted = tifa_interrupted();
-    end_call(outer);
+    status      = tifa_prove_prime(cert, n, &options);
+    timed_out   = passed(start, timeout);
+    interrupted = poll.raised;
     Py_END_ALLOW_THREADS
 
     if (interrupted) {
@@ -427,16 +410,15 @@ static PyObject* batch_gcd(PyObject* const self, PyObject* const args) {
     ecode_t ecode;
     bool timed_out;
     bool interrupted;
-    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
-    call_t call;
+    tifa_options_t options;
+    poll_t poll;
+    set_options(&options, &poll, timeout, 1, interruptible);
+    const double start = monotonic_now();
 
     Py_BEGIN_ALLOW_THREADS
-    call_t* const outer = begin_call(&call, timeout, 1,
-                                     interruptible ? &next_poll : NULL);
-    ecode       = tifa_batch_gcd(gcds, moduli);
-    timed_out   = (ecode != SUCCESS) && tifa_time_limit_reached();
-    interrupted = tifa_interrupted();
-    end_call(outer);
+    ecode       = tifa_batch_gcd(gcds, moduli, &options);
+    timed_out   = (ecode != SUCCESS) && passed(start, timeout);
+    interrupted = poll.raised;
     Py_END_ALLOW_THREADS
 
     free_mpz_array(moduli);
@@ -608,26 +590,24 @@ static PyObject* cofactor(PyObject* const self, PyObject* const args) {
     mpz_array_t*    const primes    = alloc_mpz_array(ELONGATION);
     uint32_array_t* const exponents = alloc_uint32_array(ELONGATION);
     bool interrupted = false;
-    double next_poll = monotonic_now() + SIGNAL_POLL_SECONDS;
-    call_t call;
+    tifa_options_t options;
+    poll_t poll;
+    set_options(&options, &poll, 0.0, 1, interruptible);
 
     Py_BEGIN_ALLOW_THREADS
-    call_t* const outer = begin_call(&call, 0.0, 1,
-                                     interruptible ? &next_poll : NULL);
     for (uint32_t i = 0; i < count; i++) {
         nprimes[i] = UINT32_MAX;
-        if (tifa_cofactor(primes, exponents, ns->data[i], strategy)
+        if (tifa_cofactor(primes, exponents, ns->data[i], strategy,
+                          interruptible ? &options : NULL)
                 == COFACTOR_SMOOTH) {
             keep_found(&found, primes, exponents);
             nprimes[i] = primes->length;
         }
-        if (   tifa_interrupted()
-            || (interruptible && check_signals(&next_poll))) {
+        if (interruptible && check_signals(&poll)) {
             interrupted = true;
             break;
         }
     }
-    end_call(outer);
     Py_END_ALLOW_THREADS
 
     free_mpz_array(primes);
@@ -691,15 +671,6 @@ static PyMethodDef methods[] = {
 };
 
 static int exec_module(PyObject* const module) {
-    if (current_call == NULL) {
-        Py_tss_t* const key = PyThread_tss_alloc();
-        if ((key == NULL) || (PyThread_tss_create(key) != 0)) {
-            PyThread_tss_free(key);
-            PyErr_NoMemory();
-            return -1;
-        }
-        current_call = key;
-    }
     return PyModule_AddStringConstant(module, "LIBRARY_VERSION", TIFA_VERSION);
 }
 

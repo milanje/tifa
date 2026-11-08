@@ -38,6 +38,7 @@
 #include "macros.h"
 #include "factoring_machine.h"
 #include "ecm.h"
+#include "impl.h"
 #include "mont_ecm.h"
 #include "tifa_factor.h"
 #include "tuning.h"
@@ -325,9 +326,9 @@ static void add_points(
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-ecode_t ecm(mpz_array_t* const factors, uint32_array_t* const multis,
-            const mpz_t n, const ecm_params_t* const params,
-            const factoring_mode_t mode) {
+ecode_t ecm_impl(mpz_array_t* const factors, uint32_array_t* const multis,
+                 const mpz_t n, const ecm_params_t* const params,
+                 const factoring_mode_t mode) {
 
     PRINT_INTRO_MSG("elliptic curve method");
     INIT_TIMER;
@@ -821,7 +822,7 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
 static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
                        const mpz_t n, factoring_mode_t mode) {
 
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_rec(factors, multis, n, mode);
 }
 //------------------------------------------------------------------------------
 static void backtrack_phase_1(mpz_t g, factoring_machine_t* const machine) {

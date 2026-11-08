@@ -38,6 +38,7 @@
 #include "tdiv.h"
 #include "tifa_factor.h"
 #include "tifa_alloc.h"
+#include "impl.h"
 
 #define NSPRP_BASES 12
 
@@ -525,9 +526,8 @@ static void factor_fully(side_t* const s, const mpz_t c,
                          const tifa_factor_hint_t hint) {
     mpz_array_t*    f = alloc_mpz_array(ELONGATION);
     uint32_array_t* m = alloc_uint32_array(ELONGATION);
-    const ecode_t ecode = tifa_factor_with_hint(f, m, c,
-                                                FIND_COMPLETE_FACTORIZATION,
-                                                hint);
+    const ecode_t ecode = tifa_factor_impl(f, m, c,
+                                           FIND_COMPLETE_FACTORIZATION, hint);
     if (ecode == NO_FACTOR_FOUND) {
         add_prime(s, c);
     }
@@ -845,7 +845,7 @@ static prime_cert_status_t prove(prime_cert_t* const cert, const mpz_t n) {
     return status;
 }
 //-----------------------------------------------------------------------------
-prime_cert_status_t tifa_prove_prime(prime_cert_t* cert, const mpz_t n) {
+prime_cert_status_t tifa_prove_prime_impl(prime_cert_t* cert, const mpz_t n) {
     clear_prime_cert(cert);
     const prime_cert_status_t status = prove(cert, n);
     if (status != PRIME_PROVEN) {

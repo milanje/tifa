@@ -24,7 +24,7 @@
 
 static prime_cert_status_t prove_and_check(prime_cert_t* c, const mpz_t n,
                                            int* checked) {
-    const prime_cert_status_t s = tifa_prove_prime(c, n);
+    const prime_cert_status_t s = tifa_prove_prime(c, n, NULL);
     *checked = tifa_check_prime_cert(c, n);
     return s;
 }
@@ -186,7 +186,8 @@ int main(void) {
             mpz_urandomb(n, state, 160);
             mpz_setbit(n, 159);
         } while (!mpz_probab_prime_p(n, 30));
-        found = (tifa_prove_prime(c, n) == PRIME_PROVEN) && (c->nsteps >= 2);
+        found =    (tifa_prove_prime(c, n, NULL) == PRIME_PROVEN)
+                && (c->nsteps >= 2);
     }
     prime_cert_step_t* last = &c->steps[c->nsteps - 1];
     CHECK(tifa_check_prime_cert(c, n), "two-step certificate checked");
@@ -235,7 +236,8 @@ int main(void) {
             mpz_urandomb(n, state, 200);
             mpz_setbit(n, 199);
         } while (!mpz_probab_prime_p(n, 30));
-        CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "200-bit prime proven");
+        CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN,
+              "200-bit prime proven");
         CHECK(tifa_check_prime_cert(c, n), "200-bit prime checked");
         last  = &c->steps[c->nsteps - 1];
         found = (last->pp1_primes->length != 0);
@@ -262,7 +264,7 @@ int main(void) {
     // A step from p + 1 alone: 2^89 - 1, with p + 1 = 2^89. The checker
     // accepts some D and P, and those D are non-residues mod p.
     mpz_set_str(n, "618970019642690137449562111", 10);
-    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven");
+    CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN, "2^89 - 1 proven");
     CHECK_EQ_UI(c->nsteps, 1, "2^89 - 1: one step");
     last = &c->steps[0];
     last->pm1_primes->length    = 0;
@@ -293,13 +295,13 @@ int main(void) {
     // ---- Text.
     char text[200];
     mpz_set_ui(n, 1000003);
-    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "1000003 proven");
+    CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN, "1000003 proven");
     CHECK_EQ_UI(tifa_prime_cert_to_str(text, sizeof text, c), 2,
                 "text length, no step");
     CHECK(strcmp(text, "[]") == 0, "text, no step");
 
     mpz_set_str(n, "618970019642690137449562111", 10);
-    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven");
+    CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN, "2^89 - 1 proven");
     last = &c->steps[0];
     reset_mpz_array(last->pm1_primes);
     reset_uint32_array(last->pm1_witnesses);
@@ -338,7 +340,8 @@ int main(void) {
             mpz_urandomb(n, state, 200);
             mpz_setbit(n, 199);
         } while (!mpz_probab_prime_p(n, 30));
-        CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "200-bit prime proven");
+        CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN,
+              "200-bit prime proven");
         matched = matched && text_matches(c);
         read    = read && reads_back(c, d, n);
         most = (c->nsteps > most) ? c->nsteps : most;
@@ -408,10 +411,10 @@ int main(void) {
     CHECK(none, "primes 0 and 1 refused");
 
     mpz_set_str(n, "170141183460469231731687303715884105727", 10);
-    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^127 - 1 proven");
+    CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN, "2^127 - 1 proven");
     char* const m127 = text_of(c);
     mpz_set_str(n, "618970019642690137449562111", 10);
-    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven");
+    CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN, "2^89 - 1 proven");
     char* const m89 = text_of(c);
     char* const big_first   = joined(m127, m89);
     char* const small_first = joined(m89, m127);
@@ -477,9 +480,11 @@ int main(void) {
 
     // ---- Proving again replaces the certificate.
     mpz_set_str(n, "618970019642690137449562111", 10);
-    CHECK(tifa_prove_prime(c, n) == PRIME_PROVEN, "2^89 - 1 proven again");
+    CHECK(tifa_prove_prime(c, n, NULL) == PRIME_PROVEN,
+          "2^89 - 1 proven again");
     mpz_set_str(m, "170141183460469231731687303715884105727", 10);
-    CHECK(tifa_prove_prime(c, m) == PRIME_PROVEN, "2^127 - 1 proven again");
+    CHECK(tifa_prove_prime(c, m, NULL) == PRIME_PROVEN,
+          "2^127 - 1 proven again");
     CHECK(!tifa_check_prime_cert(c, n) && tifa_check_prime_cert(c, m),
           "certificate replaced");
 

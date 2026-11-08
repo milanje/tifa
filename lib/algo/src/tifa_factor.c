@@ -40,6 +40,7 @@
 #include "tifa_factor.h"
 #include "ecm_schedule.h"
 #include "stopping.h"
+#include "impl.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -121,7 +122,7 @@ static ecode_t add_cofactor(mpz_array_t* const factors,
     mpz_array_t*    cfactors = alloc_mpz_array(ELONGATION);
     uint32_array_t* cmultis  = alloc_uint32_array(ELONGATION);
 
-    ecode_t ecode = tifa_factor_with_hint(cfactors, cmultis, c, mode, hint);
+    ecode_t ecode = tifa_factor_impl(cfactors, cmultis, c, mode, hint);
 
     if (   (ecode == COMPLETE_FACTORIZATION_FOUND)
         || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
@@ -148,7 +149,8 @@ static ecode_t add_found(mpz_array_t* const factors,
                          const factoring_mode_t mode) {
     uint32_array_t* fmultis = alloc_uint32_array(4);
 
-    ecode_t ecode = process_found_factors(found, fmultis, n, mode, tifa_factor);
+    ecode_t ecode = process_found_factors(found, fmultis, n, mode,
+                                          tifa_factor_rec);
 
     append_mpz_array(factors, found);
     if (mode == FIND_COMPLETE_FACTORIZATION) {
@@ -221,7 +223,7 @@ static ecode_t run_prestages(mpz_array_t* const factors,
     set_p_minus_1_params_to_default(n, &pm1_params);
     pm1_params.b1 = TFACTOR_PM1_B1;
     pm1_params.b2 = 0;
-    ecode_t ecode = p_minus_1(found, NULL, n, &pm1_params, SINGLE_RUN);
+    ecode_t ecode = p_minus_1_impl(found, NULL, n, &pm1_params, SINGLE_RUN);
 
     if (ecode != SOME_FACTORS_FOUND) {
         reset_mpz_array(found);
@@ -230,7 +232,7 @@ static ecode_t run_prestages(mpz_array_t* const factors,
         set_p_plus_1_params_to_default(n, &pp1_params);
         pp1_params.b1 = TFACTOR_PP1_B1;
         pp1_params.b2 = 0;
-        ecode = p_plus_1(found, NULL, n, &pp1_params, SINGLE_RUN);
+        ecode = p_plus_1_impl(found, NULL, n, &pp1_params, SINGLE_RUN);
     }
     if (ecode == SOME_FACTORS_FOUND) {
         ecode = add_found(factors, multis, found, n, mode);
@@ -250,7 +252,7 @@ static ecode_t run_gmp_ecm(mpz_array_t* const factors,
 
     ecm_params_t params;
     set_ecm_params_to_default(n, &params);
-    ecode_t ecode = ecm(found, NULL, n, &params, FIND_SOME_FACTORS);
+    ecode_t ecode = ecm_impl(found, NULL, n, &params, FIND_SOME_FACTORS);
 
     if (ecode == SOME_FACTORS_FOUND) {
         ecode = add_found(factors, multis, found, n, mode);
@@ -305,8 +307,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         const uint32_t old_length  = multis->length;
         const ecode_t  best        = (ecode_t) mode_to_outcome[mode];
 
-        ecode_t ecode = tifa_factor_with_hint(factors, multis, rootn, mode,
-                                              hint);
+        ecode_t ecode = tifa_factor_impl(factors, multis, rootn, mode, hint);
 
         if (   (ecode != COMPLETE_FACTORIZATION_FOUND)
             && (ecode != PARTIAL_FACTORIZATION_FOUND)
@@ -346,7 +347,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
     if (sizen <= TFACTOR_SQUFOF_THRESH) {
         squfof_params_t params;
         set_squfof_params_to_default(&params);
-        ecode_t ecode = squfof(factors, multis, n, &params, mode);
+        ecode_t ecode = squfof_impl(factors, multis, n, &params, mode);
         if (   (ecode == (ecode_t) mode_to_outcome[mode])
             || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
             return ecode;
@@ -383,7 +384,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
     }
     siqs_params_t params;
     set_siqs_params_to_default(n, &params);
-    return siqs(factors, multis, n, &params, mode);
+    return siqs_impl(factors, multis, n, &params, mode);
 }
 //-----------------------------------------------------------------------------
 #if TIFA_HAVE_FACTOR_U64
@@ -423,15 +424,10 @@ static ecode_t factor_with_u64(mpz_array_t* const factors,
 }
 #endif
 //-----------------------------------------------------------------------------
-ecode_t tifa_factor(mpz_array_t* const factors, uint32_array_t* const multis,
-                    const mpz_t n, const factoring_mode_t mode) {
-    return tifa_factor_with_hint(factors, multis, n, mode, TIFA_FACTOR_RANDOM);
-}
-//-----------------------------------------------------------------------------
-ecode_t tifa_factor_with_hint(mpz_array_t* const factors,
-                              uint32_array_t* const multis,
-                              const mpz_t n, const factoring_mode_t mode,
-                              const tifa_factor_hint_t hint) {
+ecode_t tifa_factor_impl(mpz_array_t* const factors,
+                         uint32_array_t* const multis,
+                         const mpz_t n, const factoring_mode_t mode,
+                         const tifa_factor_hint_t hint) {
 
     if (mode > FIND_COMPLETE_FACTORIZATION) {
         return UNKNOWN_FACTORING_MODE;

@@ -179,7 +179,7 @@ static ecode_t p_minus_1_func(mpz_array_t* const factors,
                               uint32_array_t* const multis, const mpz_t n,
                               const void* const params, factoring_mode_t mode) {
     return p_minus_1(factors, multis, n,
-                     (const p_minus_1_params_t*) params, mode);
+                     (const p_minus_1_params_t*) params, mode, NULL);
 }
 //------------------------------------------------------------------------------
 int main(int argc, char** argv) {

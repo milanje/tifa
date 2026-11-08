@@ -58,10 +58,13 @@
 #define NITERATIONS            100
 //-----------------------------------------------------------------------------
 void print_factors(mpz_array_t* const, uint32_array_t* const);
+
+const tifa_options_t* prove_options = NULL;
 //-----------------------------------------------------------------------------
 static bool print_certificate(const mpz_t p) {
     prime_cert_t* const cert = alloc_prime_cert();
-    const prime_cert_status_t status = tifa_prove_prime(cert, p);
+    const prime_cert_status_t status = tifa_prove_prime(cert, p,
+                                                        prove_options);
 
     switch (status) {
         case PRIME_PROVEN: {

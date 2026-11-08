@@ -44,6 +44,7 @@ extern "C" {
 #include "methods.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
+#include "tifa_options.h"
 
    /**
     * \def SIQS_DFLT_NRELATIONS
@@ -203,6 +204,9 @@ TIFA_API void set_siqs_params_to_default(const mpz_t n,
     * \param[in] params Pointer to the values of the parameters used in the
     *                   SIQS algorithm.
     * \param[in] mode The factoring mode to use.
+    * \param[in] options The options of the call (time limit, interrupt
+    *                    check, threads: see tifa_options.h), or NULL for
+    *                    the defaults.
     * \return An exit code.
     */
 TIFA_API ecode_t siqs(
@@ -210,7 +214,8 @@ TIFA_API ecode_t siqs(
     uint32_array_t* const multis,
     const mpz_t n,
     const siqs_params_t* const params,
-    const factoring_mode_t mode
+    const factoring_mode_t mode,
+    const tifa_options_t* const options
 );
 
 #ifdef __cplusplus

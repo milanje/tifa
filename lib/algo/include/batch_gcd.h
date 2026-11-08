@@ -40,6 +40,7 @@
 #include "tifa_config.h"
 #include "array.h"
 #include "exit_codes.h"
+#include "tifa_options.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,15 +59,18 @@ extern "C" {
     * moduli of 2048 bits, 30 s and 0.8 GB on an Apple M5 Pro (1024 bits:
     * 12.5 s and 0.4 GB).
     *
-    * Gives up, appending nothing, when the calling thread's time limit
-    * passes or its interrupt check returns true (see time_limit.h).
+    * Gives up, appending nothing, when the time limit of its options passes
+    * or their interrupt check returns true.
     *
     * \param[out] gcds The array the gcds are appended to.
     * \param[in] moduli The integers, all positive.
-    * \return \c SUCCESS, \c FAILURE if some integer is not positive (nothing
-    *         appended), or \c GIVING_UP.
+    * \param[in] options The options of the call (time limit, interrupt
+    *                    check: see tifa_options.h), or NULL for the defaults.
+    * \return \c SUCCESS, \c FAILURE if some integer is not positive or the
+    *         options are invalid (nothing appended), or \c GIVING_UP.
     */
-TIFA_API ecode_t tifa_batch_gcd(mpz_array_t* gcds, const mpz_array_t* moduli);
+TIFA_API ecode_t tifa_batch_gcd(mpz_array_t* gcds, const mpz_array_t* moduli,
+                                const tifa_options_t* const options);
 
 #ifdef __cplusplus
 }

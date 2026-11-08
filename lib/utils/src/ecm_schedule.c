@@ -30,7 +30,6 @@
 #include "tifa_alloc.h"
 #include "macros.h"
 #include "stopping.h"
-#include "time_limit.h"
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -312,7 +311,7 @@ static void* run_prepass_curves(void* const arg) {
         // So that the stop checks of the wide curves end this thread's curve
         // when the calling thread stops.
         //
-        tifa_set_interrupt_check(prepass_done, p);
+        tifa_set_thread_interrupt(prepass_done, p);
     }
 
     while (!__atomic_load_n(&p->done, __ATOMIC_RELAXED)) {

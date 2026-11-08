@@ -31,6 +31,7 @@
 #include "macros.h"
 #include "factoring_machine.h"
 #include "p_minus_1.h"
+#include "impl.h"
 #include "tifa_factor.h"
 #include "tuning.h"
 #include "mont_ecm.h"
@@ -137,9 +138,9 @@ static ecode_t recurse(
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-ecode_t p_minus_1(mpz_array_t* const factors, uint32_array_t* const multis,
-                  const mpz_t n, const p_minus_1_params_t* const params,
-                  const factoring_mode_t mode) {
+ecode_t p_minus_1_impl(mpz_array_t* const factors, uint32_array_t* const multis,
+                       const mpz_t n, const p_minus_1_params_t* const params,
+                       const factoring_mode_t mode) {
 
     PRINT_INTRO_MSG("Pollard's p-1");
     INIT_TIMER;
@@ -634,7 +635,7 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
 static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
                        const mpz_t n, factoring_mode_t mode) {
 
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_rec(factors, multis, n, mode);
 
     //
     // The following code should be used to factor a number using _only_

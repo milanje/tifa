@@ -59,6 +59,7 @@
 #include "array.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
+#include "tifa_options.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -140,6 +141,9 @@ TIFA_API void set_squfof_params_to_default(squfof_params_t* const params);
     * \param[in] n The non perfect square integer to factor.
     * \param[in] params SQUFOF's parameters (currently unused).
     * \param[in] mode The factoring mode to use.
+    * \param[in] options The options of the call (time limit, interrupt
+    *                    check, threads: see tifa_options.h), or NULL for
+    *                    the defaults.
     * \return An exit code.
     */
 TIFA_API ecode_t squfof(
@@ -147,7 +151,8 @@ TIFA_API ecode_t squfof(
     uint32_array_t* const multis,
     const mpz_t n,
     const squfof_params_t* const params,
-    const factoring_mode_t mode
+    const factoring_mode_t mode,
+    const tifa_options_t* const options
 );
 
 TIFA_API double squfof_get_elapsed_fwd();

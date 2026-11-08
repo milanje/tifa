@@ -142,7 +142,7 @@ static bool run_p_minus_1(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.base = cols[2];
 
     bool ok;
-    TIME_RUN(p_minus_1(_f, _m, n, &params, SINGLE_RUN), secs, &ok);
+    TIME_RUN(p_minus_1(_f, _m, n, &params, SINGLE_RUN, NULL), secs, &ok);
     return ok;
 }
 
@@ -170,7 +170,7 @@ static bool run_p_plus_1(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.seed = cols[2];
 
     bool ok;
-    TIME_RUN(p_plus_1(_f, _m, n, &params, SINGLE_RUN), secs, &ok);
+    TIME_RUN(p_plus_1(_f, _m, n, &params, SINGLE_RUN, NULL), secs, &ok);
     return ok;
 }
 
@@ -215,7 +215,7 @@ static bool run_rho(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.max_niters = cols[3];
 
     bool ok;
-    TIME_RUN(rho(_f, _m, n, &params, SINGLE_RUN), secs, &ok);
+    TIME_RUN(rho(_f, _m, n, &params, SINGLE_RUN, NULL), secs, &ok);
     return ok;
 }
 
@@ -254,7 +254,7 @@ static bool run_ecm(const mpz_t n, const mpz_t p, const uint32_t cols[],
     }
 
     bool ok;
-    TIME_RUN(ecm(_f, _m, n, &params, SINGLE_RUN), secs, &ok);
+    TIME_RUN(ecm(_f, _m, n, &params, SINGLE_RUN, NULL), secs, &ok);
     return ok;
 }
 
@@ -297,7 +297,7 @@ static bool run_cfrac(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.use_large_primes   = (cols[3] != 0);
 
     bool ok;
-    TIME_RUN(cfrac(_f, _m, n, &params, SINGLE_RUN), secs, &ok);
+    TIME_RUN(cfrac(_f, _m, n, &params, SINGLE_RUN, NULL), secs, &ok);
     return ok;
 }
 
@@ -359,7 +359,7 @@ static bool run_siqs(const mpz_t n, const mpz_t p, const uint32_t cols[],
     params.extra_primes_in_a = cols[6];
 
     bool ok;
-    TIME_RUN(siqs(_f, _m, n, &params, SINGLE_RUN), secs, &ok);
+    TIME_RUN(siqs(_f, _m, n, &params, SINGLE_RUN, NULL), secs, &ok);
     return ok;
 }
 

@@ -50,6 +50,7 @@
 #include "bernsteinisms.h"
 #include "factoring_machine.h"
 #include "siqs.h"
+#include "impl.h"
 #include "lindep.h"
 #include "block_lanczos.h"
 #include "tuning.h"
@@ -512,9 +513,9 @@ static void drop_duplicate_relations(
 //-----------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-ecode_t siqs(mpz_array_t* const factors, uint32_array_t* const multis,
-             const mpz_t n, const siqs_params_t* const params,
-             const factoring_mode_t mode) {
+ecode_t siqs_impl(mpz_array_t* const factors, uint32_array_t* const multis,
+                  const mpz_t n, const siqs_params_t* const params,
+                  const factoring_mode_t mode) {
 
     PRINT_INTRO_MSG("self-initializing quadratic sieve");
     INIT_TIMER;
@@ -1251,7 +1252,7 @@ static ecode_t collect_and_solve(factoring_machine_t* const machine) {
 static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
                        const mpz_t n, factoring_mode_t mode) {
 
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_rec(factors, multis, n, mode);
 
     //
     // The following code should be used to factor a number using _only_ SIQS.

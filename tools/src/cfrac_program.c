@@ -219,7 +219,8 @@ static void print_params(factoring_program_t* const program) {
 static ecode_t cfrac_func(mpz_array_t* const factors,
                           uint32_array_t* const multis, const mpz_t n,
                           const void* const params, factoring_mode_t mode) {
-    return cfrac(factors, multis, n, (const cfrac_params_t*) params, mode);
+    return cfrac(factors, multis, n, (const cfrac_params_t*) params, mode,
+                 NULL);
 }
 //------------------------------------------------------------------------------
 int main(int argc, char** argv) {

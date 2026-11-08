@@ -72,7 +72,7 @@ static int is_smooth(const mpz_t n, uint32_t lpb, const mpz_t fb,
         append_mpz_to_array(f, n);
         append_uint32_to_array(m, 1);
     } else if (mpz_cmp_ui(n, 1) > 0) {
-        tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION);
+        tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL);
     }
     for (uint32_t i = 0; i < f->length; i++) {
         if (mpz_sizeinbase(f->data[i], 2) > lpb) {
@@ -94,7 +94,7 @@ static cofactor_status_t run(const mpz_t n, const cofactor_strategy_t* s,
                              uint32_t lpb, int* ok) {
     mpz_array_t*    f = alloc_mpz_array(4);
     uint32_array_t* m = alloc_uint32_array(4);
-    const cofactor_status_t status = tifa_cofactor(f, m, n, s);
+    const cofactor_status_t status = tifa_cofactor(f, m, n, s, NULL);
     *ok = (status != COFACTOR_SMOOTH) || factors_ok(n, f, m, lpb);
     free_mpz_array(f);
     free_uint32_array(m);

@@ -35,6 +35,7 @@
 #include "siqs.h"
 #include "tifa_factor.h"
 #include "tifa_alloc.h"
+#include "impl.h"
 
 //------------------------------------------------------------------------------
 //                      CONSTANT DATA, SYMBOLS AND MACROS
@@ -257,12 +258,12 @@ static cofactor_status_t split_by_siqs(cofactor_run_t* const run,
     if (mpz_sizeinbase(c, 2) > 64) {
         siqs_params_t params;
         set_siqs_params_to_default(c, &params);
-        ecode = siqs(f, m, c, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode = siqs_impl(f, m, c, &params, FIND_COMPLETE_FACTORIZATION);
     }
     if (ecode != COMPLETE_FACTORIZATION_FOUND) {
         reset_mpz_array(f);
         m->length = 0;
-        ecode = tifa_factor(f, m, c, FIND_COMPLETE_FACTORIZATION);
+        ecode = tifa_factor_rec(f, m, c, FIND_COMPLETE_FACTORIZATION);
     }
     cofactor_status_t status = COFACTOR_GAVE_UP;
     if (ecode == COMPLETE_FACTORIZATION_FOUND) {
@@ -343,9 +344,9 @@ static cofactor_status_t split(cofactor_run_t* const run, const mpz_t c,
 //------------------------------------------------------------------------------
 //                              PUBLIC ENTRY
 //------------------------------------------------------------------------------
-cofactor_status_t tifa_cofactor(mpz_array_t* factors, uint32_array_t* multis,
-                                const mpz_t n,
-                                const cofactor_strategy_t* strategy) {
+cofactor_status_t tifa_cofactor_impl(mpz_array_t* factors,
+                                     uint32_array_t* multis, const mpz_t n,
+                                     const cofactor_strategy_t* strategy) {
     reset_mpz_array(factors);
     multis->length = 0;
 

@@ -91,8 +91,9 @@ bool ecm_schedule_split(mpz_t g, const mpz_t n,
     * find two thirds of the 22-bit factors that p-1 misses, for a quarter of
     * the SIQS run.
     *
-    * The curves run in as many threads as \c tifa_set_threads allows, at
-    * most one per 0.1 ms of them, the first factor found stopping all.
+    * The curves run in as many threads as the options allow (see
+    * tifa_options.h), at most one per 0.1 ms of them, the first factor
+    * found stopping all.
     *
     * \param[out] g A proper factor of \c n, if one is found.
     * \param[in]  n The odd composite to search (see \c mont_ecm_handles).

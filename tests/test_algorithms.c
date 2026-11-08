@@ -62,7 +62,8 @@ int main(void) {
         uint32_array_t* m = alloc_uint32_array(8);
         squfof_params_t params;
         set_squfof_params_to_default(&params);
-        ecode_t rc = squfof(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = squfof(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                            NULL);
         check("squfof", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -75,7 +76,7 @@ int main(void) {
         uint32_array_t* m = alloc_uint32_array(8);
         cfrac_params_t params;
         set_cfrac_params_to_default(n, &params);
-        ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, NULL);
         check("cfrac", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -95,7 +96,8 @@ int main(void) {
             cfrac_params_t params;
             set_cfrac_params_to_default(n, &params);
             params.filter_method = methods[i];
-            ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+            ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                               NULL);
             check("cfrac trial division filters", rc, n, f, m);
             free_mpz_array(f);
             free_uint32_array(m);
@@ -116,7 +118,7 @@ int main(void) {
         params.use_large_primes = false;
         params.nprimes_in_base  = 1024;
         params.nprimes_tdiv     = 1024;
-        ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = cfrac(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, NULL);
         check("cfrac no-large-primes", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -147,7 +149,7 @@ int main(void) {
                 params.nrelations   = cases[i].nrel;
             }
             params.linalg_method = cases[i].linalg;
-            const ecode_t rc = cfrac(f, NULL, n, &params, cases[i].mode);
+            const ecode_t rc = cfrac(f, NULL, n, &params, cases[i].mode, NULL);
             bool divides = true;
             for (uint32_t j = 0; j < f->length; j++) {
                 divides = divides && mpz_divisible_p(n, f->data[j])
@@ -172,11 +174,11 @@ int main(void) {
             if (cases[i].algo == 0) {
                 squfof_params_t params;
                 set_squfof_params_to_default(&params);
-                squfof(f, NULL, n, &params, FIND_SOME_FACTORS);
+                squfof(f, NULL, n, &params, FIND_SOME_FACTORS, NULL);
             } else {
                 ecm_params_t params;
                 set_ecm_params_to_default(n, &params);
-                ecm(f, NULL, n, &params, SINGLE_RUN);
+                ecm(f, NULL, n, &params, SINGLE_RUN, NULL);
             }
             bool ok = true;
             for (uint32_t j = 0; j < f->length; j++) {
@@ -196,7 +198,8 @@ int main(void) {
         mpz_array_t* f = alloc_mpz_array(8);
         fermat_params_t params;
         set_fermat_params_to_default(&params);
-        CHECK(fermat(f, NULL, n, &params, SINGLE_RUN) == SOME_FACTORS_FOUND,
+        CHECK(fermat(f, NULL, n, &params, SINGLE_RUN, NULL)
+                  == SOME_FACTORS_FOUND,
               "fermat finds 23107307611 * 31249465409 in one run");
         free_mpz_array(f);
     }
@@ -217,7 +220,7 @@ int main(void) {
             ecm_params_t params;
             set_ecm_params_to_default(n, &params);
             f->length = 0;
-            CHECK(ecm(f, NULL, n, &params, FIND_SOME_FACTORS)
+            CHECK(ecm(f, NULL, n, &params, FIND_SOME_FACTORS, NULL)
                       == SOME_FACTORS_FOUND, "ecm splits a small composite");
         }
         for (unsigned i = 0; i < sizeof(pp1_ns) / sizeof(pp1_ns[0]); i++) {
@@ -225,7 +228,7 @@ int main(void) {
             p_plus_1_params_t params;
             set_p_plus_1_params_to_default(n, &params);
             f->length = 0;
-            CHECK(p_plus_1(f, NULL, n, &params, FIND_SOME_FACTORS)
+            CHECK(p_plus_1(f, NULL, n, &params, FIND_SOME_FACTORS, NULL)
                       == SOME_FACTORS_FOUND, "p+1 splits a small composite");
         }
         for (unsigned i = 0; i < sizeof(pm1_ns) / sizeof(pm1_ns[0]); i++) {
@@ -233,7 +236,7 @@ int main(void) {
             p_minus_1_params_t params;
             set_p_minus_1_params_to_default(n, &params);
             f->length = 0;
-            CHECK(p_minus_1(f, NULL, n, &params, FIND_SOME_FACTORS)
+            CHECK(p_minus_1(f, NULL, n, &params, FIND_SOME_FACTORS, NULL)
                       == SOME_FACTORS_FOUND, "p-1 splits a small composite");
         }
         free_mpz_array(f);
@@ -249,7 +252,7 @@ int main(void) {
             mpz_array_t* f = alloc_mpz_array(8);
             cfrac_params_t params;
             set_cfrac_params_to_default(n, &params);
-            cfrac(f, NULL, n, &params, FIND_SOME_FACTORS);
+            cfrac(f, NULL, n, &params, FIND_SOME_FACTORS, NULL);
             bool ok = true;
             for (uint32_t j = 0; j < f->length; j++) {
                 ok = ok && mpz_divisible_p(n, f->data[j]);
@@ -266,7 +269,7 @@ int main(void) {
         uint32_array_t* m = alloc_uint32_array(8);
         siqs_params_t params;
         set_siqs_params_to_default(n, &params);
-        ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = siqs(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, NULL);
         check("siqs", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -279,7 +282,8 @@ int main(void) {
         uint32_array_t* m = alloc_uint32_array(8);
         fermat_params_t params;
         set_fermat_params_to_default(&params);
-        ecode_t rc = fermat(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = fermat(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                            NULL);
         check("fermat", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -297,7 +301,8 @@ int main(void) {
             uint32_array_t* m = alloc_uint32_array(8);
             fermat_params_t params;
             set_fermat_params_to_default(&params);
-            ecode_t rc = fermat(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+            ecode_t rc = fermat(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                                NULL);
             check("fermat multiplier", rc, n, f, m);
             free_mpz_array(f);
             free_uint32_array(m);
@@ -311,7 +316,7 @@ int main(void) {
         uint32_array_t* m = alloc_uint32_array(8);
         rho_params_t params;
         set_rho_params_to_default(n, &params);
-        ecode_t rc = rho(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = rho(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, NULL);
         check("rho", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -324,7 +329,8 @@ int main(void) {
         uint32_array_t* m = alloc_uint32_array(8);
         p_minus_1_params_t params;
         set_p_minus_1_params_to_default(n, &params);
-        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                               NULL);
         check("p_minus_1", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -341,7 +347,8 @@ int main(void) {
         params.b1   = 1000;
         params.b2   = 0;
         params.base = 2;
-        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                               NULL);
         check("p_minus_1 backtrack", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -357,7 +364,8 @@ int main(void) {
         set_p_minus_1_params_to_default(n, &params);
         params.b1 = 1000;    // below 5003: stage 1 misses
         params.b2 = 10000;   // above 5003: stage 2 catches it
-        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                               NULL);
         check("p_minus_1 stage2", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -375,7 +383,8 @@ int main(void) {
         set_p_minus_1_params_to_default(n, &params);
         params.b1 = 1000;
         params.b2 = 10000;
-        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_minus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                               NULL);
         check("p_minus_1 rescan", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -392,7 +401,8 @@ int main(void) {
         set_p_plus_1_params_to_default(n, &params);
         params.b1 = 50;
         params.b2 = 0;       // stage 1 only
-        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                              NULL);
         check("p_plus_1", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -408,7 +418,8 @@ int main(void) {
         set_p_plus_1_params_to_default(n, &params);
         params.b1 = 1000;    // below 1013: stage 1 misses
         params.b2 = 10000;   // above 1013: stage 2 catches it
-        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                              NULL);
         check("p_plus_1 stage2", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -426,7 +437,8 @@ int main(void) {
         set_p_plus_1_params_to_default(n, &params);
         params.b1 = 1000;
         params.b2 = 10000;
-        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                              NULL);
         check("p_plus_1 rescan", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -444,7 +456,8 @@ int main(void) {
         set_p_plus_1_params_to_default(n, &params);
         params.b1 = 1000;
         params.b2 = 10000;
-        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = p_plus_1(f, m, n, &params, FIND_COMPLETE_FACTORIZATION,
+                              NULL);
         check("p_plus_1 bsgs", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -472,7 +485,7 @@ int main(void) {
         params.b2      = 50000U;   // > b1: second phase runs
         params.ncurves = 200U;
         params.seed    = 1U;
-        ecode_t rc = ecm(f, m, n, &params, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = ecm(f, m, n, &params, FIND_COMPLETE_FACTORIZATION, NULL);
         check("ecm", rc, n, f, m);
         free_mpz_array(f);
         free_uint32_array(m);
@@ -486,7 +499,7 @@ int main(void) {
         mpz_array_t* f = alloc_mpz_array(8);
         ecm_params_t params;
         set_ecm_params_to_default(n, &params);
-        ecode_t rc = ecm(f, NULL, n, &params, FIND_SOME_FACTORS);
+        ecode_t rc = ecm(f, NULL, n, &params, FIND_SOME_FACTORS, NULL);
         CHECK(rc == SOME_FACTORS_FOUND, "ecm defaults: rc == SOME_FACTORS_FOUND");
         int found = 0;
         for (uint32_t i = 0; i < f->length; i++) {

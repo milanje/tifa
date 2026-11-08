@@ -28,6 +28,7 @@
 #include "batch_gcd.h"
 #include "tifa_alloc.h"
 #include "stopping.h"
+#include "impl.h"
 
 //------------------------------------------------------------------------------
 static void free_levels(mpz_t** const levels, const uint32_t* const lengths,
@@ -40,8 +41,8 @@ static void free_levels(mpz_t** const levels, const uint32_t* const lengths,
     }
 }
 //------------------------------------------------------------------------------
-ecode_t tifa_batch_gcd(mpz_array_t* const gcds,
-                       const mpz_array_t* const moduli) {
+ecode_t tifa_batch_gcd_impl(mpz_array_t* const gcds,
+                            const mpz_array_t* const moduli) {
     const uint32_t count = moduli->length;
     for (uint32_t i = 0; i < count; i++) {
         if (mpz_sgn(moduli->data[i]) <= 0) {

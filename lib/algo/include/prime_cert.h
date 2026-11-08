@@ -80,8 +80,9 @@
  * p - 1 and p + 1 needed SIQS) and 66 ms at 256 bits; a check takes less
  * than 0.5 ms. Above, the composites left grow with p: a proof can take as
  * long as SIQS on a composite of almost its size (minutes at 280 bits, far
- * longer above), unless the thread's time limit (\c tifa_set_time_limit)
- * stops it with \c PRIME_NOT_PROVEN.
+ * longer above), unless a time limit (see tifa_options.h) stops it with
+ * \c PRIME_NOT_PROVEN; composites above the options' \c siqs_max_bits (320
+ * by default) never go to SIQS.
  */
 
 #if !defined(_TIFA_PRIME_CERT_H_)
@@ -101,6 +102,7 @@ extern "C" {
 #include <gmp.h>
 
 #include "array.h"
+#include "tifa_options.h"
 
    /**
     * \enum prime_cert_status_enum
@@ -205,10 +207,16 @@ TIFA_API void free_prime_cert(prime_cert_t* cert);
     * \param[out] cert The certificate of \c n on \c PRIME_PROVEN (its
     *             previous steps are dropped).
     * \param[in]  n The integer to prove prime.
-    * \return The outcome.
+    * \param[in]  options The options of the call (time limit, interrupt
+    *             check, threads, sizes: see tifa_options.h), or NULL for the
+    *             defaults.
+    * \return The outcome: \c PRIME_NOT_PROVEN if the options are invalid.
     */
-TIFA_API prime_cert_status_t tifa_prove_prime(prime_cert_t* cert,
-                                              const mpz_t n);
+TIFA_API prime_cert_status_t tifa_prove_prime(
+    prime_cert_t* cert,
+    const mpz_t n,
+    const tifa_options_t* const options
+);
 
    /**
     * \brief Checks a certificate.

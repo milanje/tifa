@@ -46,6 +46,7 @@ extern "C" {
 #include <gmp.h>
 
 #include "array.h"
+#include "tifa_options.h"
 
    /**
     * \enum cofactor_status_enum
@@ -142,11 +143,18 @@ TIFA_API void free_cofactor_strategy(cofactor_strategy_t* strategy);
     * \param[out] multis Their multiplicities.
     * \param[in]  n The positive integer to cofactor.
     * \param[in]  strategy The bounds (several threads may share it).
-    * \return The outcome.
+    * \param[in]  options The options of the call (time limit, interrupt
+    *             check: see tifa_options.h), or NULL for the defaults (which
+    *             cost nothing).
+    * \return The outcome: \c COFACTOR_GAVE_UP if the options are invalid.
     */
-TIFA_API cofactor_status_t tifa_cofactor(mpz_array_t* factors,
-                                         uint32_array_t* multis, const mpz_t n,
-                                         const cofactor_strategy_t* strategy);
+TIFA_API cofactor_status_t tifa_cofactor(
+    mpz_array_t* factors,
+    uint32_array_t* multis,
+    const mpz_t n,
+    const cofactor_strategy_t* strategy,
+    const tifa_options_t* const options
+);
 
 #ifdef __cplusplus
 }

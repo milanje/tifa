@@ -31,7 +31,7 @@
 #include "matrix.h"
 #include "gauss_elim.h"
 #include "lindep.h"
-#include "time_limit.h"
+#include "stopping.h"
 
 static void test_byte_matrix_clone(void) {
     const uint32_t nrows = 5;
@@ -234,15 +234,17 @@ static void test_elim_time_limit(const int filtered) {
     }
     binary_matrix_t* orig = clone_binary_matrix(m);
     uint32_array_list_t* deps = alloc_uint32_array_list(nrows);
-    tifa_set_time_limit(1e-9);
-    while (!tifa_time_limit_reached()) {
+    const tifa_options_t limited = { .time_limit = 1e-9 };
+    tifa_call_t call;
+    tifa_call_begin(&call, &limited);
+    while (!tifa_should_stop()) {
     }
     if (filtered) {
         filtered_gaussian_elim(deps, m);
     } else {
         gaussian_elim(deps, m);
     }
-    tifa_set_time_limit(0.0);
+    tifa_call_end(&call);
     if (!filtered) {
         CHECK_EQ_UI(deps->length, 0, "past the limit, no dependency");
     }

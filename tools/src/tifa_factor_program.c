@@ -34,7 +34,7 @@
 
 #include "tool_utils.h"
 #include "tifa_factor.h"
-#include "time_limit.h"
+#include "tifa_options.h"
 #include "factoring_program.h"
 #include "common_funcs.h"
 
@@ -66,7 +66,7 @@ static void process_args(factoring_program_t* const program) {
     int    argc = program->argc;
     char** argv = program->argv;
 
-    tifa_factor_hint_t* hint = (tifa_factor_hint_t*) program->params;
+    tifa_options_t* options = (tifa_options_t*) program->params;
 
     print_hello_msg(program->algo_name);
 
@@ -102,7 +102,7 @@ static void process_args(factoring_program_t* const program) {
         bool known = false;
         for (int i = TIFA_FACTOR_RANDOM; i <= TIFA_FACTOR_UNBALANCED; i++) {
             if (0 == strcmp(argv[1], hint_names[i])) {
-                *hint = (tifa_factor_hint_t) i;
+                options->hint = (tifa_factor_hint_t) i;
                 known = true;
             }
         }
@@ -134,23 +134,23 @@ static void set_params_to_default(factoring_program_t* const program,
 }
 //------------------------------------------------------------------------------
 static void print_params(factoring_program_t* const program) {
-    const tifa_factor_hint_t hint = *(tifa_factor_hint_t*) program->params;
+    const tifa_options_t* options = (const tifa_options_t*) program->params;
     printf("\thint: %s (tifa_factor chooses the methods and their parameters)\n",
-           hint_names[hint]);
+           hint_names[options->hint]);
 }
 //------------------------------------------------------------------------------
 static ecode_t tifa_factor_func(mpz_array_t* const factors,
                                 uint32_array_t* const multis, const mpz_t n,
                                 const void* const params,
                                 factoring_mode_t mode) {
-    return tifa_factor_with_hint(factors, multis, n, mode,
-                                 *(const tifa_factor_hint_t*) params);
+    return tifa_factor(factors, multis, n, mode,
+                       (const tifa_options_t*) params);
 }
 //------------------------------------------------------------------------------
 int main(int argc, char** argv) {
 
     factoring_program_t program;
-    tifa_factor_hint_t  hint = TIFA_FACTOR_RANDOM;
+    tifa_options_t      options = { .hint = TIFA_FACTOR_RANDOM };
 
     bool prove   = false;
     bool bad_arg = false;
@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
                 bad_arg = true;
                 break;
             }
-            tifa_set_threads((uint32_t) n);
+            options.threads = (uint32_t) n;
             i++;
         } else {
             argv[nargs++] = argv[i];
@@ -181,9 +181,10 @@ int main(int argc, char** argv) {
     program.verbose = false;
     program.timing  = false;
     program.prove   = prove;
+    prove_options   = &options;
 
     program.algo_name = "tifa_factor()";
-    program.params    = &hint;
+    program.params    = &options;
     program.mode      = FIND_COMPLETE_FACTORIZATION;
     program.nfactors  = 2;
 

@@ -23,7 +23,7 @@
 
 #include "tifa_test.h"
 #include "batch_gcd.h"
-#include "time_limit.h"
+#include "tifa_options.h"
 
 static void random_prime(mpz_t p, gmp_randstate_t state, unsigned long bits) {
     mpz_urandomb(p, state, bits);
@@ -81,12 +81,12 @@ int main(void) {
     mpz_array_t* const gcds   = alloc_mpz_array(4);
     char msg[160];
 
-    CHECK(tifa_batch_gcd(gcds, moduli) == SUCCESS && (gcds->length == 0),
+    CHECK(tifa_batch_gcd(gcds, moduli, NULL) == SUCCESS && (gcds->length == 0),
           "no moduli, no gcd");
 
     mpz_set_ui(p, 15);
     append_mpz_to_array(moduli, p);
-    CHECK(   (tifa_batch_gcd(gcds, moduli) == SUCCESS)
+    CHECK(   (tifa_batch_gcd(gcds, moduli, NULL) == SUCCESS)
           && (gcds->length == 1) && (mpz_cmp_ui(gcds->data[0], 1) == 0),
           "a single modulus: 1");
 
@@ -97,7 +97,7 @@ int main(void) {
         mpz_set_ui(p, small[i]);
         append_mpz_to_array(moduli, p);
     }
-    CHECK(   (tifa_batch_gcd(gcds, moduli) == SUCCESS)
+    CHECK(   (tifa_batch_gcd(gcds, moduli, NULL) == SUCCESS)
           && matches_direct(gcds, 0, moduli),
           "15, 21, 22, 1, 35, 22: shared primes, 1 and a duplicate");
 
@@ -125,7 +125,7 @@ int main(void) {
         append_mpz_to_array(gcds, p);
         snprintf(msg, sizeof(msg), "%u moduli of %u bits match direct "
                  "gcds, appended", counts[t], bits[t]);
-        CHECK(   (tifa_batch_gcd(gcds, moduli) == SUCCESS)
+        CHECK(   (tifa_batch_gcd(gcds, moduli, NULL) == SUCCESS)
               && (mpz_cmp_ui(gcds->data[0], 7) == 0)
               && matches_direct(gcds, 1, moduli), msg);
     }
@@ -133,17 +133,19 @@ int main(void) {
     reset_mpz_array(gcds);
     mpz_set_si(p, -15);
     append_mpz_to_array(moduli, p);
-    CHECK(   (tifa_batch_gcd(gcds, moduli) == FAILURE)
+    CHECK(   (tifa_batch_gcd(gcds, moduli, NULL) == FAILURE)
           && (gcds->length == 0), "a negative modulus fails");
     mpz_set_ui(moduli->data[moduli->length - 1], 0);
-    CHECK(   (tifa_batch_gcd(gcds, moduli) == FAILURE)
+    CHECK(   (tifa_batch_gcd(gcds, moduli, NULL) == FAILURE)
           && (gcds->length == 0), "a zero modulus fails");
 
-    tifa_set_time_limit(1e-9);
+    const tifa_options_t limited = { .time_limit = 1e-9 };
     moduli->length--;
-    CHECK(   (tifa_batch_gcd(gcds, moduli) == GIVING_UP)
+    CHECK(   (tifa_batch_gcd(gcds, moduli, &limited) == GIVING_UP)
           && (gcds->length == 0), "the time limit gives up, appends nothing");
-    tifa_set_time_limit(0);
+    const tifa_options_t bad = { .reserved = { 1 } };
+    CHECK(   (tifa_batch_gcd(gcds, moduli, &bad) == FAILURE)
+          && (gcds->length == 0), "options with a reserved field set fail");
 
     free_mpz_array(moduli);
     free_mpz_array(gcds);

@@ -41,6 +41,7 @@
 #include "smooth_filter.h"
 #include "factoring_machine.h"
 #include "cfrac.h"
+#include "impl.h"
 #include "stopping.h"
 #include "lindep.h"
 #include "tifa_factor.h"
@@ -304,9 +305,9 @@ static void choose_multiplier(cfrac_context_t* const context);
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-ecode_t cfrac(mpz_array_t* const factors, uint32_array_t* const multis,
-              const mpz_t n, const cfrac_params_t* const params,
-              const factoring_mode_t mode) {
+ecode_t cfrac_impl(mpz_array_t* const factors, uint32_array_t* const multis,
+                   const mpz_t n, const cfrac_params_t* const params,
+                   const factoring_mode_t mode) {
 
     PRINT_INTRO_MSG("continued fraction");
     INIT_TIMER;
@@ -785,7 +786,7 @@ static ecode_t perform_cfrac(factoring_machine_t* const machine) {
 static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
                        const mpz_t n, factoring_mode_t mode) {
 
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_rec(factors, multis, n, mode);
 
     //
     // The following code should be used to factor a number using _only_ CFRAC.

@@ -41,6 +41,7 @@ extern "C" {
 #include "array.h"
 #include "exit_codes.h"
 #include "factoring_machine.h"
+#include "tifa_options.h"
 
    /**
     * \struct struct_factoring_program factoring_program.h
@@ -169,6 +170,11 @@ typedef struct struct_factoring_program factoring_program_t;
     * \return The program's exit status: one of the \c TIFA_EXIT_* values.
     */
 int run_program(factoring_program_t* const program);
+
+   /**
+    * The options of the proofs of \c run_program, NULL for the defaults.
+    */
+extern const tifa_options_t* prove_options;
 
 #ifdef __cplusplus
 }

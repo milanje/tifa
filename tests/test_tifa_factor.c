@@ -22,19 +22,24 @@
 // factorization; we verify the returned factors are all prime and multiply
 // back (with multiplicities) to n. This exercises the size-based dispatch to
 // factor_u64 (trial division / SQUFOF without it) / ECM and p-1 pre-passes /
-// SIQS, including inputs with small factors, and with each hint of
-// tifa_factor_with_hint().
+// SIQS, including inputs with small factors, and with each hint.
 
 #include "tifa_test.h"
 #include "tifa_factor.h"
 #include "mont_ecm.h"
-#include "time_limit.h"
+#include "tifa_options.h"
+
+//
+// The options of factor_and_check: threads in the last tests.
+//
+static const tifa_options_t* opts = NULL;
 
 static void factor_and_check(const char* label, const mpz_t n) {
     mpz_array_t*    factors = alloc_mpz_array(8);
     uint32_array_t* multis  = alloc_uint32_array(8);
 
-    ecode_t rc = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION);
+    ecode_t rc = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION,
+                             opts);
 
     char msg[160];
     snprintf(msg, sizeof(msg), "%s: rc == COMPLETE_FACTORIZATION_FOUND", label);
@@ -55,8 +60,9 @@ static void hinted_and_check(const char* label, const mpz_t n,
     mpz_array_t*    factors = alloc_mpz_array(8);
     uint32_array_t* multis  = alloc_uint32_array(8);
 
-    ecode_t rc = tifa_factor_with_hint(factors, multis, n,
-                                       FIND_COMPLETE_FACTORIZATION, hint);
+    const tifa_options_t options = { .hint = hint };
+    ecode_t rc = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION,
+                             &options);
     char msg[160];
     snprintf(msg, sizeof(msg), "%s, %s: complete factorization", label,
              names[hint]);
@@ -72,7 +78,7 @@ static void hinted_and_check(const char* label, const mpz_t n,
 static void some_factors_and_check(const char* label, const mpz_t n) {
     mpz_array_t* factors = alloc_mpz_array(8);
 
-    ecode_t rc = tifa_factor(factors, NULL, n, FIND_SOME_FACTORS);
+    ecode_t rc = tifa_factor(factors, NULL, n, FIND_SOME_FACTORS, NULL);
 
     char msg[160];
     snprintf(msg, sizeof(msg), "%s: rc == SOME_FACTORS_FOUND", label);
@@ -171,9 +177,9 @@ int main(void) {
         mpz_mul(n, root, root);
         mpz_array_t* f    = alloc_mpz_array(4);
         uint32_array_t* m = alloc_uint32_array(4);
-        tifa_set_time_limit(1e-9);
-        const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION);
-        tifa_set_time_limit(0.0);
+        const tifa_options_t limited = { .time_limit = 1e-9 };
+        const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION,
+                                      &limited);
         CHECK(   (   (e == PARTIAL_FACTORIZATION_FOUND) && (f->length == 1)
                   && (m->length == 1) && (mpz_cmp(f->data[0], root) == 0)
                   && (m->data[0] == 2))
@@ -191,7 +197,7 @@ int main(void) {
     for (unsigned i = 0; i < sizeof(primes) / sizeof(primes[0]); i++) {
         mpz_set_ui(n, primes[i]);
         mpz_array_t* factors = alloc_mpz_array(4);
-        CHECK(tifa_factor(factors, NULL, n, FIND_SOME_FACTORS)
+        CHECK(tifa_factor(factors, NULL, n, FIND_SOME_FACTORS, NULL)
                   == NO_FACTOR_FOUND, "a prime has no factor");
         free_mpz_array(factors);
     }
@@ -222,7 +228,8 @@ int main(void) {
 
         mpz_array_t*    factors = alloc_mpz_array(8);
         uint32_array_t* multis  = alloc_uint32_array(8);
-        ecode_t rc = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = tifa_factor(factors, multis, n,
+                                 FIND_COMPLETE_FACTORIZATION, NULL);
         if (   rc != COMPLETE_FACTORIZATION_FOUND
             || !tifa_is_complete_factorization(n, factors, multis)) {
             gmp_fprintf(stderr, "  incomplete: %Zd (rc = %d)\n", n, rc);
@@ -244,7 +251,8 @@ int main(void) {
 
         mpz_array_t*    factors = alloc_mpz_array(8);
         uint32_array_t* multis  = alloc_uint32_array(8);
-        ecode_t rc = tifa_factor(factors, multis, n, FIND_COMPLETE_FACTORIZATION);
+        ecode_t rc = tifa_factor(factors, multis, n,
+                                 FIND_COMPLETE_FACTORIZATION, NULL);
         if ((rc != NO_FACTOR_FOUND) || (factors->length != 0)) {
             gmp_fprintf(stderr, "  prime %Zd: rc = %d\n", n, rc);
             nmisreported++;
@@ -291,8 +299,8 @@ int main(void) {
         }
         mpz_set_str(n, "206010655745875572166197184221848916071", 10);
         mpz_array_t* factors = alloc_mpz_array(4);
-        ecode_t rc = tifa_factor_with_hint(factors, NULL, n,
-                                           FIND_SOME_FACTORS, hint);
+        const tifa_options_t options = { .hint = hint };
+        ecode_t rc = tifa_factor(factors, NULL, n, FIND_SOME_FACTORS, &options);
         CHECK(   ((rc == SOME_FACTORS_FOUND)
                   || (rc == COMPLETE_FACTORIZATION_FOUND))
               && (factors->length > 0)
@@ -301,14 +309,14 @@ int main(void) {
 
         mpz_nextprime(n, n);
         reset_mpz_array(factors);
-        CHECK(tifa_factor_with_hint(factors, NULL, n, FIND_SOME_FACTORS, hint)
+        CHECK(tifa_factor(factors, NULL, n, FIND_SOME_FACTORS, &options)
                   == NO_FACTOR_FOUND, "a prime has no factor, with a hint");
         free_mpz_array(factors);
     }
     mpz_array_t* factors = alloc_mpz_array(4);
-    CHECK(tifa_factor_with_hint(factors, NULL, n, FIND_SOME_FACTORS,
-                                (tifa_factor_hint_t) 3) == FAILURE,
-          "an unknown hint fails");
+    const tifa_options_t unknown = { .hint = (tifa_factor_hint_t) 3 };
+    CHECK(tifa_factor(factors, NULL, n, FIND_SOME_FACTORS, &unknown)
+              == FAILURE, "an unknown hint fails");
     CHECK_EQ_UI(factors->length, 0, "an unknown hint finds nothing");
     free_mpz_array(factors);
 
@@ -355,7 +363,8 @@ int main(void) {
         "40-bit factor (200 bits), 4 threads",
         "45- and 50-bit factors (300 bits), 4 threads"
     };
-    tifa_set_threads(4);
+    static const tifa_options_t four = { .threads = 4 };
+    opts = &four;
     for (uint32_t i = 0; i < 2; i++) {
         mpz_set_ui(n, 1UL);
         for (uint32_t j = 0; (j < 3) && (threaded_bits[i][j] != 0); j++) {
@@ -366,7 +375,7 @@ int main(void) {
         }
         factor_and_check(threaded_labels[i], n);
     }
-    tifa_set_threads(1);
+    opts = NULL;
 #endif
 
     gmp_randclear(state);

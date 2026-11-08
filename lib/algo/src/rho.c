@@ -31,6 +31,7 @@
 #include "macros.h"
 #include "factoring_machine.h"
 #include "rho.h"
+#include "impl.h"
 #include "tifa_factor.h"
 #include "tuning.h"
 #include "tifa_alloc.h"
@@ -128,9 +129,9 @@ inline static void iteration_function(rho_context_t* context, mpz_t fx, mpz_t x)
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-ecode_t rho(mpz_array_t* const factors, uint32_array_t* const multis,
-            const mpz_t n, const rho_params_t* const params,
-            const factoring_mode_t mode) {
+ecode_t rho_impl(mpz_array_t* const factors, uint32_array_t* const multis,
+                 const mpz_t n, const rho_params_t* const params,
+                 const factoring_mode_t mode) {
 
     PRINT_INTRO_MSG("Pollard's rho");
     INIT_TIMER;
@@ -497,7 +498,7 @@ static ecode_t perform_rho_floyd(factoring_machine_t* const machine) {
 static ecode_t recurse(mpz_array_t* const factors, uint32_array_t* const multis,
                        const mpz_t n, factoring_mode_t mode) {
 
-    return tifa_factor(factors, multis, n, mode);
+    return tifa_factor_rec(factors, multis, n, mode);
 
     //
     // The following code should be used to factor a number using _only_

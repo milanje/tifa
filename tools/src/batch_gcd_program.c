@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
         return TIFA_EXIT_USAGE;
     }
     mpz_array_t* const gcds = alloc_mpz_array(ints->length);
-    tifa_batch_gcd(gcds, ints);
+    tifa_batch_gcd(gcds, ints, NULL);
 
     uint32_t nshared = 0;
     for (uint32_t i = 0; i < gcds->length; i++) {

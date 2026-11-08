@@ -65,6 +65,6 @@
 #include "array.h"
 #include "exit_codes.h"
 #include "factoring_machine.h"
-#include "time_limit.h"
+#include "tifa_options.h"
 
 #endif

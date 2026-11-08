@@ -53,6 +53,7 @@ extern "C" {
 #include "array.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
+#include "tifa_options.h"
 
    /**
     * \struct struct_fermat_params_t fermat.h lib/algo/include/fermat.h
@@ -129,6 +130,9 @@ TIFA_API void set_fermat_params_to_default(fermat_params_t* const params);
     * \param[in] n The non perfect square integer to factor.
     * \param[in] params Fermat's algorithm parameters (currently unused).
     * \param[in] mode The factoring mode to use.
+    * \param[in] options The options of the call (time limit, interrupt
+    *                    check, threads: see tifa_options.h), or NULL for
+    *                    the defaults.
     * \return An exit code.
     */
 TIFA_API ecode_t fermat(
@@ -136,7 +140,8 @@ TIFA_API ecode_t fermat(
     uint32_array_t* const multis,
     const mpz_t n,
     const fermat_params_t* const params,
-    const factoring_mode_t mode
+    const factoring_mode_t mode,
+    const tifa_options_t* const options
 );
 
 #ifdef __cplusplus

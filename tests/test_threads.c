@@ -76,27 +76,27 @@ typedef ecode_t (*run_t)(mpz_array_t*, uint32_array_t*, const mpz_t,
 static ecode_t run_tifa_factor(mpz_array_t* f, uint32_array_t* m,
                                const mpz_t n, const shared_params_t* s) {
     (void) s;
-    return tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION);
+    return tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL);
 }
 
 static ecode_t run_ecm(mpz_array_t* f, uint32_array_t* m, const mpz_t n,
                        const shared_params_t* s) {
-    return ecm(f, m, n, &s->ecm, FIND_COMPLETE_FACTORIZATION);
+    return ecm(f, m, n, &s->ecm, FIND_COMPLETE_FACTORIZATION, NULL);
 }
 
 static ecode_t run_pm1(mpz_array_t* f, uint32_array_t* m, const mpz_t n,
                        const shared_params_t* s) {
-    return p_minus_1(f, m, n, &s->pm1, FIND_COMPLETE_FACTORIZATION);
+    return p_minus_1(f, m, n, &s->pm1, FIND_COMPLETE_FACTORIZATION, NULL);
 }
 
 static ecode_t run_pp1(mpz_array_t* f, uint32_array_t* m, const mpz_t n,
                        const shared_params_t* s) {
-    return p_plus_1(f, m, n, &s->pp1, FIND_COMPLETE_FACTORIZATION);
+    return p_plus_1(f, m, n, &s->pp1, FIND_COMPLETE_FACTORIZATION, NULL);
 }
 
 static ecode_t run_siqs(mpz_array_t* f, uint32_array_t* m, const mpz_t n,
                         const shared_params_t* s) {
-    return siqs(f, m, n, &s->siqs, FIND_COMPLETE_FACTORIZATION);
+    return siqs(f, m, n, &s->siqs, FIND_COMPLETE_FACTORIZATION, NULL);
 }
 
 static void factor_and_check(worker_t* w, run_t run, const mpz_t n) {
@@ -172,7 +172,8 @@ static void* worker(void* arg) {
         mpz_mul(n, p, q);
         random_prime(p, state, 31);
         mpz_mul(n, n, p);
-        if (tifa_cofactor(f, m, n, w->shared->cofactor) != COFACTOR_SMOOTH) {
+        if (tifa_cofactor(f, m, n, w->shared->cofactor, NULL)
+                != COFACTOR_SMOOTH) {
             w->nfailed++;
             gmp_fprintf(stderr, "  thread %u: %Zd not smooth\n", w->index, n);
         }

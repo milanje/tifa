@@ -45,6 +45,7 @@ extern "C" {
 #include "array.h"
 #include "factoring_machine.h"
 #include "exit_codes.h"
+#include "tifa_options.h"
 
    /**
     * \struct struct_p_minus_1_params_t p_minus_1.h lib/algo/include/p_minus_1.h
@@ -121,6 +122,9 @@ TIFA_API void set_p_minus_1_params_to_default(const mpz_t n,
     * \param[in] n The non perfect square integer to factor.
     * \param[in] params Pollard's p-1 parameters.
     * \param[in] mode The factoring mode to use.
+    * \param[in] options The options of the call (time limit, interrupt
+    *                    check, threads: see tifa_options.h), or NULL for
+    *                    the defaults.
     * \return An exit code.
     */
 TIFA_API ecode_t p_minus_1(
@@ -128,7 +132,8 @@ TIFA_API ecode_t p_minus_1(
     uint32_array_t* const multis,
     const mpz_t n,
     const p_minus_1_params_t* const params,
-    const factoring_mode_t mode
+    const factoring_mode_t mode,
+    const tifa_options_t* const options
 );
 
 #ifdef __cplusplus

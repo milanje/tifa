@@ -51,6 +51,7 @@ set(TIFA_SOURCES
     utils/src/mont_ecm_wide.c
     algo/src/batch_gcd.c
     utils/src/block_lanczos.c
+    algo/src/api.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the
@@ -174,7 +175,7 @@ set(TIFA_PUBLIC_HEADERS
     utils/include/factoring_machine.h
     utils/include/factor_u64.h
     utils/include/methods.h
-    utils/include/time_limit.h
+    utils/include/tifa_options.h
     # Umbrella header
     tifa.h
 )

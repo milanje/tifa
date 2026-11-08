@@ -29,7 +29,7 @@
 #include "p_plus_1.h"
 #include "squfof.h"
 #include "tifa_factor.h"
-#include "time_limit.h"
+#include "tifa_options.h"
 
 static void usage(FILE* const out) {
     fprintf(out,
@@ -43,9 +43,9 @@ static void usage(FILE* const out) {
         "least <seconds> of CPU time, and prints the mean time per run and the\n"
         "number of runs that found no factor. Defaults: 30 numbers, 3 seconds;\n"
         "--seed sets the seed of the numbers (default 1). <algo> is factor,\n"
-        "factor-balanced, factor-unbalanced (tifa_factor_with_hint()), ecm,\n"
+        "factor-balanced, factor-unbalanced (tifa_factor() with a hint), ecm,\n"
         "pm1, pp1 or squfof. --threads runs tifa_factor() in up to <n> threads\n"
-        "(tifa_set_threads()), timed by the wall clock.\n"
+        "(its options' threads), timed by the wall clock.\n"
     );
 }
 
@@ -122,7 +122,13 @@ int main(int argc, char** argv) {
     mpz_array_t*    const factors = alloc_mpz_array(8);
     uint32_array_t* const multis  = alloc_uint32_array(8);
 
-    tifa_set_threads((uint32_t) threads);
+    //
+    // Without threads or a hint, no options, as most callers.
+    //
+    const tifa_options_t options = { .threads = (uint32_t) threads,
+                                     .hint    = hint };
+    const tifa_options_t* const opts =
+        ((threads > 1) || (hint != TIFA_FACTOR_RANDOM)) ? &options : NULL;
     double (*const now)(void) = (threads > 1) ? wall_seconds : cpu_seconds;
 
     unsigned long runs  = 0;
@@ -135,22 +141,22 @@ int main(int argc, char** argv) {
             if (0 == strcmp(algo, "ecm")) {
                 ecm_params_t params;
                 set_ecm_params_to_default(ns[k], &params);
-                ecm(factors, NULL, ns[k], &params, FIND_SOME_FACTORS);
+                ecm(factors, NULL, ns[k], &params, FIND_SOME_FACTORS, NULL);
             } else if (0 == strcmp(algo, "pm1")) {
                 p_minus_1_params_t params;
                 set_p_minus_1_params_to_default(ns[k], &params);
-                p_minus_1(factors, NULL, ns[k], &params, SINGLE_RUN);
+                p_minus_1(factors, NULL, ns[k], &params, SINGLE_RUN, NULL);
             } else if (0 == strcmp(algo, "pp1")) {
                 p_plus_1_params_t params;
                 set_p_plus_1_params_to_default(ns[k], &params);
-                p_plus_1(factors, NULL, ns[k], &params, SINGLE_RUN);
+                p_plus_1(factors, NULL, ns[k], &params, SINGLE_RUN, NULL);
             } else if (0 == strcmp(algo, "squfof")) {
                 squfof_params_t params;
                 set_squfof_params_to_default(&params);
-                squfof(factors, NULL, ns[k], &params, FIND_SOME_FACTORS);
+                squfof(factors, NULL, ns[k], &params, FIND_SOME_FACTORS, NULL);
             } else {
-                tifa_factor_with_hint(factors, multis, ns[k],
-                                      FIND_COMPLETE_FACTORIZATION, hint);
+                tifa_factor(factors, multis, ns[k],
+                            FIND_COMPLETE_FACTORIZATION, opts);
             }
             if (factors->length == 0) {
                 fails++;

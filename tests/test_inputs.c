@@ -76,7 +76,7 @@ typedef ecode_t (*algo_t)(mpz_array_t*, uint32_array_t*, const mpz_t);
                               const mpz_t n) {                              \
         type p;                                                             \
         setter;                                                             \
-        return name(f, m, n, &p, FIND_COMPLETE_FACTORIZATION);              \
+        return name(f, m, n, &p, FIND_COMPLETE_FACTORIZATION, NULL);        \
     }
 WRAP(siqs,      siqs_params_t,      set_siqs_params_to_default(n, &p))
 WRAP(cfrac,     cfrac_params_t,     set_cfrac_params_to_default(n, &p))
@@ -123,7 +123,7 @@ static void test_small_and_square_n(void) {
     for (unsigned i = 0; i < sizeof(below2) / sizeof(below2[0]); i++) {
         mpz_set_str(n, below2[i], 10);
         CHECK_EQ_UI(tdiv(f, m, n, 0), NO_FACTOR_FOUND, "tdiv below 2");
-        CHECK_EQ_UI(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION),
+        CHECK_EQ_UI(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL),
                     NO_FACTOR_FOUND, "tifa_factor below 2");
     }
     free_mpz_array(f);
@@ -139,7 +139,7 @@ static void test_output_arrays(void) {
     // An array with no room left grows.
     mpz_array_t*    f = alloc_mpz_array(1);
     uint32_array_t* m = alloc_uint32_array(1);
-    CHECK_EQ_UI(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION),
+    CHECK_EQ_UI(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL),
                 COMPLETE_FACTORIZATION_FOUND, "full arrays");
     CHECK(found_ok(n, f, m, 0), "full arrays: factorization");
 
@@ -152,7 +152,7 @@ static void test_output_arrays(void) {
             append_mpz_to_array(f, t);
             append_uint32_to_array(m, 7);
         }
-        CHECK_EQ_UI(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION),
+        CHECK_EQ_UI(tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL),
                     COMPLETE_FACTORIZATION_FOUND, "filled arrays");
         CHECK(found_ok(n, f, m, 5), "filled arrays: factorization");
         CHECK_EQ_UI(mpz_get_ui(f->data[0]), (i == 0) ? 1 : 1000,
@@ -187,7 +187,7 @@ static void test_siqs_params(void) {
         p.extra_primes_in_a = cases[i].extra;
         f->length = 0;
         m->length = 0;
-        if (siqs(f, m, n, &p, FIND_COMPLETE_FACTORIZATION)
+        if (siqs(f, m, n, &p, FIND_COMPLETE_FACTORIZATION, NULL)
             == COMPLETE_FACTORIZATION_FOUND) {
             CHECK(found_ok(n, f, m, 0), "siqs extreme parameters");
         }
@@ -201,7 +201,7 @@ static void test_siqs_params(void) {
         set_siqs_params_to_default(n, &p);
         f->length = 0;
         m->length = 0;
-        if (siqs(f, m, n, &p, FIND_COMPLETE_FACTORIZATION)
+        if (siqs(f, m, n, &p, FIND_COMPLETE_FACTORIZATION, NULL)
             == COMPLETE_FACTORIZATION_FOUND) {
             CHECK(found_ok(n, f, m, 0), "siqs on a small n");
         }
@@ -229,7 +229,7 @@ static void test_cfrac_params(void) {
         p.nrelations      = cases[i].nrel;
         f->length = 0;
         m->length = 0;
-        if (cfrac(f, m, n, &p, FIND_COMPLETE_FACTORIZATION)
+        if (cfrac(f, m, n, &p, FIND_COMPLETE_FACTORIZATION, NULL)
             == COMPLETE_FACTORIZATION_FOUND) {
             CHECK(found_ok(n, f, m, 0), "cfrac extreme parameters");
         }
@@ -257,7 +257,8 @@ static void test_bounds(void) {
             e.b2      = bounds[i].b2;
             e.ncurves = 1;
             f->length = 0;
-            if (ecm(f, NULL, ns[k], &e, SINGLE_RUN) == SOME_FACTORS_FOUND) {
+            if (ecm(f, NULL, ns[k], &e, SINGLE_RUN, NULL)
+                    == SOME_FACTORS_FOUND) {
                 CHECK(found_ok(ns[k], f, NULL, 0), "ecm extreme bounds");
             }
             p_minus_1_params_t pm;
@@ -265,7 +266,7 @@ static void test_bounds(void) {
             pm.b1 = bounds[i].b1;
             pm.b2 = bounds[i].b2;
             f->length = 0;
-            if (p_minus_1(f, NULL, ns[k], &pm, SINGLE_RUN)
+            if (p_minus_1(f, NULL, ns[k], &pm, SINGLE_RUN, NULL)
                 == SOME_FACTORS_FOUND) {
                 CHECK(found_ok(ns[k], f, NULL, 0), "p-1 extreme bounds");
             }
@@ -274,7 +275,7 @@ static void test_bounds(void) {
             pp.b1 = bounds[i].b1;
             pp.b2 = bounds[i].b2;
             f->length = 0;
-            if (p_plus_1(f, NULL, ns[k], &pp, SINGLE_RUN)
+            if (p_plus_1(f, NULL, ns[k], &pp, SINGLE_RUN, NULL)
                 == SOME_FACTORS_FOUND) {
                 CHECK(found_ok(ns[k], f, NULL, 0), "p+1 extreme bounds");
             }
@@ -294,10 +295,10 @@ static void test_giving_up(void) {
 
     rho_params_t r;
     set_rho_params_to_default(n, &r);
-    CHECK(rho(f, NULL, n, &r, FIND_SOME_FACTORS) != SOME_FACTORS_FOUND,
+    CHECK(rho(f, NULL, n, &r, FIND_SOME_FACTORS, NULL) != SOME_FACTORS_FOUND,
           "rho on a prime");
     r.acc_niters = 0;
-    CHECK(rho(f, NULL, n, &r, FIND_SOME_FACTORS) != SOME_FACTORS_FOUND,
+    CHECK(rho(f, NULL, n, &r, FIND_SOME_FACTORS, NULL) != SOME_FACTORS_FOUND,
           "rho without accumulation");
 
     free_mpz_array(f);

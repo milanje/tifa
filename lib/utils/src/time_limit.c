@@ -31,17 +31,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "time_limit.h"
 #include "stopping.h"
-
-typedef struct {
-    bool                   limited;
-    struct timespec        deadline;
-    tifa_interrupt_check_t check;
-    void*                  arg;
-    bool                   interrupted;
-    uint32_t               threads;
-} stop_state_t;
 
 static pthread_key_t  state_key;
 static pthread_once_t state_once = PTHREAD_ONCE_INIT;
@@ -62,14 +52,16 @@ static bool key_ok(void) {
 //
 // The calling thread's state, created if asked for (NULL if it can not be).
 //
-static stop_state_t* state(const bool create) {
-    pthread_once(&state_once, make_state_key);
+static tifa_stop_state_t* state(const bool create) {
+    if (create) {
+        pthread_once(&state_once, make_state_key);
+    }
     if (!key_ok()) {
         return NULL;
     }
-    stop_state_t* s = pthread_getspecific(state_key);
+    tifa_stop_state_t* s = pthread_getspecific(state_key);
     if ((s == NULL) && create) {
-        s = calloc(1, sizeof(stop_state_t));
+        s = calloc(1, sizeof(tifa_stop_state_t));
         if ((s != NULL) && (pthread_setspecific(state_key, s) != 0)) {
             free(s);
             s = NULL;
@@ -78,75 +70,89 @@ static stop_state_t* state(const bool create) {
     return s;
 }
 
-static bool passed(const struct timespec* const deadline) {
+static bool passed(const tifa_stop_state_t* const s) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    return (now.tv_sec > deadline->tv_sec)
-           || (   (now.tv_sec == deadline->tv_sec)
-               && (now.tv_nsec >= deadline->tv_nsec));
+    return ((int64_t) now.tv_sec > s->deadline_sec)
+           || (   ((int64_t) now.tv_sec == s->deadline_sec)
+               && ((int64_t) now.tv_nsec >= s->deadline_nsec));
+}
+
+static bool valid(const tifa_options_t* const options) {
+    for (uint32_t i = 0; i < sizeof(options->reserved) / sizeof(uint64_t);
+         i++) {
+        if (options->reserved[i] != 0) {
+            return false;
+        }
+    }
+    return (options->hint == TIFA_FACTOR_RANDOM)
+           || (options->hint == TIFA_FACTOR_BALANCED)
+           || (options->hint == TIFA_FACTOR_UNBALANCED);
 }
 
 //------------------------------------------------------------------------------
-void tifa_set_time_limit(double seconds) {
-    const bool limited = isfinite(seconds) && (seconds > 0.0);
-    stop_state_t* const s = state(limited);
-    if (s == NULL) {
-        return;
+bool tifa_call_begin(tifa_call_t* const call,
+                     const tifa_options_t* const options) {
+    call->installed = false;
+    if (options == NULL) {
+        return true;
     }
-    s->limited = limited;
-    if (!limited) {
-        return;
-    }
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    // Past about 30 years, as good as no limit, and no overflow of time_t.
-    if (seconds > 1e9) {
-        seconds = 1e9;
-    }
-    const double whole = floor(seconds);
-    s->deadline.tv_sec  = now.tv_sec + (time_t) whole;
-    s->deadline.tv_nsec = now.tv_nsec + (long) ((seconds - whole) * 1e9);
-    if (s->deadline.tv_nsec >= 1000000000L) {
-        s->deadline.tv_sec++;
-        s->deadline.tv_nsec -= 1000000000L;
-    }
-}
-//------------------------------------------------------------------------------
-bool tifa_time_limit_reached(void) {
-    if (!key_ok()) {
+    if (!valid(options)) {
         return false;
     }
-    const stop_state_t* const s = pthread_getspecific(state_key);
-    return (s != NULL) && s->limited && passed(&s->deadline);
+    tifa_stop_state_t* const s = state(true);
+    if (s == NULL) {
+        return true;
+    }
+    call->saved     = *s;
+    call->installed = true;
+
+    double seconds = options->time_limit;
+    s->limited = isfinite(seconds) && (seconds > 0.0);
+    if (s->limited) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        // Past about 30 years, as good as no limit, and no overflow.
+        if (seconds > 1e9) {
+            seconds = 1e9;
+        }
+        const double whole = floor(seconds);
+        s->deadline_sec  = (int64_t) now.tv_sec + (int64_t) whole;
+        s->deadline_nsec = (int64_t) now.tv_nsec
+                         + (int64_t) ((seconds - whole) * 1e9);
+        if (s->deadline_nsec >= 1000000000) {
+            s->deadline_sec++;
+            s->deadline_nsec -= 1000000000;
+        }
+    }
+    s->check         = options->interrupt;
+    s->arg           = options->interrupt_arg;
+    s->interrupted   = false;
+    s->threads       = options->threads;
+    s->siqs_max_bits = options->siqs_max_bits;
+    s->ecm_max_bits  = options->ecm_max_bits;
+    return true;
 }
 //------------------------------------------------------------------------------
-void tifa_set_interrupt_check(tifa_interrupt_check_t check, void* arg) {
-    stop_state_t* const s = state(check != NULL);
-    if (s == NULL) {
+void tifa_call_end(tifa_call_t* const call) {
+    if (!call->installed) {
         return;
     }
-    s->check       = check;
-    s->arg         = arg;
-    s->interrupted = false;
-}
-//------------------------------------------------------------------------------
-bool tifa_interrupted(void) {
-    if (!key_ok()) {
-        return false;
+    tifa_stop_state_t* const s = state(false);
+    if (s != NULL) {
+        *s = call->saved;
     }
-    const stop_state_t* const s = pthread_getspecific(state_key);
-    return (s != NULL) && s->interrupted;
 }
 //------------------------------------------------------------------------------
 bool tifa_should_stop(void) {
     if (!key_ok()) {
         return false;
     }
-    stop_state_t* const s = pthread_getspecific(state_key);
+    tifa_stop_state_t* const s = pthread_getspecific(state_key);
     if (s == NULL) {
         return false;
     }
-    if (s->interrupted || (s->limited && passed(&s->deadline))) {
+    if (s->interrupted || (s->limited && passed(s))) {
         return true;
     }
     if ((s->check != NULL) && s->check(s->arg)) {
@@ -155,17 +161,36 @@ bool tifa_should_stop(void) {
     return s->interrupted;
 }
 //------------------------------------------------------------------------------
-void tifa_set_threads(uint32_t threads) {
-    stop_state_t* const s = state(threads > 1);
-    if (s != NULL) {
-        s->threads = threads;
+static const tifa_stop_state_t* current(void) {
+    if (!key_ok()) {
+        return NULL;
     }
+    return pthread_getspecific(state_key);
 }
 //------------------------------------------------------------------------------
 uint32_t tifa_threads(void) {
-    if (!key_ok()) {
-        return 1;
-    }
-    const stop_state_t* const s = pthread_getspecific(state_key);
+    const tifa_stop_state_t* const s = current();
     return ((s == NULL) || (s->threads < 1)) ? 1 : s->threads;
+}
+//------------------------------------------------------------------------------
+uint32_t tifa_siqs_max_bits(void) {
+    const tifa_stop_state_t* const s = current();
+    return ((s == NULL) || (s->siqs_max_bits == 0)) ? TIFA_SIQS_MAX_BITS
+                                                    : s->siqs_max_bits;
+}
+//------------------------------------------------------------------------------
+uint32_t tifa_ecm_max_bits(void) {
+    const tifa_stop_state_t* const s = current();
+    const uint32_t bits = ((s == NULL) || (s->ecm_max_bits == 0))
+                        ? TIFA_ECM_MAX_BITS : s->ecm_max_bits;
+    return (bits > TIFA_ECM_TOP_BITS) ? TIFA_ECM_TOP_BITS : bits;
+}
+//------------------------------------------------------------------------------
+void tifa_set_thread_interrupt(tifa_interrupt_check_t check, void* arg) {
+    tifa_stop_state_t* const s = state(true);
+    if (s != NULL) {
+        s->check       = check;
+        s->arg         = arg;
+        s->interrupted = false;
+    }
 }

@@ -132,7 +132,7 @@ static ecode_t fermat_func(mpz_array_t* const factors,
                            uint32_array_t* const multis, const mpz_t n,
                            const void* const params,
                            factoring_mode_t mode) {
-    return fermat(factors, multis, n, params, mode);
+    return fermat(factors, multis, n, params, mode, NULL);
 }
 //------------------------------------------------------------------------------
 int main(int argc, char** argv) {

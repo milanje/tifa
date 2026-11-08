@@ -25,7 +25,7 @@
 #include "bench_utils.h"
 #include "siqs.h"
 #include "array.h"
-#include "time_limit.h"
+#include "tifa_options.h"
 
 static void usage(FILE* const out) {
     fprintf(out,
@@ -163,7 +163,8 @@ int main(int argc, char** argv) {
     mpz_array_t*    const factors = alloc_mpz_array(4);
     uint32_array_t* const multis  = alloc_uint32_array(4);
 
-    tifa_set_threads((uint32_t) threads);
+    const tifa_options_t options = { .threads = (uint32_t) threads };
+    const tifa_options_t* const opts = (threads > 1) ? &options : NULL;
     double (*const now)(void) = (threads > 1) ? wall_seconds : cpu_seconds;
 
     unsigned long runs = 0;
@@ -172,7 +173,7 @@ int main(int argc, char** argv) {
         for (unsigned long k = 0; k < count; k++) {
             factors->length = 0;
             multis->length  = 0;
-            siqs(factors, multis, ns[k], &par[k], SINGLE_RUN);
+            siqs(factors, multis, ns[k], &par[k], SINGLE_RUN, opts);
             runs++;
         }
     } while (now() - t0 < secs);

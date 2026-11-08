@@ -87,7 +87,8 @@ int main(int argc, char** argv) {
 
         factors->length = 0;
         multis->length  = 0;
-        const ecode_t ecode = siqs(factors, multis, n, &params, SINGLE_RUN);
+        const ecode_t ecode = siqs(factors, multis, n, &params, SINGLE_RUN,
+                                   NULL);
 
         bool bad = false;
         for (uint32_t j = 0; j < factors->length; j++) {

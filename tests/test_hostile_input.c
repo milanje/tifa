@@ -30,6 +30,14 @@
 #include "siqs.h"
 #include "tifa_factor.h"
 
+//
+// tifa_factor as the factoring machine recurses.
+//
+static ecode_t factor_rec(mpz_array_t* const f, uint32_array_t* const m,
+                          const mpz_t n, factoring_mode_t mode) {
+    return tifa_factor(f, m, n, mode, NULL);
+}
+
 static void* factor_power(void* arg) {
     mpz_t n;
     mpz_init(n);
@@ -37,7 +45,7 @@ static void* factor_power(void* arg) {
     mpz_mul_ui(n, n, 1013);
     mpz_array_t* f    = alloc_mpz_array(4);
     uint32_array_t* m = alloc_uint32_array(4);
-    const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION);
+    const ecode_t e = tifa_factor(f, m, n, FIND_COMPLETE_FACTORIZATION, NULL);
     *(bool*) arg = (e == COMPLETE_FACTORIZATION_FOUND) && (f->length == 2)
                 && (mpz_cmp_ui(f->data[0], 1009) == 0) && (m->data[0] == 5001)
                 && (mpz_cmp_ui(f->data[1], 1013) == 0) && (m->data[1] == 1);
@@ -58,7 +66,7 @@ static ecode_t found(const char* const* digits, uint32_t count, uint32_t nn,
     }
     mpz_set_ui(x, nn);
     uint32_array_t* m = alloc_uint32_array(4);
-    const ecode_t e = process_found_factors(f, m, x, mode, tifa_factor);
+    const ecode_t e = process_found_factors(f, m, x, mode, factor_rec);
     free_uint32_array(m);
     mpz_clear(x);
     return e;
@@ -129,7 +137,8 @@ int main(void) {
     fermat_params_t fp;
     set_fermat_params_to_default(&fp);
     mpz_set_ui(n, 2305843009213693951ULL);
-    CHECK(fermat(fa, mu, n, &fp, FIND_COMPLETE_FACTORIZATION) == NO_FACTOR_FOUND,
+    CHECK(fermat(fa, mu, n, &fp, FIND_COMPLETE_FACTORIZATION, NULL)
+              == NO_FACTOR_FOUND,
           "fermat on 2^61 - 1");
 
     // rho with more accumulated than allowed iterations (258 s).
@@ -140,7 +149,7 @@ int main(void) {
     rp.max_niters = 1000;
     reset_mpz_array(fa);
     reset_uint32_array(mu);
-    CHECK(rho(fa, mu, n, &rp, FIND_COMPLETE_FACTORIZATION)
+    CHECK(rho(fa, mu, n, &rp, FIND_COMPLETE_FACTORIZATION, NULL)
           == COMPLETE_FACTORIZATION_FOUND, "rho on 15, acc_niters = UINT32_MAX");
 
     // SIQS with the smallest factor base, above 140 bits: the candidates
@@ -158,7 +167,7 @@ int main(void) {
     sp.nprimes_in_base = 0;
     reset_mpz_array(fa);
     reset_uint32_array(mu);
-    const ecode_t e = siqs(fa, mu, n, &sp, FIND_COMPLETE_FACTORIZATION);
+    const ecode_t e = siqs(fa, mu, n, &sp, FIND_COMPLETE_FACTORIZATION, NULL);
     CHECK((e == GIVING_UP) || (e == COMPLETE_FACTORIZATION_FOUND),
           "siqs with nprimes_in_base = 0 returns");
 
