@@ -41,7 +41,11 @@
 // series), which only matters relative to siqs_cost. From 65 bits, B1
 // doubles from level to level and the curve counts, from 20 to 80 factors
 // per level, are rounded up; from 90, they are Dickman's estimates scaled to
-// those counted on 219 factors of 85 to 100 bits.
+// those counted on 219 factors of 85 to 100 bits. Counted again on 155 to
+// 340 factors per level, the means over each level's range are 0.73 to 0.92
+// times these from 65 to 80 bits, 1.03 at 85 and 0.89 to 0.94 above; with
+// the means, ECM alone found 0.8% fewer factors of 60 to 85 bits in 3% less
+// time.
 //
 static const struct {
     uint32_t fbits;

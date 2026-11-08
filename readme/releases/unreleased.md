@@ -3,6 +3,14 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 8 November 2026 &mdash; ECM's curve counts counted again
+
+The curve counts of the levels from 65 to 100 bits stay. Counted again on
+155 to 340 factors per level (1951 in all), the means over each level's
+range are 8 to 27% below them from 65 to 80 bits, 3% above at 85 and 6
+to 12% below from 90 to 100; ECM alone with the means instead found 0.8%
+fewer factors of 60 to 85 bits (on 400 numbers), in 3% less time.
+
 ## 8 November 2026 &mdash; ECM: the plans above 85 bits freed after use
 
 The plans of the levels for factors of 90 to 100 bits, 57 MB, are freed
