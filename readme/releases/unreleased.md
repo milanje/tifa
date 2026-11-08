@@ -66,6 +66,12 @@ Migrating from 0.4:
 The values of the modes and of the exit codes after them change: compile
 again against the new headers.
 
+Without options (NULL), the calls cost what they did: against 0.4.10, in one
+thread, the same instructions within 0.07% for SIQS, `tifa_factor()` and
+`tifa_cofactor()` (`tifa_factor()` at 70 bits aside, whose count varies by
+1% from run to run), and 0.99 to 1.01 of the time in both orders
+(`bench/ab.sh`).
+
 ## 8 November 2026 &mdash; Two fixes for 0.4.10
 
 - 0.4.10 made `tifa_factor()` keep the root of a perfect power when
