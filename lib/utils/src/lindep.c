@@ -551,6 +551,7 @@ void fill_matrix_from_list(binary_matrix_t* const matrix,
     uint32_t ind_p = 0;
 
     bool flip_bit = false;
+    const uint32_t first_row = matrix->nrows - smooth_array->length;
 
     for (uint32_t i = 0; i < smooth_array->length; i++) {
 
@@ -581,7 +582,7 @@ void fill_matrix_from_list(binary_matrix_t* const matrix,
                     flip_bit = !flip_bit;
                 }
                 if (flip_bit) {
-                    flip_matrix_bit(i, ind_p+1, matrix);
+                    flip_matrix_bit(first_row + i, ind_p + 1, matrix);
                     flip_bit = false;
                 }
             }

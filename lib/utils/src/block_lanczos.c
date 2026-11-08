@@ -442,6 +442,11 @@ static bool lanczos_core(const sparse_gf2_t* const m, uint64_t seed,
         const uint32_t dim0 = find_nonsingular_sub(vt_a_v[0], s[0], s[1],
                                                    dim1, winv[0]);
         if (dim0 == 0) {
+            //
+            // A breakdown, near the end on small matrices: what x and v give
+            // still holds where the caller's check of B.dep says so.
+            //
+            ok = true;
             break;
         }
         uint64_t mask0 = 0;
@@ -700,7 +705,11 @@ static sparse_gf2_t* filter(const sparse_gf2_t* const m,
                     maxw = cw;
                 }
             }
-            for (uint32_t target = maxw; (target > 0) && (extra > 0);
+            //
+            // Down to the empty columns (squares): kept, they would hold the
+            // excess above the bound forever.
+            //
+            for (uint32_t target = maxw; (target != UINT32_MAX) && (extra > 0);
                  target--) {
                 for (uint32_t c = 0; (c < ncols) && (extra > 0); c++) {
                     if (dead[c] || (m->start[c + 1] - m->start[c] != target)) {

@@ -122,6 +122,43 @@ int main(void) {
         free_uint32_array(m);
     }
 
+    // ---- CFRAC's rows ---- the batch's primes of a second run's relations
+    // went into the first run's rows, and with no trial division prime, 2
+    // was never found: "not a perfect square". Block Lanczos never ended
+    // on a relation that is a square at each period of the expansion.
+    {
+        static const struct {
+            const char* n; uint32_t tdiv; uint32_t nrel; factoring_mode_t mode;
+            linalg_method_t linalg;
+        } cases[] = {
+            { "17309314262517431419", 8, 1, FIND_SOME_FACTORS,
+              SMART_GAUSS_ELIM },
+            { "5077541819182163519", 0, 0, SINGLE_RUN, SMART_GAUSS_ELIM },
+            { "35263221481851050782417", UINT32_MAX, 0, FIND_SOME_FACTORS,
+              BLOCK_LANCZOS }
+        };
+        for (unsigned i = 0; i < 3; i++) {
+            mpz_set_str(n, cases[i].n, 10);
+            mpz_array_t* f = alloc_mpz_array(8);
+            cfrac_params_t params;
+            set_cfrac_params_to_default(n, &params);
+            if (cases[i].tdiv != UINT32_MAX) {
+                params.nprimes_tdiv = cases[i].tdiv;
+                params.nrelations   = cases[i].nrel;
+            }
+            params.linalg_method = cases[i].linalg;
+            const ecode_t rc = cfrac(f, NULL, n, &params, cases[i].mode);
+            bool divides = true;
+            for (uint32_t j = 0; j < f->length; j++) {
+                divides = divides && mpz_divisible_p(n, f->data[j])
+                          && (mpz_cmp_ui(f->data[j], 1) > 0)
+                          && (mpz_cmp(f->data[j], n) < 0);
+            }
+            CHECK((rc != FATAL_INTERNAL_ERROR) && divides, cases[i].n);
+            free_mpz_array(f);
+        }
+    }
+
     // ---- Proper factors only ---- SQUFOF on 3*9626^2 (k*n a square for a
     // racer: it divided by 0 and hung), ECM on 110 (n divides 4u^3v: it
     // returned 110 * 1), SQUFOF on the prime 103 (the race returned 103).

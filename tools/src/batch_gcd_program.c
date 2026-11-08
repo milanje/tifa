@@ -125,7 +125,7 @@ static bool read_integers(mpz_array_t* const ints, FILE* const file,
             c = getc(file);
         }
         token[length] = '\0';
-        if (!append_token(ints, token, base)) {
+        if ((strlen(token) != length) || !append_token(ints, token, base)) {
             fprintf(stderr, "%s:%lu: not a positive integer: %.40s%s\n",
                     name, line, token, (length > 40) ? "..." : "");
             ok = false;

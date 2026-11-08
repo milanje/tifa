@@ -163,6 +163,7 @@ tifa_add_exit_test(exit_batch_gcd_shared  0 batch_gcd "${_fixtures}/batch_gcd.tx
 tifa_add_exit_test(exit_batch_gcd_none    2 batch_gcd "${_fixtures}/batch_gcd_coprime.txt")
 tifa_add_exit_test(exit_batch_gcd_empty   2 batch_gcd)
 tifa_add_exit_test(exit_batch_gcd_bad     3 batch_gcd "${_fixtures}/batch_gcd_bad.txt")
+tifa_add_exit_test(exit_batch_gcd_nul     3 batch_gcd "${_fixtures}/batch_gcd_nul.txt")
 tifa_add_exit_test(exit_batch_gcd_missing 3 batch_gcd "${_fixtures}/no_such_file")
 tifa_add_exit_test(exit_batch_gcd_option  3 batch_gcd --decimal)
 tifa_add_exit_test(exit_batch_gcd_help    0 batch_gcd --help)

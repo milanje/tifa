@@ -318,6 +318,7 @@ ecode_t cfrac(mpz_array_t* const factors, uint32_array_t* const multis,
     own_params.nprimes_in_base = MAX(own_params.nprimes_in_base, 2);
     own_params.nprimes_in_base = MIN(own_params.nprimes_in_base,
                                      MAX_NPRIMES_IN_BASE);
+    own_params.nprimes_tdiv    = MAX(own_params.nprimes_tdiv, 1);
     own_params.nprimes_tdiv    = MIN(own_params.nprimes_tdiv,
                                      own_params.nprimes_in_base);
     own_params.nrelations      = MIN(own_params.nrelations, MAX_NRELATIONS);

@@ -86,7 +86,7 @@ struct struct_cfrac_params_t {
     uint32_t nprimes_in_base;
        /**
         * Number of the first primes to use in the trial division
-        * of the residues known to be smooth (at most \c nprimes_in_base).
+        * of the residues known to be smooth (from 1 to \c nprimes_in_base).
         */
     uint32_t nprimes_tdiv;
        /**

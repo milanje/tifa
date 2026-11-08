@@ -133,6 +133,32 @@ int main(void) {
     check_random(5000, 5040, 20);
     check_random(30000, 30200, 32);
     //
+    // Small matrices, where a breakdown near the end lost every dependency
+    // of three attempts in a few percent of them.
+    //
+    for (int i = 0; i < 40; i++) {
+        check_random(130, 194, 32);
+    }
+    //
+    // More than 100 empty columns (relations that are squares): the
+    // filter left them, and the excess above its bound, forever.
+    //
+    {
+        sparse_gf2_t* const m = alloc_sparse_gf2(10, 106);
+        for (uint32_t c = 0; c < 101; c++) {
+            append_sparse_gf2_column(m, NULL, 0);
+        }
+        uint32_t rows[2] = { 0, 1 };
+        for (uint32_t c = 0; c < 5; c++) {
+            append_sparse_gf2_column(m, rows, 2);
+        }
+        uint32_array_list_t* const deps = alloc_uint32_array_list(64);
+        CHECK(block_lanczos(m, deps) >= 32, "101 empty columns");
+        CHECK(all_sum_to_zero(m, deps), "their dependencies sum to zero");
+        free_uint32_array_list(deps);
+        free_sparse_gf2(m);
+    }
+    //
     // Fewer columns than rows: dependencies only if some rows are unused
     // or the columns happen to be dependent; none must be wrong.
     //

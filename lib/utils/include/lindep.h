@@ -233,6 +233,9 @@ void fill_trial_div_decomp(
     * \li In all other cases, the (i-th row, j-th col) position in the matrix
     * contains a 0.
     *
+    * The i-th row is the i-th of the last <tt>smooth_array->length</tt> rows
+    * of the matrix, those \c fill_matrix_trial_div just added.
+    *
     * \param[out] matrix A pointer to the binary matrix to fill.
     * \param[in] smooth_array A pointer to the array giving the integers
     *                          to factor.
