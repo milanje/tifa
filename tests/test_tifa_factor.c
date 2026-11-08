@@ -213,6 +213,47 @@ int main(void) {
     mpz_set_str(n, "15318842556695263238", 10);
     some_factors_and_check("FIND_SOME_FACTORS, 2*7659421278347631619", n);
 
+    // Squares of composites without factors below 1000, in the modes where
+    // multis can be NULL, stopped or not: the root of a power wrote to it.
+    {
+        mpz_t big;
+        mpz_init(big);
+        mpz_ui_pow_ui(big, 2, 89);
+        mpz_sub_ui(big, big, 1);
+        mpz_t m107;
+        mpz_init(m107);
+        mpz_ui_pow_ui(m107, 2, 107);
+        mpz_sub_ui(m107, m107, 1);
+        mpz_mul(big, big, m107);
+        mpz_mul(big, big, big);
+        mpz_set_ui(n, 1000003UL);
+        mpz_mul_ui(n, n, 1000033UL);
+        mpz_mul(n, n, n);
+        static const factoring_mode_t modes[] = {
+            SINGLE_RUN, FIND_SOME_FACTORS, FIND_SOME_COPRIME_FACTORS,
+            FIND_SOME_PRIME_FACTORS
+        };
+        for (unsigned i = 0; i < 4; i++) {
+            for (int limited = 0; limited < 2; limited++) {
+                const mpz_ptr x = limited ? big : n;
+                mpz_array_t* f = alloc_mpz_array(4);
+                tifa_set_time_limit(limited ? 1e-9 : 0.0);
+                const ecode_t e = tifa_factor(f, NULL, x, modes[i]);
+                tifa_set_time_limit(0.0);
+                bool ok = (e != FATAL_INTERNAL_ERROR);
+                for (uint32_t j = 0; j < f->length; j++) {
+                    ok = ok && (mpz_cmp_ui(f->data[j], 1) > 0)
+                            && (mpz_cmp(f->data[j], x) < 0)
+                            && mpz_divisible_p(x, f->data[j]);
+                }
+                CHECK(ok, "a square of a composite, multis NULL");
+                free_mpz_array(f);
+            }
+        }
+        mpz_clear(big);
+        mpz_clear(m107);
+    }
+
     // Random composites up to 64 bits (factor_u64; trial division and SQUFOF
     // without it)
     gmp_randstate_t state;

@@ -303,8 +303,12 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
             //
             return mode_to_outcome[mode];
         }
+        //
+        // multis can be NULL outside FIND_COMPLETE_FACTORIZATION.
+        //
+        const bool     complete    = (mode == FIND_COMPLETE_FACTORIZATION);
         const uint32_t old_flength = factors->length;
-        const uint32_t old_length  = multis->length;
+        const uint32_t old_length  = complete ? multis->length : 0;
         const ecode_t  best        = (ecode_t) mode_to_outcome[mode];
 
         ecode_t ecode = tifa_factor_impl(factors, multis, rootn, mode, hint);
@@ -316,8 +320,8 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
             // Stopped: n = rootn^k is still a split, as add_cofactor gives.
             //
             factors->length = old_flength;
-            multis->length  = old_length;
-            if (mode == FIND_COMPLETE_FACTORIZATION) {
+            if (complete) {
+                multis->length = old_length;
                 append_mpz_to_array(factors, rootn);
                 append_uint32_to_array(multis, 1);
                 ecode = PARTIAL_FACTORIZATION_FOUND;
@@ -326,7 +330,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
                 ecode = best;
             }
         }
-        if (mode == FIND_COMPLETE_FACTORIZATION) {
+        if (complete) {
             for (uint32_t i = old_length; i < multis->length; i++) {
                 multis->data[i] *= k;
             }
