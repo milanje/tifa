@@ -51,6 +51,6 @@ as those on five to eight limbs did. The plans build their stage 2 tables
 directly in 16-bit entries, without a 64-bit copy.
 
 Below `ecm_max_bits` of 85, the calls cost what they did: against 0.5.0,
-in one thread on an Apple M5 Pro, 0.995 to 1.002 of the time for SIQS,
-`tifa_factor()` and `tifa_cofactor()` (`bench/ab.sh`, both orders), with
-at most 0.1% more instructions.
+in one thread on an Apple M5 Pro, 0.993 to 1.006 of the time for SIQS,
+`tifa_factor()` and `tifa_cofactor()` (`bench/ab.sh`, both orders, with
+the changes of 8 November below), with at most 0.07% more instructions.
