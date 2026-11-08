@@ -79,6 +79,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         "(see tifa.factor)",
     )
     parser.add_argument(
+        "--siqs-max-bits", type=int, metavar="BITS",
+        help="search larger composites with ECM alone (default 320)",
+    )
+    parser.add_argument(
+        "--ecm-max-bits", type=int, metavar="BITS",
+        help="the largest factors ECM searches for there (default 85)",
+    )
+    parser.add_argument(
         "--version", action="version", version=f"tifa {tifa.__version__}"
     )
     args = parser.parse_args(argv)
@@ -86,6 +94,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         parser.error("--timeout must be positive")
     if args.threads < 1:
         parser.error("--threads must be positive")
+    for name in ("siqs_max_bits", "ecm_max_bits"):
+        bits = getattr(args, name)
+        if bits is not None and bits < 1:
+            parser.error(f"--{name.replace('_', '-')} must be positive")
 
     words = args.numbers if args.numbers else _words(sys.stdin)
     status = 0
@@ -104,7 +116,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         try:
             factors = tifa.factor(
                 n, hint=args.hint, proof=args.proof, timeout=args.timeout,
-                threads=args.threads,
+                threads=args.threads, siqs_max_bits=args.siqs_max_bits,
+                ecm_max_bits=args.ecm_max_bits,
             )
         except tifa.FactorizationError as error:
             print(f"python -m tifa: {error}", file=sys.stderr)

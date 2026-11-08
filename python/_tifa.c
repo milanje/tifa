@@ -198,13 +198,16 @@ static PyObject* pairs_from_arrays(const mpz_array_t* const factors,
 }
 
 PyDoc_STRVAR(factor_doc,
-"_factor(n, hint, timeout, interruptible, threads, /)\n--\n\n"
+"_factor(n, hint, timeout, interruptible, threads, siqs_max_bits,\n"
+"        ecm_max_bits, /)\n--\n\n"
 "Factor the int n > 1 with tifa_factor (hint 0, 1 or 2), within timeout\n"
 "seconds if it is positive and finite, and stopping for the exception of a\n"
 "signal handler if interruptible (in the main thread), SIQS and the ECM\n"
-"search in up to threads threads. Return\n"
-"(complete, [(factor, exponent), ...], timed_out), complete being False when\n"
-"some factors may not be prime.");
+"search in up to threads threads, SIQS on composites of up to siqs_max_bits\n"
+"bits and ECM above for factors of up to ecm_max_bits bits (0: defaults).\n"
+"Return (complete, [(factor, exponent), ...], timed_out, too_large),\n"
+"complete being False when some factors may not be prime, too_large True\n"
+"when those are all above siqs_max_bits.");
 
 static PyObject* factor(PyObject* const self, PyObject* const args) {
     (void) self;
@@ -213,8 +216,11 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     double timeout;
     int interruptible;
     unsigned int threads;
-    if (!PyArg_ParseTuple(args, "O!idpI:_factor", &PyLong_Type, &nobj, &hint,
-                          &timeout, &interruptible, &threads)) {
+    unsigned int siqs_max_bits;
+    unsigned int ecm_max_bits;
+    if (!PyArg_ParseTuple(args, "O!idpIII:_factor", &PyLong_Type, &nobj,
+                          &hint, &timeout, &interruptible, &threads,
+                          &siqs_max_bits, &ecm_max_bits)) {
         return NULL;
     }
     mpz_t n;
@@ -237,7 +243,9 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
     tifa_options_t options;
     poll_t poll;
     set_options(&options, &poll, timeout, threads, interruptible);
-    options.hint = (tifa_factor_hint_t) hint;
+    options.hint          = (tifa_factor_hint_t) hint;
+    options.siqs_max_bits = siqs_max_bits;
+    options.ecm_max_bits  = ecm_max_bits;
     const double start = monotonic_now();
 
     Py_BEGIN_ALLOW_THREADS
@@ -257,28 +265,34 @@ static PyObject* factor(PyObject* const self, PyObject* const args) {
         return NULL;
     }
 
-    PyObject* const late = timed_out ? Py_True : Py_False;
+    PyObject* const late      = timed_out ? Py_True : Py_False;
+    PyObject* const too_large = (ecode == FACTORS_TOO_LARGE) ? Py_True
+                                                             : Py_False;
     PyObject* result = NULL;
     if (prime) {
         PyObject* const p = pylong_from_mpz(n);
         if (p != NULL) {
-            result = Py_BuildValue("(O[(NI)]O)", Py_True, p, 1U, late);
+            result = Py_BuildValue("(O[(NI)]OO)", Py_True, p, 1U, late,
+                                   Py_False);
         }
     } else if (   (ecode == COMPLETE_FACTORIZATION_FOUND)
-               || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
+               || (ecode == PARTIAL_FACTORIZATION_FOUND)
+               || (ecode == FACTORS_TOO_LARGE)) {
         PyObject* const pairs = pairs_from_arrays(factors, multis);
         if (pairs != NULL) {
             result = Py_BuildValue(
-                "(ONO)",
+                "(ONOO)",
                 (ecode == COMPLETE_FACTORIZATION_FOUND) ? Py_True : Py_False,
                 pairs,
-                late
+                late,
+                too_large
             );
         }
     } else {
         PyObject* const p = pylong_from_mpz(n);
         if (p != NULL) {
-            result = Py_BuildValue("(O[(NI)]O)", Py_False, p, 1U, late);
+            result = Py_BuildValue("(O[(NI)]OO)", Py_False, p, 1U, late,
+                                   Py_False);
         }
     }
     free_mpz_array(factors);
@@ -326,10 +340,12 @@ static PyObject* step_from_cert(const prime_cert_step_t* const step) {
 }
 
 PyDoc_STRVAR(prime_certificate_doc,
-"_prime_certificate(n, timeout, interruptible, threads, /)\n--\n\n"
+"_prime_certificate(n, timeout, interruptible, threads, siqs_max_bits,\n"
+"                   ecm_max_bits, /)\n--\n\n"
 "Prove the int n prime with tifa_prove_prime, within timeout seconds if it is\n"
 "positive and finite, and stopping for the exception of a signal handler if\n"
-"interruptible, SIQS and the ECM search in up to threads threads. Return\n"
+"interruptible, SIQS and the ECM search in up to threads threads, the sizes\n"
+"as for _factor. Return\n"
 "(status, steps, timed_out), status 0 (proven), 1 (not prime) or 2 (not\n"
 "proven), steps [(p, [(q, a), ...]), ...] or\n"
 "(p, [(q, a), ...], D, [(r, P), ...]) when proven.");
@@ -340,8 +356,11 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     double timeout;
     int interruptible;
     unsigned int threads;
-    if (!PyArg_ParseTuple(args, "O!dpI:_prime_certificate", &PyLong_Type,
-                          &nobj, &timeout, &interruptible, &threads)) {
+    unsigned int siqs_max_bits;
+    unsigned int ecm_max_bits;
+    if (!PyArg_ParseTuple(args, "O!dpIII:_prime_certificate", &PyLong_Type,
+                          &nobj, &timeout, &interruptible, &threads,
+                          &siqs_max_bits, &ecm_max_bits)) {
         return NULL;
     }
     mpz_t n;
@@ -357,6 +376,8 @@ static PyObject* prime_certificate(PyObject* const self, PyObject* const args) {
     tifa_options_t options;
     poll_t poll;
     set_options(&options, &poll, timeout, threads, interruptible);
+    options.siqs_max_bits = siqs_max_bits;
+    options.ecm_max_bits  = ecm_max_bits;
     const double start = monotonic_now();
 
     Py_BEGIN_ALLOW_THREADS

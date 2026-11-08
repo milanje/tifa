@@ -83,6 +83,13 @@ add_test(NAME tifa_factor_program_hint
 set_tests_properties(tifa_factor_program_hint PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "hint: balanced.*(340730379077795843[^0-9].*604614875560711445197|604614875560711445197[^0-9].*340730379077795843)[^0-9].*Factorization is complete")
+# Above --siqs-max-bits, ECM alone: a 119-bit semiprime without factors of
+# 30 bits is left whole.
+add_test(NAME tifa_factor_program_too_large
+         COMMAND tifa_factor --siqs-max-bits 100 --ecm-max-bits 30 664613997892458106507825459650105571)
+set_tests_properties(tifa_factor_program_too_large PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "664613997892458106507825459650105571 \\^ 1[^0-9].*too large for SIQS")
 # --prove: a certificate with a step for the factor above 2^64, none for the
 # other, then for a prime, 2^127 - 1.
 add_test(NAME tifa_factor_program_prove
@@ -123,6 +130,7 @@ set_tests_properties(rho_program_square PROPERTIES
 set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
                      tifa_factor_program_square tifa_factor_program_hint
                      tifa_factor_program_prove tifa_factor_program_prove_prime
+                     tifa_factor_program_too_large
                      rho_program_square batch_gcd_program batch_gcd_program_all
                      batch_gcd_program_hex
                      PROPERTIES
@@ -152,6 +160,8 @@ tifa_add_exit_test(exit_prove_complete 0 tifa_factor --prove 1000000016000000063
 tifa_add_exit_test(exit_threads_complete 0 tifa_factor --threads 4 1000000016000000063)
 tifa_add_exit_test(exit_threads_zero     3 tifa_factor --threads 0 1000000016000000063)
 tifa_add_exit_test(exit_threads_missing  3 tifa_factor 1000000016000000063 --threads)
+tifa_add_exit_test(exit_too_large        1 tifa_factor --siqs-max-bits 100 --ecm-max-bits 30 664613997892458106507825459650105571)
+tifa_add_exit_test(exit_siqs_bits_zero   3 tifa_factor --siqs-max-bits 0 1000000016000000063)
 tifa_add_exit_test(exit_prove_prime    0 tifa_factor --prove 1000003)
 tifa_add_exit_test(exit_prove_bad_hint 3 tifa_factor 12 --prove 34)
 tifa_add_exit_test(exit_prove_help     0 tifa_factor --prove --help)

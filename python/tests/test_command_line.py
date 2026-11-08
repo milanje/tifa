@@ -94,6 +94,15 @@ def test_threads():
     assert run("--threads", "0", "6").returncode == 2
 
 
+def test_too_large_for_siqs():
+    n = 576460752303423619 * 1152921504606847009
+    out = run("--siqs-max-bits", "100", "--ecm-max-bits", "30", str(n), "6")
+    assert out.returncode == 1
+    assert out.stdout == "6: 2 3\n"
+    assert "too large for SIQS" in out.stderr
+    assert run("--siqs-max-bits", "0", "6").returncode == 2
+
+
 def test_version():
     out = run("--version")
     assert out.returncode == 0

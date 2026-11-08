@@ -98,6 +98,39 @@ static void some_factors_and_check(const char* label, const mpz_t n) {
     free_mpz_array(factors);
 }
 
+//
+// A random prime of the given size.
+//
+static void prime_of(mpz_t p, gmp_randstate_t state, uint32_t bits) {
+    mpz_urandomb(p, state, bits);
+    mpz_setbit(p, bits - 1);
+    mpz_nextprime(p, p);
+}
+
+//
+// Whether factors and multis are exactly the given pairs (in any order).
+//
+static bool same_pairs(const mpz_array_t* f, const uint32_array_t* m,
+                       const mpz_t* expected, const uint32_t* emultis,
+                       uint32_t count) {
+    if ((f->length != count) || (m->length != count)) {
+        return false;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        bool found = false;
+        for (uint32_t j = 0; j < count; j++) {
+            if (   (mpz_cmp(f->data[j], expected[i]) == 0)
+                && (m->data[j] == emultis[i])) {
+                found = true;
+            }
+        }
+        if (!found) {
+            return false;
+        }
+    }
+    return true;
+}
+
 int main(void) {
     TIFA_TEST_BEGIN("tifa_factor (complete factorization)");
 
@@ -394,6 +427,88 @@ int main(void) {
             mpz_mul(n, n, p);
         }
         factor_and_check(wide_labels[i], n);
+    }
+
+    // Above siqs_max_bits, ECM alone searches, for factors of up to
+    // ecm_max_bits bits: what it does not split is left, with
+    // FACTORS_TOO_LARGE, and the call ends.
+    {
+        const tifa_options_t small = { .siqs_max_bits = 100,
+                                       .ecm_max_bits  = 30 };
+        mpz_t r, a, b, ab, x;
+        mpz_inits(r, a, b, ab, x, NULL);
+        prime_of(r, state, 20);
+        prime_of(a, state, 60);
+        prime_of(b, state, 60);
+        mpz_mul(ab, a, b);
+        mpz_array_t*    f = alloc_mpz_array(4);
+        uint32_array_t* m = alloc_uint32_array(4);
+        const uint32_t ones[2] = { 1, 1 };
+
+        ecode_t e = tifa_factor(f, m, ab, FIND_COMPLETE_FACTORIZATION, &small);
+        CHECK((e == FACTORS_TOO_LARGE) && same_pairs(f, m, &ab, ones, 1),
+              "120 bits above 100, no 30-bit factor: too large, n left");
+
+        mpz_mul(x, ab, r);
+        reset_mpz_array(f);
+        m->length = 0;
+        e = tifa_factor(f, m, x, FIND_COMPLETE_FACTORIZATION, &small);
+        mpz_t expected[2];
+        mpz_init_set(expected[0], r);
+        mpz_init_set(expected[1], ab);
+        CHECK((e == FACTORS_TOO_LARGE) && same_pairs(f, m, expected, ones, 2),
+              "a 20-bit factor found, the 120-bit composite left");
+
+        reset_mpz_array(f);
+        m->length = 0;
+        const tifa_options_t balanced = { .siqs_max_bits = 100,
+                                          .ecm_max_bits  = 30,
+                                          .hint = TIFA_FACTOR_BALANCED };
+        e = tifa_factor(f, m, x, FIND_COMPLETE_FACTORIZATION, &balanced);
+        CHECK((e == FACTORS_TOO_LARGE) && same_pairs(f, m, &x, ones, 1),
+              "balanced hint: no ECM above siqs_max_bits");
+
+        prime_of(a, state, 100);
+        mpz_mul(x, a, r);
+        reset_mpz_array(f);
+        m->length = 0;
+        e = tifa_factor(f, m, x, FIND_COMPLETE_FACTORIZATION, &small);
+        CHECK(   (e == COMPLETE_FACTORIZATION_FOUND)
+              && tifa_is_complete_factorization(x, f, m),
+              "a 20-bit factor and a prime: complete above siqs_max_bits");
+
+        reset_mpz_array(f);
+        e = tifa_factor(f, NULL, ab, FIND_SOME_FACTORS, &small);
+        CHECK((e == FACTORS_TOO_LARGE) && (f->length == 0),
+              "FIND_SOME_FACTORS: too large, nothing found");
+
+        // Above 512 bits, in GMP arithmetic.
+        prime_of(a, state, 300);
+        prime_of(b, state, 300);
+        mpz_mul(ab, a, b);
+        mpz_mul(x, ab, r);
+        reset_mpz_array(f);
+        m->length = 0;
+        mpz_set(expected[1], ab);
+        e = tifa_factor(f, m, x, FIND_COMPLETE_FACTORIZATION, &small);
+        CHECK((e == FACTORS_TOO_LARGE) && same_pairs(f, m, expected, ones, 2),
+              "620 bits: the 20-bit factor found, 600 bits left");
+
+        const tifa_options_t top = { .siqs_max_bits = 64,
+                                     .ecm_max_bits  = 1000 };
+        prime_of(a, state, 60);
+        mpz_mul(x, a, r);
+        reset_mpz_array(f);
+        m->length = 0;
+        e = tifa_factor(f, m, x, FIND_COMPLETE_FACTORIZATION, &top);
+        CHECK(   (e == COMPLETE_FACTORIZATION_FOUND)
+              && tifa_is_complete_factorization(x, f, m),
+              "ecm_max_bits above the top level is the top level");
+
+        mpz_clears(expected[0], expected[1], NULL);
+        free_mpz_array(f);
+        free_uint32_array(m);
+        mpz_clears(r, a, b, ab, x, NULL);
     }
 #if TIFA_HAVE_MONT_ECM
     static const uint32_t threaded_bits[][3] = { { 40, 160, 0 }, { 45, 50, 205 } };

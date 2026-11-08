@@ -25,6 +25,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <math.h>
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
@@ -579,7 +580,8 @@ static void search_side(side_t* const s) {
 #if TIFA_HAVE_MONT_ECM
         pthread_once(&ecm_schedule_once, build_ecm_schedule);
         split =    mont_ecm_handles(c)
-                && ecm_schedule_prepass(g, c, ecm_schedule, CERT_ECM_BUDGET);
+                && ecm_schedule_prepass(g, c, ecm_schedule, CERT_ECM_BUDGET,
+                                        INFINITY);
 #endif
         if (split) {
             append_mpz_to_array(todo, g);

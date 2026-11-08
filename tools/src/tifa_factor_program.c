@@ -43,11 +43,10 @@ static const char* const hint_names[] = { "random", "balanced", "unbalanced" };
 //------------------------------------------------------------------------------
 static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "%15s [--prove] [--threads <n>] "
-                    "[random|balanced|unbalanced] <number_to_factor>\n",
-                    program->argv[0]);
+    fprintf(stderr, "%15s [options] [random|balanced|unbalanced] "
+                    "<number_to_factor>\n", program->argv[0]);
     fprintf(stderr, "Or, to be asked for the number:\n");
-    fprintf(stderr, "%15s [--prove] [--threads <n>]\n\n", program->argv[0]);
+    fprintf(stderr, "%15s [options]\n\n", program->argv[0]);
     fprintf(stderr, "balanced: two prime factors of about the same size;\n");
     fprintf(stderr, "unbalanced: a prime factor below a third of the size;\n");
     fprintf(stderr, "random (the default): nothing known.\n\n");
@@ -58,6 +57,11 @@ static void print_usage(factoring_program_t* const program) {
     fprintf(stderr, "--threads <n>: run SIQS and the ECM search before it in "
                     "up to n threads\n(SIQS: one per 100 primes of its factor "
                     "base at most, so none below\nabout 100 bits).\n\n");
+    fprintf(stderr, "--siqs-max-bits <n>: hand composites of up to n bits to "
+                    "SIQS (320 by\ndefault); larger ones are searched by ECM "
+                    "alone.\n\n");
+    fprintf(stderr, "--ecm-max-bits <n>: the largest factors, in bits, that "
+                    "ECM searches for\nthere (85 by default, at most 100).\n\n");
     print_exit_statuses();
 }
 //------------------------------------------------------------------------------
@@ -158,16 +162,26 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if (0 == strcmp(argv[i], "--prove")) {
             prove = true;
-        } else if (0 == strcmp(argv[i], "--threads")) {
+        } else if (   (0 == strcmp(argv[i], "--threads"))
+                   || (0 == strcmp(argv[i], "--siqs-max-bits"))
+                   || (0 == strcmp(argv[i], "--ecm-max-bits"))) {
+            const bool threads = (0 == strcmp(argv[i], "--threads"));
             char* end = NULL;
             const unsigned long n = (i + 1 < argc)
                                   ? strtoul(argv[i + 1], &end, 10) : 0;
-            if ((end == NULL) || (*end != '\0') || (n < 1) || (n > 1024)
+            if (   (end == NULL) || (*end != '\0') || (n < 1)
+                || (n > (threads ? 1024 : 100000))
                 || (argv[i + 1][0] == '-')) {
                 bad_arg = true;
                 break;
             }
-            options.threads = (uint32_t) n;
+            if (threads) {
+                options.threads = (uint32_t) n;
+            } else if (0 == strcmp(argv[i], "--siqs-max-bits")) {
+                options.siqs_max_bits = (uint32_t) n;
+            } else {
+                options.ecm_max_bits = (uint32_t) n;
+            }
             i++;
         } else {
             argv[nargs++] = argv[i];
@@ -196,7 +210,8 @@ int main(int argc, char** argv) {
 
     if (bad_arg) {
         fprintf(stderr, "--threads takes a number of threads, from 1 to "
-                        "1024.\n\n");
+                        "1024, --siqs-max-bits\nand --ecm-max-bits a number "
+                        "of bits, from 1.\n\n");
         print_usage(&program);
         return TIFA_EXIT_USAGE;
     }

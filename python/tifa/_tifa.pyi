@@ -1,10 +1,23 @@
 LIBRARY_VERSION: str
 
 def _factor(
-    n: int, hint: int, timeout: float, interruptible: bool, threads: int, /
-) -> tuple[bool, list[tuple[int, int]], bool]: ...
+    n: int,
+    hint: int,
+    timeout: float,
+    interruptible: bool,
+    threads: int,
+    siqs_max_bits: int,
+    ecm_max_bits: int,
+    /,
+) -> tuple[bool, list[tuple[int, int]], bool, bool]: ...
 def _prime_certificate(
-    n: int, timeout: float, interruptible: bool, threads: int, /
+    n: int,
+    timeout: float,
+    interruptible: bool,
+    threads: int,
+    siqs_max_bits: int,
+    ecm_max_bits: int,
+    /,
 ) -> tuple[int, list[tuple], bool]: ...
 def _set_tuning_dir(path: bytes | None, /) -> None: ...
 def _batch_gcd(

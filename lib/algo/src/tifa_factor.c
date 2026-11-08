@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 #include <pthread.h>
 
 #include "tifa_config.h"
@@ -123,7 +124,8 @@ static ecode_t add_cofactor(mpz_array_t* const factors,
     ecode_t ecode = tifa_factor_impl(cfactors, cmultis, c, mode, hint);
 
     if (   (ecode == COMPLETE_FACTORIZATION_FOUND)
-        || (ecode == PARTIAL_FACTORIZATION_FOUND)) {
+        || (ecode == PARTIAL_FACTORIZATION_FOUND)
+        || (ecode == FACTORS_TOO_LARGE)) {
         append_mpz_array(factors, cfactors);
         append_uint32_array(multis, cmultis);
     } else {
@@ -170,7 +172,7 @@ static void build_ecm_schedule(void) {
 }
 
 static void build_wide_ecm_schedule(void) {
-    wide_ecm_schedule = alloc_ecm_schedule(TFACTOR_WIDE_ECM_FBITS);
+    wide_ecm_schedule = alloc_ecm_schedule(TIFA_ECM_TOP_BITS);
 }
 //
 // Searches n for a factor with ECM, for a fraction of the time SIQS would
@@ -182,17 +184,24 @@ static ecode_t run_ecm_prepass(mpz_array_t* const factors,
                                const mpz_t n, const factoring_mode_t mode,
                                const double budget) {
     ecm_schedule_t* schedule;
-    if (mpz_sizeinbase(n, 2) > TFACTOR_WIDE_ECM_BITS) {
+    double max_bits;
+    if (isinf(budget)) {
         pthread_once(&wide_ecm_schedule_once, build_wide_ecm_schedule);
         schedule = wide_ecm_schedule;
+        max_bits = (double) tifa_ecm_max_bits();
+    } else if (mpz_sizeinbase(n, 2) > TFACTOR_WIDE_ECM_BITS) {
+        pthread_once(&wide_ecm_schedule_once, build_wide_ecm_schedule);
+        schedule = wide_ecm_schedule;
+        max_bits = TFACTOR_WIDE_ECM_FBITS;
     } else {
         pthread_once(&ecm_schedule_once, build_ecm_schedule);
         schedule = ecm_schedule;
+        max_bits = TFACTOR_ECM_FBITS;
     }
     ecode_t ecode = NO_FACTOR_FOUND;
     mpz_t g;
     mpz_init(g);
-    if (ecm_schedule_prepass(g, n, schedule, budget)) {
+    if (ecm_schedule_prepass(g, n, schedule, budget, max_bits)) {
         mpz_array_t* found = alloc_mpz_array(4);
         append_mpz_to_array(found, g);
         mpz_divexact(g, n, g);
@@ -263,6 +272,45 @@ static ecode_t run_gmp_ecm(mpz_array_t* const factors,
 }
 //-----------------------------------------------------------------------------
 //
+// A composite above siqs_max_bits: ECM alone searches it, for factors of up
+// to ecm_max_bits bits (none with the balanced hint), and what it does not
+// split is left, with FACTORS_TOO_LARGE.
+//
+static ecode_t beyond_siqs(mpz_array_t* const factors,
+                           uint32_array_t* const multis,
+                           const mpz_t n, const factoring_mode_t mode,
+                           const tifa_factor_hint_t hint) {
+    ecode_t ecode = NO_FACTOR_FOUND;
+    if (hint != TIFA_FACTOR_BALANCED) {
+#if TIFA_HAVE_MONT_ECM
+        const bool ecm = mont_ecm_handles(n);
+        if (ecm) {
+            ecode = run_ecm_prepass(factors, multis, n, mode, INFINITY);
+        }
+#else
+        const bool ecm = false;
+#endif
+        if (!ecm && (mpz_sizeinbase(n, 2) >= TFACTOR_PRESTAGE_THRESH)) {
+            ecode = run_prestages(factors, multis, n, mode);
+        }
+        if (!ecm && (ecode == NO_FACTOR_FOUND)) {
+            ecode = run_gmp_ecm(factors, multis, n, mode);
+        }
+    }
+    if (ecode != NO_FACTOR_FOUND) {
+        return ecode;
+    }
+    if (tifa_should_stop()) {
+        return GIVING_UP;
+    }
+    if (mode == FIND_COMPLETE_FACTORIZATION) {
+        append_mpz_to_array(factors, n);
+        append_uint32_to_array(multis, 1);
+    }
+    return FACTORS_TOO_LARGE;
+}
+//-----------------------------------------------------------------------------
+//
 // Factors an n > 2^TFACTOR_TDIV_THRESH with no prime factor below 1000.
 //
 static ecode_t factor_without_small_primes(mpz_array_t* const factors,
@@ -313,6 +361,7 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
 
         if (   (ecode != COMPLETE_FACTORIZATION_FOUND)
             && (ecode != PARTIAL_FACTORIZATION_FOUND)
+            && (ecode != FACTORS_TOO_LARGE)
             && (ecode != best)) {
             //
             // Stopped: n = rootn^k is still a split, as add_cofactor gives.
@@ -357,6 +406,9 @@ static ecode_t factor_without_small_primes(mpz_array_t* const factors,
         //
         // SQUFOF gave up (rarely): SIQS.
         //
+    }
+    if (sizen > tifa_siqs_max_bits()) {
+        return beyond_siqs(factors, multis, n, mode, hint);
     }
     ecode_t ecode = NO_FACTOR_FOUND;
     const bool prepass = (hint != TIFA_FACTOR_BALANCED);

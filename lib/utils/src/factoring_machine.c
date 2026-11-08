@@ -421,6 +421,7 @@ static ecode_t complete_factorization(
     uint32_array_t* all_multis  = alloc_uint32_array(alloced);
 
     bool factorization_is_partial = false;
+    bool too_large                = false;
 
     for (uint32_t i = 0; i < factors->length; i++) {
         
@@ -456,8 +457,13 @@ static ecode_t complete_factorization(
                 append_uint32_array(all_multis, moremultis);
                 break;
 
+            case FACTORS_TOO_LARGE:
             case PARTIAL_FACTORIZATION_FOUND:
-                factorization_is_partial = true;
+                if (retcode == FACTORS_TOO_LARGE) {
+                    too_large = true;
+                } else {
+                    factorization_is_partial = true;
+                }
                 
                 for (uint32_t j = 0; j < moremultis->length; j++) {
                     moremultis->data[j] *= multis->data[i];
@@ -490,11 +496,14 @@ static ecode_t complete_factorization(
     free_mpz_array(all_factors);
     free_uint32_array(all_multis);
 
+    //
+    // FACTORS_TOO_LARGE only if every composite left is one SIQS would not
+    // take.
+    //
     if (factorization_is_partial) {
         return PARTIAL_FACTORIZATION_FOUND;
-    } else {
-        return COMPLETE_FACTORIZATION_FOUND;
     }
+    return too_large ? FACTORS_TOO_LARGE : COMPLETE_FACTORIZATION_FOUND;
 }
 //-----------------------------------------------------------------------------
 ecode_t process_found_factors(mpz_array_t* const factors,

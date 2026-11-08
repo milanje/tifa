@@ -129,6 +129,17 @@ def _threads(threads: int) -> int:
     return min(int(threads), 1024)
 
 
+def _bits(name: str, bits: Optional[int]) -> int:
+    # What the C functions take: 0 for the default.
+    if bits is None:
+        return 0
+    if isinstance(bits, bool) or not isinstance(bits, numbers.Integral):
+        raise TypeError(f"{name} must be an integer or None, not {bits!r}")
+    if bits < 1:
+        raise ValueError(f"{name} must be positive, not {bits!r}")
+    return min(int(bits), 2**32 - 1)
+
+
 def _interruptible() -> bool:
     # Python runs the signal handlers in the main thread only.
     return threading.current_thread() is threading.main_thread()
@@ -148,6 +159,8 @@ def factor(
     proof: bool = False,
     timeout: Optional[float] = None,
     threads: int = 1,
+    siqs_max_bits: Optional[int] = None,
+    ecm_max_bits: Optional[int] = None,
 ) -> dict[int, int]:
     """Return the prime factorization of ``n`` as ``{prime: exponent}``.
 
@@ -161,8 +174,11 @@ def factor(
     ``n`` is a positive integer: an ``int``, or any integer type with
     ``__index__`` (NumPy's, gmpy2's ``mpz``). Up to about 220 bits, ``n`` is
     factored in seconds at most, and up to about 280 bits in minutes; beyond,
-    the time keeps growing quickly, and only numbers whose prime factors but
-    the largest have up to about 85 bits (ECM finds those) can be factored.
+    the time keeps growing quickly. Composites of more than ``siqs_max_bits``
+    bits (320 by default, about 40 minutes of SIQS) are searched by ECM
+    alone, for factors of up to ``ecm_max_bits`` bits (85 by default, at
+    most 100; each 5 bits more take about twice as long): ``factor`` always
+    returns, but those it does not split raise ``FactorizationError``.
 
     ``hint`` says what is known of ``n``, to save time: ``"balanced"`` if it
     is the product of two primes of about the same size (an RSA modulus),
@@ -207,12 +223,13 @@ def factor(
         with ThreadPoolExecutor() as pool:
             results = list(pool.map(tifa.factor, numbers))
 
-    Raises ``TypeError`` if ``n`` or ``threads`` is not an integer or
-    ``timeout`` not a number, ``ValueError`` if ``n``, ``timeout`` or
-    ``threads`` is not positive or ``hint`` is not one of the above, ``FactorizationTimeout`` (a ``TimeoutError``)
-    as said above, and ``FactorizationError`` in the rare event that ``n``
-    could not be factored completely (or, with ``proof=True``, a factor not
-    proven prime).
+    Raises ``TypeError`` if ``n``, ``threads``, ``siqs_max_bits`` or
+    ``ecm_max_bits`` is not an integer or ``timeout`` not a number,
+    ``ValueError`` if one of them is not positive or ``hint`` is not one of
+    the above, ``FactorizationTimeout`` (a ``TimeoutError``) as said above,
+    and ``FactorizationError`` if ``n`` could not be factored completely: a
+    composite left above ``siqs_max_bits``, or, rarely, a failure (or, with
+    ``proof=True``, a factor not proven prime).
     """
     n = operator.index(n)
     if n < 1:
@@ -225,10 +242,12 @@ def factor(
         ) from None
     deadline = _deadline(timeout)
     nthreads = _threads(threads)
+    sizes = (_bits("siqs_max_bits", siqs_max_bits),
+             _bits("ecm_max_bits", ecm_max_bits))
     if n == 1:
         return {}
-    complete, pairs, late = _factor(
-        n, code, _left(deadline), _interruptible(), nthreads
+    complete, pairs, late, too_large = _factor(
+        n, code, _left(deadline), _interruptible(), nthreads, *sizes
     )
     factors: dict[int, int] = {}
     for p, e in sorted(pairs):
@@ -238,13 +257,20 @@ def factor(
             raise FactorizationTimeout(
                 n, factors, f"could not factor {_text(n)} in {timeout} s"
             )
+        if too_large:
+            raise FactorizationError(
+                n,
+                factors,
+                f"could not factor {_text(n)} completely: composite factors"
+                " too large for SIQS, without small factors for ECM",
+            )
         raise FactorizationError(n, factors)
     if proof:
         for p in factors:
             if p < _SMALL:
                 continue
             status, _, late = _prime_certificate(
-                p, _left(deadline), _interruptible(), nthreads
+                p, _left(deadline), _interruptible(), nthreads, *sizes
             )
             if late and status != _PROVEN:
                 raise FactorizationTimeout(
@@ -279,7 +305,12 @@ def set_tuning_dir(path: Union[str, bytes, os.PathLike, None]) -> None:
 
 
 def prime_certificate(
-    p: SupportsIndex, *, timeout: Optional[float] = None, threads: int = 1
+    p: SupportsIndex,
+    *,
+    timeout: Optional[float] = None,
+    threads: int = 1,
+    siqs_max_bits: Optional[int] = None,
+    ecm_max_bits: Optional[int] = None,
 ) -> Certificate:
     """Prove that ``p`` is prime, and return the proof.
 
@@ -302,18 +333,23 @@ def prime_certificate(
     factored; beyond, it can take much longer: with ``timeout``, a number of
     seconds, ``TimeoutError`` is raised if the proof is not done within that
     time. In the main thread, Ctrl-C interrupts it, as it does ``factor``.
-    ``threads`` is as for ``factor``, for the factorizations of the proof.
+    ``threads``, ``siqs_max_bits`` and ``ecm_max_bits`` are as for
+    ``factor``, for the factorizations of the proof: composites above
+    ``siqs_max_bits`` never go to SIQS, so that a proof always ends.
 
-    Raises ``TypeError`` if ``p`` or ``threads`` is not an integer or
-    ``timeout`` not a number, ``ValueError`` if ``p`` is not prime or
-    ``timeout`` or ``threads`` not positive,
+    Raises ``TypeError`` if ``p``, ``threads``, ``siqs_max_bits`` or
+    ``ecm_max_bits`` is not an integer or ``timeout`` not a number,
+    ``ValueError`` if ``p`` is not prime or one of the others not positive,
     ``TimeoutError`` as said above, and ``RuntimeError`` in the rare event
     that ``p`` could not be proven prime.
     """
     p = operator.index(p)
     deadline = _deadline(timeout)
+    nthreads = _threads(threads)
+    sizes = (_bits("siqs_max_bits", siqs_max_bits),
+             _bits("ecm_max_bits", ecm_max_bits))
     status, steps, late = _prime_certificate(
-        p, _left(deadline), _interruptible(), _threads(threads)
+        p, _left(deadline), _interruptible(), nthreads, *sizes
     )
     if late and status != _PROVEN:
         raise TimeoutError(

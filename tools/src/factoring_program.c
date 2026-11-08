@@ -316,6 +316,7 @@ int run_program(factoring_program_t* const program) {
 #endif
 
     switch (ecode) {
+        case FACTORS_TOO_LARGE:
         case COMPLETE_FACTORIZATION_FOUND: {
             //
             // These factor unfactored, the power-th root of what was left.
@@ -329,7 +330,7 @@ int run_program(factoring_program_t* const program) {
             for (uint32_t i = first; i < multis->length; i++) {
                 multis->data[i] *= power;
             }
-            rcode = COMPLETE_FACTORIZATION_FOUND;
+            rcode = ecode;
             break;
         }
         case SOME_FACTORS_FOUND:
@@ -401,6 +402,11 @@ int run_program(factoring_program_t* const program) {
         case PARTIAL_FACTORIZATION_FOUND:
             printf("Factorization is (potentially) not complete.\n\n");
             break;
+        case FACTORS_TOO_LARGE:
+            printf("Factorization is not complete: its composite factors "
+                   "are too large for SIQS\n(--siqs-max-bits), and ECM found "
+                   "none of their factors (--ecm-max-bits).\n\n");
+            break;
         case NO_FACTOR_FOUND:
         default:
             printf("Factorization failed.\n\n");
@@ -413,6 +419,7 @@ int run_program(factoring_program_t* const program) {
         case COMPLETE_FACTORIZATION_FOUND:
             return TIFA_EXIT_COMPLETE;
         case PARTIAL_FACTORIZATION_FOUND:
+        case FACTORS_TOO_LARGE:
             return TIFA_EXIT_PARTIAL;
         default:
             return TIFA_EXIT_NO_FACTOR;

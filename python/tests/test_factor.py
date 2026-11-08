@@ -202,6 +202,45 @@ def test_timeout_above_512_bits():
     assert time.monotonic() - start < 2
 
 
+def test_too_large_for_siqs():
+    # Above siqs_max_bits, ECM alone, for factors of up to ecm_max_bits bits.
+    rng = random.Random(100)
+    r, a, b = random_prime(20, rng), random_prime(60, rng), random_prime(60, rng)
+    sizes = {"siqs_max_bits": 100, "ecm_max_bits": 30}
+    with pytest.raises(tifa.FactorizationError, match="too large") as raised:
+        tifa.factor(a * b, **sizes)
+    assert not isinstance(raised.value, tifa.FactorizationTimeout)
+    assert raised.value.factors == {a * b: 1}
+    with pytest.raises(tifa.FactorizationError) as raised:
+        tifa.factor(r * a * b, **sizes)
+    assert raised.value.factors == {r: 1, a * b: 1}
+    assert tifa.factor(r * a, **sizes) == {r: 1, a: 1}
+    assert tifa.factor(a * b, siqs_max_bits=120) == {min(a, b): 1, max(a, b): 1}
+
+
+@pytest.mark.parametrize(
+    "bits, error", [(0, ValueError), (-1, ValueError), ("85", TypeError),
+                    (True, TypeError), (85.0, TypeError)]
+)
+def test_size_options_must_be_positive_integers(bits, error):
+    with pytest.raises(error):
+        tifa.factor(15, siqs_max_bits=bits)
+    with pytest.raises(error):
+        tifa.factor(15, ecm_max_bits=bits)
+    with pytest.raises(error):
+        tifa.prime_certificate(2**89 - 1, siqs_max_bits=bits)
+
+
+def test_proof_ends_with_small_sizes():
+    p = random_prime(300, random.Random(300))
+    start = time.monotonic()
+    try:
+        tifa.prime_certificate(p, siqs_max_bits=64, ecm_max_bits=30)
+    except RuntimeError:
+        pass
+    assert time.monotonic() - start < 10
+
+
 def test_timeout_proof():
     p = random_prime(400, random.Random(400))
     with pytest.raises(TimeoutError):
