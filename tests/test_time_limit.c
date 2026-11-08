@@ -247,6 +247,26 @@ int main(void) {
     free_mpz_array(g);
     free_uint32_array(h);
 
+    // Stopped early, a composite is never said to have no factor.
+    static const char* const composites[] = {
+        "78664248049168147517", "1552322315513162798881",
+        "23981845589681487731813794469"
+    };
+    unsigned nfound = 0;
+    for (unsigned r = 0; r < 100; r++) {
+        for (unsigned i = 0; i < 3; i++) {
+            mpz_set_str(n, composites[i], 10);
+            mpz_array_t* cf    = alloc_mpz_array(4);
+            uint32_array_t* cm = alloc_uint32_array(4);
+            const tifa_options_t tiny = { .time_limit = 1e-6 * (20 + 6 * r) };
+            nfound += (tifa_factor(cf, cm, n, FIND_COMPLETE_FACTORIZATION,
+                                   &tiny) == NO_FACTOR_FOUND);
+            free_mpz_array(cf);
+            free_uint32_array(cm);
+        }
+    }
+    CHECK(nfound == 0, "a composite stopped early: never NO_FACTOR_FOUND");
+
     mpz_set_str(n, "19409887069306060631113", 10);
     mpz_array_t* f    = alloc_mpz_array(4);
     uint32_array_t* m = alloc_uint32_array(4);

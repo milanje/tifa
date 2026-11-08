@@ -100,6 +100,13 @@ ecode_t run_machine(factoring_machine_t* machine) {
     // both primes of a semiprime in any mode).
     //
     const bool complete_mode = (machine->mode == FIND_COMPLETE_FACTORIZATION);
+    //
+    // Stopped by the time limit or the interrupt, no factor found says
+    // nothing of n.
+    //
+    if ((ecode == NO_FACTOR_FOUND) && tifa_should_stop()) {
+        ecode = GIVING_UP;
+    }
     if (   !complete_mode
         && (   (ecode == COMPLETE_FACTORIZATION_FOUND)
             || (ecode == PARTIAL_FACTORIZATION_FOUND))) {

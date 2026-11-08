@@ -14,7 +14,8 @@ say otherwise.
 - The outcome follows the factoring mode; `FIND_SOME_PRIME_FACTORS` gone.
 - `tifa_factor()` always ends: composites above 320 bits go to ECM alone,
   and those it does not split give `FACTORS_TOO_LARGE`.
-- A crash of 0.4.10 fixed (`multis` NULL, powers of composites).
+- A crash of 0.4.10 fixed (`multis` NULL, powers of composites), and
+  `NO_FACTOR_FOUND` for composites stopped by a time limit.
 
 [Release notes](./releases/unreleased.md)
 
