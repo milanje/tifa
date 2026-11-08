@@ -96,7 +96,8 @@ int main(int argc, char** argv) {
                                : ((pbits >= 2) && (bits >= pbits + 2)))
               && (bits <= 1024);
     if (ok && (argc - i > 3)) {
-        ok = parse_ulong(argv[i + 3], &count) && (count > 0);
+        ok = parse_ulong(argv[i + 3], &count) && (count > 0)
+             && (count <= 10000000);
     }
     if (ok && (argc - i > 4)) {
         ok = parse_double(argv[i + 4], &secs) && (secs >= 0);

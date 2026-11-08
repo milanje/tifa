@@ -74,11 +74,12 @@ int main(int argc, char** argv) {
         if (0 == strcmp(opt, "--seed")) {
             ok = parse_ulong(val, &seed);
         } else if (0 == strcmp(opt, "--fb-mul")) {
-            ok = parse_double(val, &fbmul) && (fbmul > 0);
+            ok = parse_double(val, &fbmul) && (fbmul > 0) && (fbmul <= 100);
         } else if (0 == strcmp(opt, "--hw-mul")) {
-            ok = parse_double(val, &hwmul) && (hwmul > 0);
+            ok = parse_double(val, &hwmul) && (hwmul > 0) && (hwmul <= 100);
         } else if (0 == strcmp(opt, "--threshold-delta")) {
-            ok = parse_long(val, &thdelta);
+            ok =    parse_long(val, &thdelta) && (thdelta >= -127)
+                 && (thdelta <= 127);
         } else if (0 == strcmp(opt, "--large-primes")) {
             ok = parse_ulong(val, &u) && (u <= 1);
             large_primes = (long) u;
@@ -123,7 +124,8 @@ int main(int argc, char** argv) {
     }
     ok = ok && (lo >= 20) && (lo <= hi) && (hi <= 300);
     if (ok && (argc - i > 1)) {
-        ok = parse_ulong(argv[i + 1], &count) && (count > 0);
+        ok = parse_ulong(argv[i + 1], &count) && (count > 0)
+             && (count <= 10000000);
     }
     if (ok && (argc - i > 2)) {
         ok = parse_double(argv[i + 2], &secs) && (secs >= 0);

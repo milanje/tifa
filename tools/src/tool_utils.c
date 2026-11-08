@@ -75,9 +75,22 @@ char* read_number(char* const buffer, uint32_t length) {
             newline[-1] = '\0';
         }
     } else if (!feof(stdin)) {
-        fprintf(stderr, "\nERROR: the number has more than %" PRIu32
-                        " digits!\n", length - 2);
-        exit(TIFA_EXIT_USAGE);
+        //
+        // A full buffer: the line may end right after it.
+        //
+        int c = getc(stdin);
+        if (c == '\r') {
+            c = getc(stdin);
+        }
+        if ((c != '\n') && (c != EOF)) {
+            fprintf(stderr, "\nERROR: the number has more than %" PRIu32
+                            " digits!\n", length - 1);
+            exit(TIFA_EXIT_USAGE);
+        }
+        const size_t len = strlen(buffer);
+        if ((len != 0) && (buffer[len - 1] == '\r')) {
+            buffer[len - 1] = '\0';
+        }
     }
     return buffer;
 }

@@ -340,11 +340,24 @@ int run_program(factoring_program_t* const program) {
 
             find_coprime_base(base, unfactored, progfa);
             ins_sort_mpz_array(base);
-            append_mpz_array(factors, base);
-
+            //
+            // A base of primes covering unfactored is its factorization.
+            //
+            mpz_t rest;
+            mpz_init_set(rest, unfactored);
+            bool complete = true;
+            for (uint32_t i = 0; i < base->length; i++) {
+                const mp_bitcnt_t e = mpz_remove(rest, rest, base->data[i]);
+                append_mpz_to_array(factors, base->data[i]);
+                append_uint32_to_array(multis, (uint32_t) e * power);
+                complete = complete && MPZ_IS_PRIME(base->data[i]);
+            }
+            complete = complete && (mpz_cmp_ui(rest, 1) == 0);
+            mpz_clear(rest);
             free_mpz_array(base);
 
-            rcode = PARTIAL_FACTORIZATION_FOUND;
+            rcode = complete ? COMPLETE_FACTORIZATION_FOUND
+                             : PARTIAL_FACTORIZATION_FOUND;
             break;
         }
         default:

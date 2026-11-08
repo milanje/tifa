@@ -131,6 +131,30 @@ static void write_license(FILE* f) {
 // known algorithm and emits a committed C source (cpath) + header (hpath) that
 // expose tifa_tuning_baked_table(). Mirrors the offline genprimes.py model.
 //
+//
+// Files are written next to their path, then renamed over it: a failed write
+// (a full disk) leaves the file there was.
+//
+static FILE* open_tmp(char* tmp, size_t size, const char* path) {
+    const int length = snprintf(tmp, size, "%s.tmp", path);
+    FILE* f = ((length < 0) || ((size_t) length >= size)) ? NULL
+                                                           : fopen(tmp, "w");
+    if (f == NULL) {
+        fprintf(stderr, "tifa-tune: cannot open '%s' for writing\n", path);
+    }
+    return f;
+}
+
+static int close_tmp(FILE* f, const char* tmp, const char* path) {
+    const bool failed = (ferror(f) != 0);
+    if ((fclose(f) != 0) || failed || (rename(tmp, path) != 0)) {
+        fprintf(stderr, "tifa-tune: cannot write '%s'\n", path);
+        remove(tmp);
+        return 1;
+    }
+    return 0;
+}
+
 static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
     // The output may overwrite committed tables: refuse a mistyped --in.
     struct stat st;
@@ -138,9 +162,9 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
         fprintf(stderr, "tifa-tune: '%s' is not a directory\n", indir);
         return 1;
     }
-    FILE* h = fopen(hpath, "w");
+    char htmp[1100];
+    FILE* h = open_tmp(htmp, sizeof(htmp), hpath);
     if (h == NULL) {
-        fprintf(stderr, "tifa-tune: cannot open '%s' for writing\n", hpath);
         return 1;
     }
     write_license(h);
@@ -156,11 +180,13 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
         "const tuning_table_t* tifa_tuning_baked_table(const char* algo,\n"
         "                                              uint32_t expect_ncols);\n\n"
         "#ifdef __cplusplus\n}\n#endif\n\n#endif\n");
-    fclose(h);
+    if (close_tmp(h, htmp, hpath) != 0) {
+        return 1;
+    }
 
-    FILE* c = fopen(cpath, "w");
+    char ctmp[1100];
+    FILE* c = open_tmp(ctmp, sizeof(ctmp), cpath);
     if (c == NULL) {
-        fprintf(stderr, "tifa-tune: cannot open '%s' for writing\n", cpath);
         return 1;
     }
     write_license(c);
@@ -182,6 +208,7 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
         if ((length < 0) || ((size_t) length >= sizeof(path))) {
             fprintf(stderr, "tifa-tune: path too long in '%s'\n", indir);
             fclose(c);
+            remove(ctmp);
             return 1;
         }
 
@@ -239,7 +266,9 @@ static int emit_baked(const char* cpath, const char* hpath, const char* indir) {
             "    return NULL;\n");
     }
     fprintf(c, "}\n");
-    fclose(c);
+    if (close_tmp(c, ctmp, cpath) != 0) {
+        return 1;
+    }
 
     if (nloaded == 0) {
         fprintf(stderr, "tifa-tune: no tuning file in '%s': no baked table\n",
@@ -418,9 +447,9 @@ static int write_tuning_file(const options_t* opt, const tune_algo_desc_t* desc,
         return 1;
     }
 
-    FILE* f = fopen(path, "w");
+    char tmp[1100];
+    FILE* f = open_tmp(tmp, sizeof(tmp), path);
     if (f == NULL) {
-        fprintf(stderr, "tifa-tune: cannot open '%s' for writing\n", path);
         return 1;
     }
 
@@ -465,7 +494,9 @@ static int write_tuning_file(const options_t* opt, const tune_algo_desc_t* desc,
         fprintf(f, "\n");
     }
 
-    fclose(f);
+    if (close_tmp(f, tmp, path) != 0) {
+        return 1;
+    }
     printf("  wrote %s (%" PRIu32 " rows)\n", path, nrows);
     return 0;
 }

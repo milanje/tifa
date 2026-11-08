@@ -113,11 +113,17 @@ add_test(NAME batch_gcd_program_hex
 set_tests_properties(batch_gcd_program_hex PROPERTIES
     TIMEOUT 60
     PASS_REGULAR_EXPRESSION "1 3\n2 3\n3 b\n4 b\n")
+# The algorithms' programs give the multiplicities of what they split.
+add_test(NAME rho_program_square
+         COMMAND rho 1000000032000000382000002016000003969)
+set_tests_properties(rho_program_square PROPERTIES
+    TIMEOUT 60
+    PASS_REGULAR_EXPRESSION "1000000007 \\^ 2[^0-9].*1000000009 \\^ 2[^0-9].*Factorization is complete")
 # A pass regex alone ignores the exit status: fail on sanitizer reports too.
 set_tests_properties(tifa_factor_program_semiprime tifa_factor_program_powers
                      tifa_factor_program_square tifa_factor_program_hint
                      tifa_factor_program_prove tifa_factor_program_prove_prime
-                     batch_gcd_program batch_gcd_program_all
+                     rho_program_square batch_gcd_program batch_gcd_program_all
                      batch_gcd_program_hex
                      PROPERTIES
     FAIL_REGULAR_EXPRESSION "ERROR|Sanitizer|runtime error")
@@ -134,6 +140,7 @@ endfunction()
 tifa_add_exit_test(exit_complete  0 tifa_factor 1000000016000000063)
 tifa_add_exit_test(exit_prime     0 tifa_factor 1000003)
 tifa_add_exit_test(exit_partial   1 tdiv 10 3000000048000000189)
+tifa_add_exit_test(exit_rho_complete 0 rho 1000000016000000063)
 tifa_add_exit_test(exit_no_factor 2 tdiv 10 1000000016000000063)
 tifa_add_exit_test(exit_zero      3 tifa_factor 0)
 tifa_add_exit_test(exit_not_digit 3 tifa_factor 12x)
