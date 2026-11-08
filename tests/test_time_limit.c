@@ -138,6 +138,7 @@ int main(void) {
     CHECK(!complete, "ECM in 4 threads stops at the limit");
     CHECK(elapsed < 1.0, "ECM in 4 threads stops soon after the limit");
 
+#if TIFA_HAVE_MONT_ECM
     // On eight limbs, the other threads' curves stop within themselves, and
     // SIQS does not start (0.2 s to start four threads at 500 bits).
     random_prime(p, 250, rng);
@@ -146,6 +147,7 @@ int main(void) {
     elapsed = factor_limited(n, TIFA_FACTOR_RANDOM, &complete);
     CHECK(!complete, "tifa_factor in 4 threads stops at the limit");
     CHECK(elapsed < 0.2, "tifa_factor in 4 threads stops soon at 500 bits");
+#endif
     tifa_set_threads(1);
 
     // The longest curves stop within themselves: in GMP arithmetic above

@@ -145,10 +145,10 @@ int main(void) {
     //
     {
         sparse_gf2_t* const m = alloc_sparse_gf2(10, 106);
-        for (uint32_t c = 0; c < 101; c++) {
-            append_sparse_gf2_column(m, NULL, 0);
-        }
         uint32_t rows[2] = { 0, 1 };
+        for (uint32_t c = 0; c < 101; c++) {
+            append_sparse_gf2_column(m, rows, 0);
+        }
         for (uint32_t c = 0; c < 5; c++) {
             append_sparse_gf2_column(m, rows, 2);
         }
