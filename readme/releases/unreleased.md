@@ -53,4 +53,4 @@ directly in 16-bit entries, without a 64-bit copy.
 Below `ecm_max_bits` of 85, the calls cost what they did: against 0.5.0,
 in one thread on an Apple M5 Pro, 0.993 to 1.006 of the time for SIQS,
 `tifa_factor()` and `tifa_cofactor()` (`bench/ab.sh`, both orders, with
-the changes of 8 November below), with at most 0.07% more instructions.
+all the changes above), with at most 0.07% more instructions.
