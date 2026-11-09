@@ -39,6 +39,15 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+**Version 0.5.2 (November 2026)** runs ECM's stage 1 on Edwards curves,
+from one word to eight limbs (0.78 to 0.99 of the time per curve; ECM
+alone 0.69 to 0.89 on 5 to 8 limbs), with Montgomery's curves with torsion
+Z/12 after the table. On the cofactors that CADO-NFS's siever leaves,
+`tifa_cofactor()` finds the same relations as CADO in 0.50 to 0.69 of its
+time. Every algorithm now stops at the time limit and the interrupt (see
+[readme/releases/0.5.2.md](./readme/releases/0.5.2.md)). The ABI does not
+change (`libtifa.so.0.5`).
+
 **Version 0.5.1 (November 2026)** takes ECM up to factors of 100 bits:
 `ecm_max_bits` goes up to 100, rather than 85, which stays the default
 (each 5 bits more double the time or more). Stage 2 in GMP arithmetic
@@ -47,20 +56,9 @@ factors above 85 bits are freed after use (see
 [readme/releases/0.5.1.md](./readme/releases/0.5.1.md)). The ABI does not
 change (`libtifa.so.0.5`).
 
-**Version 0.5.0 (November 2026)** changes the interface: the functions
-that can run long take their options per call (time limit, interrupt
-check, threads, hint, sizes; `tifa_options.h`), NULL for the defaults,
-instead of thread-local setters, and the outcome of a factorization follows
-its mode. `tifa_factor()` always ends: composites above 320 bits go to ECM
-alone, and those it does not split give `FACTORS_TOO_LARGE` (a 400-bit RSA
-modulus after 9 s in 6 threads, where SIQS ran without end). The headers
-work from C++. The release notes have a table for moving from 0.4 (see
-[readme/releases/0.5.0.md](./readme/releases/0.5.0.md)); the shared
-library becomes `libtifa.so.0.5`.
-
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
-changes and their measurements; the changes on master since 0.5.1 are in
+changes and their measurements; the changes on master since 0.5.2 are in
 [readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there
@@ -325,7 +323,7 @@ would take is given up (`COFACTOR_GAVE_UP`). With three large primes and
 `max_siqs_bits = 2 lpb`, on the cofactors that CADO-NFS's siever leaves at
 c180 (lpb 32, up to 99 bits), that takes 0.62 of the time of exact answers and
 misses 0.35% of the relations (see
-[readme/releases/unreleased.md](./readme/releases/unreleased.md)).
+[readme/releases/0.5.2.md](./readme/releases/0.5.2.md)).
 
 ## Parameter tuning
 

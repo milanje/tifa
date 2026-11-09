@@ -105,7 +105,7 @@ struct struct_cofactor_params_t {
          * three large primes and <tt>max_siqs_bits = 2 lpb</tt>, on the
          * cofactors of a number field sieve at c180 (lpb 32, up to 99
          * bits), this takes 0.62 of the time of exact answers and misses
-         * 0.35% of the relations (readme/releases/unreleased.md). 0 for no
+         * 0.35% of the relations (readme/releases/0.5.2.md). 0 for no
          * limit: every answer is then exact. Ignored without 128-bit
          * integers (the ECM used here needs them): every composite part then
          * goes to SIQS, whatever its size.

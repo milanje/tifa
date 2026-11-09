@@ -13,6 +13,22 @@ Nothing yet.
 
 [Release notes](./releases/unreleased.md)
 
+## 0.5.2 &mdash; 2026-11-09
+
+- ECM's stage 1 on Edwards curves, from one word to eight limbs: the
+  table of curves with torsion Z/2 x Z/8, then Montgomery's family with
+  torsion Z/12 (from B1 = 1600) instead of Suyama's curves; 0.78 to 0.99
+  of the time per curve, ECM alone 0.69 to 0.89 on 5 to 8 limbs.
+- `tifa_cofactor()` on CADO-NFS's own cofactors: the same relations in
+  0.50 to 0.69 of CADO's time.
+- Without SIQS, three-large-prime cofactors no longer given up before ECM
+  has spent its budget (0.35% of the relations lost at c180, not 8.4%).
+- Every algorithm stops at the time limit and the interrupt: rho, SQUFOF,
+  Fermat, p-1, p+1 and ECM's large precomputations too.
+- Same ABI (`libtifa.so.0.5`).
+
+[Release notes](./releases/0.5.2.md)
+
 ## 0.5.1 &mdash; 2026-11-09
 
 - ECM up to factors of 100 bits: `ecm_max_bits` up to 100 (the default
