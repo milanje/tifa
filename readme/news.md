@@ -13,6 +13,18 @@ Nothing yet.
 
 [Release notes](./releases/unreleased.md)
 
+## 0.5.1 &mdash; 2026-11-09
+
+- ECM up to factors of 100 bits: `ecm_max_bits` up to 100 (the default
+  stays 85); stage 1 goes on past the table of primes.
+- ECM in GMP arithmetic: a stage 2 of 20 MB at B2 = 2^28, rather than
+  135 MB at 2^26.
+- The plans for factors above 85 bits freed after use.
+- `ecm()` caps `b1` at 2^24 and `b2` at 2^28.
+- Same ABI (`libtifa.so.0.5`).
+
+[Release notes](./releases/0.5.1.md)
+
 ## 0.5.0 &mdash; 2026-11-08
 
 - Options per call (`tifa_options.h`) instead of thread-local setters:

@@ -39,6 +39,14 @@ time of [yafu](https://github.com/bbuhrow/yafu) 3.1.9's AVX2 build at 200 and
 
 ## What's new
 
+**Version 0.5.1 (November 2026)** takes ECM up to factors of 100 bits:
+`ecm_max_bits` goes up to 100, rather than 85, which stays the default
+(each 5 bits more double the time or more). Stage 2 in GMP arithmetic
+needs 20 MB at B2 = 2^28 rather than 135 MB at 2^26, and the plans for
+factors above 85 bits are freed after use (see
+[readme/releases/0.5.1.md](./readme/releases/0.5.1.md)). The ABI does not
+change (`libtifa.so.0.5`).
+
 **Version 0.5.0 (November 2026)** changes the interface: the functions
 that can run long take their options per call (time limit, interrupt
 check, threads, hint, sizes; `tifa_options.h`), NULL for the defaults,
@@ -50,20 +58,9 @@ work from C++. The release notes have a table for moving from 0.4 (see
 [readme/releases/0.5.0.md](./readme/releases/0.5.0.md)); the shared
 library becomes `libtifa.so.0.5`.
 
-**Version 0.4.10 (November 2026)** runs SIQS, and the ECM search that
-`tifa_factor()` runs before it, in several threads with
-`tifa_set_threads()`, `--threads` or Python's `threads=`: in six threads on
-an Apple M5 Pro, `tifa_factor()` takes 0.41 of the time of one thread at
-140 bits, 0.27 at 180 and 0.22 at 240; in one thread, the default, nothing
-changes. A bug hunt over the whole code fixed, among others, a block
-Lanczos loop without end, CFRAC's rows, Python calls from a signal handler
-and the programs' exit statuses (see
-[readme/releases/0.4.10.md](./readme/releases/0.4.10.md)). The ABI only
-grows (`libtifa.so.0.4`).
-
 [readme/news.md](./readme/news.md) lists every release, with a link to its
 notes in [readme/releases/](./readme/releases/), which have all the
-changes and their measurements; the changes on master since 0.5.0 are in
+changes and their measurements; the changes on master since 0.5.1 are in
 [readme/releases/unreleased.md](./readme/releases/unreleased.md).
 
 ## What's in there
