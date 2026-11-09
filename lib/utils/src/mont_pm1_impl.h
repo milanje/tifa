@@ -46,6 +46,14 @@ static void FN(pm1_stage1)(uint64_t* const x, const uint64_t* const base,
                 FN(mul)(x, x, base, m);
             }
         }
+#if defined(MONT_ECM_STOP_CHECKS)
+        //
+        // x stays a power of the base: a factor found is still one.
+        //
+        if (((i & 4095) == 0) && tifa_should_stop()) {
+            break;
+        }
+#endif
     }
 }
 
@@ -111,6 +119,11 @@ static void FN(pp1_stage1)(uint64_t* const v, const uint64_t* const p,
         } else {
             FN(lucas_step)(v, v1, p, two, m);
         }
+#if defined(MONT_ECM_STOP_CHECKS)
+        if (((i & 4095) == 0) && tifa_should_stop()) {
+            break;
+        }
+#endif
     }
 }
 

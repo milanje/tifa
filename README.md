@@ -75,8 +75,8 @@ changes and their measurements; the changes on master since 0.5.1 are in
   it); what it does not split is left, with the outcome
   `FACTORS_TOO_LARGE`, so that a call always ends.
 - Each function that can run long takes options (`tifa_options.h`), NULL for
-  the defaults: a time limit, after which SIQS, its linear algebra and ECM
-  give up soon; a function that can interrupt them (Ctrl-C in Python);
+  the defaults: a time limit, after which every algorithm gives up soon; a
+  function that can interrupt them (Ctrl-C in Python);
   threads for SIQS and the ECM search before it (`tifa_factor()` 4.5 times
   as fast in 6 threads at 240 bits on an Apple M5 Pro; one thread, the
   default, runs as before); what is known of the number (two prime factors
@@ -109,7 +109,9 @@ changes and their measurements; the changes on master since 0.5.1 are in
   matrix, which SIQS uses from about 230 bits.
 - Below 2^64, deterministic primality testing and factorization in machine
   words (`factor_u64.h`); ECM, p-1 and p+1 in Montgomery arithmetic on one to
-  eight words, up to 512 bits (`mont_ecm.h`).
+  eight words, up to 512 bits (`mont_ecm.h`), stage 1 of ECM on Edwards
+  curves (those with torsion Z/2 x Z/8, then Montgomery's family with
+  torsion Z/12).
 
 - A Python package (`python/`): `tifa.factor(n)` is `tifa_factor()`, with
   proofs of the primes on request; `tifa.batch_gcd()` is `tifa_batch_gcd()`,

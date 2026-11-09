@@ -1296,7 +1296,7 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     context->B1 = context->params->b1;
     //
     // _WARNING_: This D value (representing a speed/memory trade-off) is from
-    //            the aforementionned paper. Some tests are needed to assess
+    //            the aforementioned paper. Some tests are needed to assess
     //            the better value in our case.
     //
     context->D   = GMP_STAGE2_D;

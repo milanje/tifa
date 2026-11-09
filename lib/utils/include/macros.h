@@ -329,7 +329,7 @@ extern "C" {
     * Syntaxic sugar macro wrapping a call to <tt>mpn_add</tt>. Performs
     * size normalization on the result and takes care of the possible carry
     * out. Does not perform any reallocation: the user should make sure
-    * the result has enough space to accomodate the possible carry out.
+    * the result has enough space to accommodate the possible carry out.
     *
     * Takes as parameters three \c mpz_t (and not arrays of <tt>mp_limb_t</tt>).
     * \c SIZ(B) should be greater than or equal to <tt>SIZ(C)</tt>.
@@ -358,7 +358,7 @@ extern "C" {
     * size normalization on the result, takes care of the possible carry
     * out, and Checks the Sizes of the operands to call \c mpn_add with the
     * proper parameters' order. However, does not perform any reallocation: the
-    * user should make sure the result has enough space to accomodate the
+    * user should make sure the result has enough space to accommodate the
     * possible carry out.
     *
     * Takes as parameters three \c mpz_t (and not arrays of <tt>mp_limb_t</tt>).

@@ -1,10 +1,5 @@
 Here are some short term objectives:
 
-  - Check tifa_cofactor() on real cofactors from a number field sieve (dumps
-    from CADO-NFS, for example). So far it has only been measured on
-    synthetic cofactors: integers without small factors, of the sizes a
-    sieve leaves.
-
   - Machine-specific parameters. The defaults of SIQS from 160 to 220 bits
     were retuned on an Apple M5 Pro and on GitHub's x86-64 runners (0.4.3);
     sweeping the factor base, the sieve width and the threshold on both, in
@@ -26,8 +21,23 @@ Here are some short term objectives:
     ECM alone, up to factors of ecm_max_bits bits (85 by default, about 12
     minutes at 520 bits and 30 at 1024 when it finds nothing, 100 at most),
     then gives FACTORS_TOO_LARGE. Larger factors need a faster stage 2 (the
-    FFT continuation of GMP-ECM) more than larger bounds.
+    FFT continuation of GMP-ECM) more than larger bounds. Above 512 bits the
+    curves run in GMP arithmetic: the fixed-limb code on 9 to 16 limbs would
+    speed these searches up too.
 
+  - ECM in fixed-limb arithmetic (mont_ecm.c):
+      - Since November 2026, stage 1 runs on Edwards curves for the curves
+        of z2z8_curves.h and of Montgomery's family with torsion Z/12
+        (from B1 = 1600). Suyama's curves keep the ladder, and so do the
+        long curves (levels from 90 bits) on one to four limbs.
+      - ecm() itself runs Suyama's curves after the table; the Z/12 family
+        (0.83 to 0.96 of their time per factor from B1 = 1600, in
+        tifa_factor's search) could follow the table there too, the seed
+        choosing where in the family to start.
+      - With the Edwards stage 1, a curve of each level costs 0.71 to 0.80
+        of what the tables of ecm_schedule.c assume. Tables rebuilt from
+        those costs changed nothing measurable (A/B in one thread, budget
+        sweeps on random composites): not kept.
   - ECM on one to four limbs (mont_ecm.c), measured on 30 October 2026:
       - The setup of a curve takes 0.3 us (Z/2 x Z/8) to 0.6 us (Suyama),
         3% to 6% of a curve with B1 = 50 on two limbs, 1% with B1 = 800;
@@ -157,3 +167,8 @@ Here are some short term objectives:
         of primes per run (0.5 ms, 0.5% at 170 bits): pairs, which fixed six
         primes, gave slower 'a' there, but finding the best triple without
         the table would keep the same 'a'.
+
+  - The layout of the code moves some timings by 1% to 3%: fill_sieve_chunk
+    on the M5 (above), the cofactor bench after changes to objects linked
+    before its own. A linker order file pinning the hot kernels might
+    steady them.

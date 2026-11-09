@@ -294,7 +294,7 @@ inline static void flip_matrix_bit(uint32_t row, uint32_t col,
     * and M. Wunderlich (Parallel Computing 1 (1984) 65-73).
     *
     * It could be argued that such a function should then be declared and
-    * implemented in the files relevant to the aforementionned algorithm.
+    * implemented in the files relevant to the aforementioned algorithm.
     * However, this would lead to a very inefficient implementation of this
     * function since proprer programming pratices would lead to consider the
     * matrix as some kind of opaque structure. Granted, nothing could have

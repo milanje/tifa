@@ -317,7 +317,7 @@ static ecode_t perform_rho(factoring_machine_t* const machine) {
 static ecode_t perform_rho_brent(factoring_machine_t* const machine) {
     //
     // This implementation blindly follows Brent's algorithm described in
-    // section 7 of his paper "An improved Monte Carlo factorization algoritm",
+    // section 7 of his paper "An improved Monte Carlo factorization algorithm",
     // BIT Numerical Mathematics 1980, Volume 20, Issue 2, pp 176-184.
     //
     // The variable names are exactly the ones from the article.

@@ -212,8 +212,8 @@ it as long as SIQS would take: with three large primes and
 Calls release the GIL, and threads may share a
 `Cofactorizer`; it pickles, for processes. On an Apple M5 Pro, on integers
 of 33 to 64 bits without prime factors below 2^23 (lpb 32, two large
-primes), `many` takes 1.56 us per integer, 5% more than the C function, and
-calls one by one 1.92 us.
+primes), `many` takes 1.44 us per integer, 5% more than the C function, and
+calls one by one 1.78 us.
 
 ## Command line
 

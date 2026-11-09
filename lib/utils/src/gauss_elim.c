@@ -226,7 +226,7 @@ void pw_elim(uint32_array_list_t* relations, binary_matrix_t* const matrix,
 void gaussian_elim(uint32_array_list_t* relations,
                    binary_matrix_t* const matrix) {
     //
-    // Parkinson and Wunderlich's algorithm is straitforwardly implemented
+    // Parkinson and Wunderlich's algorithm is straightforwardly implemented
     // without any kind of enhancement.
     //
     // _WARNING_: The aformentionned paper contains an omission in the

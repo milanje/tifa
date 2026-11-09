@@ -75,7 +75,7 @@ extern "C" {
              * \def PRINT_ERROR(...)
              * Print on the standard error. Messages are prefixed by
              * the name of running algorithm and the function where
-             * the error occured.
+             * the error occurred.
              */
         #define PRINT_ERROR(...) do {                                      \
             fprintf(stderr,__PREFIX__ "%s%s: ",_TIFA_ERR_PRFX_,__func__);  \
@@ -94,7 +94,7 @@ extern "C" {
              * \def PRINT_ERROR(...)
              * Print on the standard error. Messages are prefixed by
              * \c _TIFA_ERR_PRFX_ and the name of the function where
-             * the error occured.
+             * the error occurred.
              */
         #define PRINT_ERROR(...) do {                              \
             fprintf(stderr, "%s%s: ", _TIFA_ERR_PRFX_, __func__);  \

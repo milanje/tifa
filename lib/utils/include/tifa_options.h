@@ -125,11 +125,14 @@ struct struct_tifa_options_t {
          * The time limit, in seconds from the call: 0 or less, or not
          * finite, for none. Past it, the call gives up when it next checks
          * the time, and returns what it found: a partial factorization at
-         * best. SIQS checks it every 16 chunks of its sieve, ECM after each
-         * curve (and within it above 256 bits), CFRAC after each batch of
-         * residues, the elimination every 256 columns. The other algorithms
-         * check only between the runs of a factoring mode other than
-         * \c SINGLE_RUN.
+         * best. Each algorithm checks it within its own loops, often enough
+         * to give up within a few milliseconds on an Apple M5 Pro: SIQS
+         * every 16 chunks of its sieve, ECM after each curve (within it
+         * above 256 bits, on the long curves and while building the
+         * precomputations of large bounds), CFRAC after each batch of
+         * residues, the elimination every 256 columns, rho, SQUFOF and
+         * Fermat's method every few thousand steps, p-1 and p+1 within their
+         * stages above 256 bits (below, their longest runs take 40 ms).
          */
     double time_limit;
         /**
@@ -148,7 +151,7 @@ struct struct_tifa_options_t {
     uint32_t threads;
         /**
          * A function called where the time limit is checked, every few
-         * milliseconds in SIQS and ECM, in the calling thread, with
+         * milliseconds in long runs, in the calling thread, with
          * \c interrupt_arg: once it returns true, the call gives up as at
          * its time limit. A program can so stop a factorization from
          * another thread, through a flag that it reads, or on a signal. It

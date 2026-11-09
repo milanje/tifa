@@ -624,7 +624,7 @@ static ecode_t update_cfrac_context(factoring_machine_t* const machine) {
             //           accordingly. This is quite cumbersome and would make
             //           for a rather complex code.
             //
-            // _TO_DO_: Find about the aforementionned problem, and try to fix
+            // _TO_DO_: Find about the aforementioned problem, and try to fix
             //          it in a not-that-ugly way.
             //
             context->nfind_more_rels  = 0;

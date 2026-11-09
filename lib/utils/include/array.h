@@ -31,7 +31,7 @@
  * the only differences being the type of the elements these arrays hold.
  * Each \c *_array_t type is a structure composed of three fields:
  *
- * \li \c alloced - The maximum number of element the array can accomodate
+ * \li \c alloced - The maximum number of element the array can accommodate
  * \li \c length - The current number of element in the array
  * \li \c data - A pointer to the allocated memory space of \c alloced elements
  *

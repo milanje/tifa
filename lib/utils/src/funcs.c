@@ -506,7 +506,7 @@ bool is_prime(uint32_t n) {
     //
     // See for example algorithm 8.2.2 from the book "A Course in Computational
     // Algebraic Number Theory" by Henri Cohen, Springer-Verlag 1993. The
-    // description given in this book has been straitforwardly adapted.
+    // description given in this book has been straightforwardly adapted.
     //
     // We also roughly follow the strategy used in the mpz_probab_prime_p()
     // function from the GMP library with some trial divisions up to a certain

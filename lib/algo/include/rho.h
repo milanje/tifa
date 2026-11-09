@@ -58,7 +58,7 @@ enum rho_method_enum {
     FLOYD_CYCLE_FINDING = 0,
         /**
          * Brent's improvement, as described in "An improved Monte Carlo
-         * factorization algoritm", BIT Numerical Mathematics 1980, Volume 20,
+         * factorization algorithm", BIT Numerical Mathematics 1980, Volume 20,
          * Issue 2, pp 176-184.
          */
     BRENT_CYCLE_FINDING

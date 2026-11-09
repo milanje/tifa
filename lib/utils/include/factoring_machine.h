@@ -122,13 +122,13 @@ struct struct_factoring_machine {
     factoring_mode_t mode;
        /**
         * The context of the factorization algorithm. This is a pointer to
-        * an algorithm implementation dependant structure holding all variables,
+        * an algorithm implementation-dependent structure holding all variables,
         * data, and functions needed by the implementation.
         */
     void* context;
        /**
         * The parameters used by the factorization algorithm. This is a pointer
-        * to an algorithm implementation dependant structure holding the
+        * to an algorithm implementation-dependent structure holding the
         * algorithm parameters needed by the implementation.
         */
     void* params;

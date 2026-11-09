@@ -49,16 +49,6 @@
 #include "tifa_alloc.h"
 #include "stopping.h"
 
-#define FERMAT_DEBUG 1
-#if FERMAT_DEBUG
-  #include <stdio.h>
-  #define GMP_PRINT(...) gmp_printf(__VA_ARGS__)
-  #define PRINT(...)     printf(__VA_ARGS__)
-#else
-  #define GMP_PRINT(...) /* intentionally left empty */
-  #define PRINT(...)     /* intentionally left empty */
-#endif
-
 #define __PREFIX__  "fermat: "
 #define __VERBOSE__ TIFA_VERBOSE_FERMAT
 #define __TIMING__  TIFA_TIMING_FERMAT
@@ -457,7 +447,7 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
     // Perform a race between the factorization of n and mult*n as suggested by
     // J. McKee in the reference paper "Speeding Fermat's Factoring Method".
     // There are not many comments in the code, but the algorithm is
-    // straitforwardly implemented from the description given in the paper.
+    // straightforwardly implemented from the description given in the paper.
     //
     mpz_ptr n     = context->n;
     mpz_t* ni     = context->ni;

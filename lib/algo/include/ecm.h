@@ -36,8 +36,9 @@
  *
  * On odd numbers of up to eight 64-bit limbs, the curves run in fixed-limb
  * Montgomery arithmetic (mont_ecm.h), where the compiler has 128-bit
- * integers; other numbers use the GMP code. Large numbers are, of course, out
- * of the scope of this library.
+ * integers, those of z2z8_curves.h with their first phase on an Edwards form;
+ * other numbers use the GMP code. Large numbers are, of course, out of the
+ * scope of this library.
  */
 
 #if !defined(_TIFA_ECM_H_)

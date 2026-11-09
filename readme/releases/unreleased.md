@@ -6,19 +6,20 @@ release, this file becomes that version's notes. [All releases](../news.md).
 ## 9 November 2026 &mdash; Every algorithm stops at the time limit
 
 `rho()`, `squfof()`, `fermat()`, and the stages of `p_minus_1()` and
-`p_plus_1()` in GMP arithmetic (above 512 bits) never checked the time
-limit or the interrupt of their options, nor did ECM while building the
-precomputations of large bounds (the plans of the Montgomery curves, up to
-0.43 s at B1 = 2^24 and B2 = 2^28, which `tifa_factor()` builds when its
-search first reaches a level above 60 bits, and the tables of stage 2 in
-GMP arithmetic). Under a limit of 50 ms on an Apple M5 Pro, `rho()` with
-`max_niters` = 2^30 at 400 bits never stopped, `fermat()` ran for minutes at
-120 bits, `squfof()` for more than a minute at 122 bits, `p_plus_1()` at
-1000 bits ended 0.62 s late, `p_minus_1()` 0.19 s, `ecm()` with large
-bounds 0.14 to 0.22 s. They all stop within 3 ms of the limit now, at no
-measurable cost (`bench/ab.sh`: `squfof()`, `p_minus_1()`, `p_plus_1()`,
-`ecm()` and `tifa_factor()` 0.976 to 1.002 of the time), and
-`test_time_limit` checks each.
+`p_plus_1()` above 256 bits never checked the time limit or the interrupt of
+their options, nor did ECM while building the precomputations of large
+bounds (the plans of the Montgomery curves, up to 0.43 s at B1 = 2^24 and
+B2 = 2^28, which `tifa_factor()` builds when its search first reaches a
+level above 60 bits, and the tables of stage 2 in GMP arithmetic). Under a
+limit of 50 ms on an Apple M5 Pro, `rho()` with `max_niters` = 2^30 at 400
+bits never stopped, `fermat()` ran for minutes at 120 bits, `squfof()` for
+more than a minute at 122 bits, `p_plus_1()` at 1000 bits ended 0.62 s late
+(0.05 s at 500 bits), `p_minus_1()` 0.19 s, `ecm()` with large bounds 0.14
+to 0.22 s. They all stop within 3 ms of the limit now (below 256 bits, the
+longest runs of p-1 and p+1 take 40 ms), at no measurable cost
+(`bench/ab.sh`: `squfof()`, `p_minus_1()`, `p_plus_1()`, `ecm()` and
+`tifa_factor()` 0.976 to 1.002 of the time), and `test_time_limit` checks
+each.
 
 The documentation now says what `fb_bound` of `tifa_cofactor()` is trusted
 for (parts below its square are taken as prime without a test: a bound
