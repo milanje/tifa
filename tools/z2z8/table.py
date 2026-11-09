@@ -20,10 +20,10 @@
 
 Keeps, for each curve, the first point of infinite order with the fewest
 bits in its coordinates; checks that 16 divides the group order modulo 40
-primes; prints the 27 curves with the fewest bits (ties in search order) as
-C rows: d, y0, x0 (numerators and denominators).
+primes; prints the N curves with the fewest bits (ties in search order;
+N = 27 by default) as C rows: d, y0, x0 (numerators and denominators).
 
-Usage: python3 table.py < candidates.txt
+Usage: python3 table.py [N] < candidates.txt
 """
 import sys
 from fractions import Fraction as F
@@ -77,7 +77,8 @@ for line in sys.stdin:
         best[d] = (height, x, y)
 
 primes = [p for p in range(1009, 1700) if all(p % q for q in range(2, 42))][:40]
-curves = sorted(best.items(), key=lambda kv: kv[1][0])[:27]
+count = int(sys.argv[1]) if len(sys.argv) > 1 else 27
+curves = sorted(best.items(), key=lambda kv: kv[1][0])[:count]
 for d, (_, x, y) in curves:
     for p in primes:
         if d.numerator % p and d.denominator % p and (d.numerator - d.denominator) % p:

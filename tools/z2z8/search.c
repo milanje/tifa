@@ -25,6 +25,7 @@
 // square; table.py drops the torsion points.
 //
 // Usage: cc -O2 search.c -lm -o search && ./search 30 3000 > candidates.txt
+// (./search P A qmin qmax: only q from qmin to qmax, to split a search).
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,12 +56,14 @@ static int is_square(const u128 x) {
 }
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <P> <A>\n", argv[0]);
+    if ((argc != 3) && (argc != 5)) {
+        fprintf(stderr, "Usage: %s <P> <A> [<qmin> <qmax>]\n", argv[0]);
         return 1;
     }
     const int P = atoi(argv[1]);
     const int A = atoi(argv[2]);
+    const int qmin = (argc == 5) ? atoi(argv[3]) : 1;
+    const int qmax = (argc == 5) ? atoi(argv[4]) : P;
     //
     // Beyond, the products of four values of x overflow 128 bits.
     //
@@ -70,7 +73,7 @@ int main(int argc, char** argv) {
     }
 
     for (int p = -P; p <= P; p++) {
-        for (int q = 1; q <= P; q++) {
+        for (int q = qmin; q <= qmax; q++) {
             if (gcd((uint64_t) abs(p), (uint64_t) q) != 1) {
                 continue;
             }
