@@ -35,4 +35,9 @@ CADO's). On synthetic cofactors (sets B and C of 0.2.0, 20000 and 12000
 numbers), giving up now takes 0.67 and 0.68 of the time of exact answers,
 rather than 0.48 and 0.39, and misses 0 of 785 and 3 of 575 smooth numbers,
 rather than 3 and 17: close to what 0.2.0 measured on smaller sets (0.60
-and 0.64, none missed). Exact answers do not change.
+and 0.64, none missed). Exact answers do not change. Against 0.5.1, in one
+thread (`bench/ab.sh`, both orders): SIQS 0.986 to 1.002 of the time,
+`tifa_factor()` 0.985 to 1.008, the same instructions within 0.25% (1.4%
+fewer for `tifa_factor()` at 70 bits); the cofactor bench of two large
+primes, which this change does not reach, 0.90 to 0.93 with the same
+instructions, from where the code now lies.
