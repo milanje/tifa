@@ -132,6 +132,7 @@ typedef struct {
     uint64_t z[NL];
 } FN(pt_t);
 
+#if !defined(MONT_ECM_EDWARDS)
 static inline void FN(xdbl)(FN(pt_t)* const r, const FN(pt_t)* const p,
                             const uint64_t* const a24,
                             const mod_t* const m) {
@@ -227,7 +228,6 @@ static void FN(ladder)(FN(pt_t)* const r, const FN(pt_t)* const p,
 //                              Stages 1 and 2
 //------------------------------------------------------------------------------
 
-#if !defined(MONT_ECM_EDWARDS)
 //
 // p <- E.(x0 : 1), E the product of the prime powers up to the stage 1
 // bound: a ladder over the bits of E, whose difference stays (x0 : 1).
@@ -261,7 +261,28 @@ static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const x0,
 }
 #endif
 
+//
+// A point of an Edwards curve in extended coordinates (x : y : z : t),
+// t = xy/z.
+//
+typedef struct {
+    uint64_t x[NL];
+    uint64_t y[NL];
+    uint64_t z[NL];
+    uint64_t t[NL];
+} FN(ext_t);
+
 #if defined(MONT_ECM_EDWARDS)
+//
+// Inlined into the loop from three limbs only, products never: on the M5,
+// each other choice was 3% to 9% slower on two, three or four limbs, and
+// inlining the products tripled the code.
+//
+#if NL >= 3
+#define EDW_OP static inline __attribute__((always_inline))
+#else
+#define EDW_OP static inline
+#endif
 //------------------------------------------------------------------------------
 //            Stage 1 on Edwards curves x^2 + y^2 = 1 + d.x^2.y^2
 //------------------------------------------------------------------------------
@@ -278,13 +299,6 @@ typedef struct {
     uint64_t z[NL];
 } FN(proj_t);
 
-typedef struct {
-    uint64_t x[NL];
-    uint64_t y[NL];
-    uint64_t z[NL];
-    uint64_t t[NL];
-} FN(ext_t);
-
 //
 // A multiple of the starting point, ready to be added: s = x + y, dt = d.t.
 //
@@ -299,43 +313,41 @@ typedef struct {
 //
 // r = 2.p. r may alias p.
 //
-static inline __attribute__((always_inline)) void
-FN(edw_dbl)(FN(proj_t)* const r, const FN(proj_t)* const p,
-            const mod_t* const m) {
+EDW_OP void FN(edw_dbl)(FN(proj_t)* const r, const FN(proj_t)* const p,
+                        const mod_t* const m) {
     uint64_t xy[NL], b[NL], c[NL], d[NL], h[NL], e[NL], j[NL], t[NL];
     FN(add)(xy, p->x, p->y, m);
-    FN(mul_inline)(b, xy, xy, m);
-    FN(mul_inline)(c, p->x, p->x, m);
-    FN(mul_inline)(d, p->y, p->y, m);
-    FN(mul_inline)(h, p->z, p->z, m);
+    FN(mul)(b, xy, xy, m);
+    FN(mul)(c, p->x, p->x, m);
+    FN(mul)(d, p->y, p->y, m);
+    FN(mul)(h, p->z, p->z, m);
     FN(add)(e, c, d, m);
     FN(add)(t, h, h, m);
     FN(sub)(j, e, t, m);
     FN(sub)(t, b, e, m);
     FN(sub)(b, c, d, m);
-    FN(mul_inline)(r->x, t, j, m);
-    FN(mul_inline)(r->y, e, b, m);
-    FN(mul_inline)(r->z, e, j, m);
+    FN(mul)(r->x, t, j, m);
+    FN(mul)(r->y, e, b, m);
+    FN(mul)(r->z, e, j, m);
 }
 
-static inline __attribute__((always_inline)) void
-FN(edw_dbl_ext)(FN(ext_t)* const r, const FN(proj_t)* const p,
-                const mod_t* const m) {
+EDW_OP void FN(edw_dbl_ext)(FN(ext_t)* const r, const FN(proj_t)* const p,
+                            const mod_t* const m) {
     uint64_t xy[NL], a[NL], b[NL], zz[NL], s[NL], e[NL], f[NL], g[NL], h[NL];
     FN(add)(xy, p->x, p->y, m);
-    FN(mul_inline)(a, p->x, p->x, m);
-    FN(mul_inline)(b, p->y, p->y, m);
-    FN(mul_inline)(zz, p->z, p->z, m);
-    FN(mul_inline)(s, xy, xy, m);
+    FN(mul)(a, p->x, p->x, m);
+    FN(mul)(b, p->y, p->y, m);
+    FN(mul)(zz, p->z, p->z, m);
+    FN(mul)(s, xy, xy, m);
     FN(add)(g, a, b, m);
     FN(sub)(e, s, g, m);
     FN(add)(zz, zz, zz, m);
     FN(sub)(f, g, zz, m);
     FN(sub)(h, a, b, m);
-    FN(mul_inline)(r->x, e, f, m);
-    FN(mul_inline)(r->y, g, h, m);
-    FN(mul_inline)(r->t, e, h, m);
-    FN(mul_inline)(r->z, f, g, m);
+    FN(mul)(r->x, e, f, m);
+    FN(mul)(r->y, g, h, m);
+    FN(mul)(r->t, e, h, m);
+    FN(mul)(r->z, f, g, m);
 }
 
 //
@@ -343,26 +355,26 @@ FN(edw_dbl_ext)(FN(ext_t)* const r, const FN(proj_t)* const p,
 // E = (x1 + y1)(x2 + y2) - A - B, F = D - C, G = D + C, H = B - A, and
 // (x3 : y3 : z3 : t3) = (EF : GH : FG : EH); t3 only for an extended r.
 //
-static inline __attribute__((always_inline)) void
-FN(edw_add)(FN(proj_t)* const r, uint64_t* const t3, const FN(ext_t)* const p,
-            const FN(tab_t)* const q, const mod_t* const m) {
+EDW_OP void FN(edw_add)(FN(proj_t)* const r, uint64_t* const t3,
+                        const FN(ext_t)* const p, const FN(tab_t)* const q,
+                        const mod_t* const m) {
     uint64_t a[NL], b[NL], s[NL], c[NL], d[NL], e[NL], f[NL], g[NL], h[NL];
-    FN(mul_inline)(a, p->x, q->x, m);
-    FN(mul_inline)(b, p->y, q->y, m);
+    FN(mul)(a, p->x, q->x, m);
+    FN(mul)(b, p->y, q->y, m);
     FN(add)(e, p->x, p->y, m);
-    FN(mul_inline)(s, e, q->s, m);
-    FN(mul_inline)(c, p->t, q->dt, m);
-    FN(mul_inline)(d, p->z, q->z, m);
+    FN(mul)(s, e, q->s, m);
+    FN(mul)(c, p->t, q->dt, m);
+    FN(mul)(d, p->z, q->z, m);
     FN(add)(h, a, b, m);
     FN(sub)(e, s, h, m);
     FN(sub)(f, d, c, m);
     FN(add)(g, d, c, m);
     FN(sub)(h, b, a, m);
-    FN(mul_inline)(r->x, e, f, m);
-    FN(mul_inline)(r->y, g, h, m);
-    FN(mul_inline)(r->z, f, g, m);
+    FN(mul)(r->x, e, f, m);
+    FN(mul)(r->y, g, h, m);
+    FN(mul)(r->z, f, g, m);
     if (t3 != NULL) {
-        FN(mul_inline)(t3, e, h, m);
+        FN(mul)(t3, e, h, m);
     }
 }
 
@@ -384,10 +396,10 @@ static void FN(edw_to_tab)(FN(tab_t)* const r, const FN(ext_t)* const p,
 // point P of the curve of parameter d: a left-to-right sliding window of
 // width w over the bits of E, with the odd multiples of P below 2^w.
 //
-static void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
-                               const uint64_t* const d,
-                               const mont_ecm_plan_t* const plan,
-                               const mod_t* const m) {
+void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
+                        const uint64_t* const d,
+                        const mont_ecm_plan_t* const plan,
+                        const mod_t* const m) {
     //
     // The width that minimizes 2^(w-1) table points + bits/(w+1) additions.
     //
@@ -411,12 +423,12 @@ static void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
     FN(edw_to_tab)(&t2, &q, d, m);
     q = *start;
     for (uint32_t k = 1; k < (1u << (w - 1)); k++) {
-        FN(proj_t) qp;
-        FN(edw_add)(&qp, q.t, &q, &t2, m);
+        FN(proj_t) next;
+        FN(edw_add)(&next, q.t, &q, &t2, m);
         for (int l = 0; l < NL; l++) {
-            q.x[l] = qp.x[l];
-            q.y[l] = qp.y[l];
-            q.z[l] = qp.z[l];
+            q.x[l] = next.x[l];
+            q.y[l] = next.y[l];
+            q.z[l] = next.z[l];
         }
         FN(edw_to_tab)(&tab[k], &q, d, m);
     }
@@ -461,7 +473,13 @@ static void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
     FN(add)(p->x, r.z, r.y, m);
     FN(sub)(p->z, r.z, r.y, m);
 }
+#undef EDW_OP
+#else
+void FN(stage1_edwards)(FN(pt_t)* p, const FN(ext_t)* start, const uint64_t* d,
+                        const mont_ecm_plan_t* plan, const mod_t* m);
 #endif
+
+#if !defined(MONT_ECM_EDWARDS)
 
 //
 // Stage 1 again from (x0 : 1), one prime at a time, with a gcd after each:
@@ -666,3 +684,5 @@ static bool FN(stage2_check)(uint64_t* const acc, const FN(pt_t)* const p,
                              const mod_t* const m, mpz_t g, const mpz_t n) {
     return FN(stage2_body)(acc, p, a24, plan, m, g, n, true);
 }
+
+#endif

@@ -78,6 +78,7 @@ typedef struct {
 // Sets factor to gcd(a, n) where a is given by its nl limbs. Returns 1 if
 // that is a proper factor, -1 if it is n, 0 if it is 1.
 //
+__attribute__((unused))
 static int limbs_gcd(mpz_t factor, const uint64_t* const a, const int nl,
                      const mpz_t n) {
     mpz_import(factor, (size_t) nl, -1, sizeof(uint64_t), 0, 0, a);
@@ -104,6 +105,7 @@ static void to_limbs(uint64_t* const r, const mpz_t z, const int nl) {
     }
 }
 
+__attribute__((unused))
 static void mod_init(mod_t* const m, const mpz_t n) {
     m->nl = (int) mpz_size(n);
     to_limbs(m->n, n, m->nl);
@@ -259,11 +261,20 @@ bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0,
                        const mpz_t a24, const mont_ecm_plan_t* plan);
 
 //
-// Curve i of z2z8_curves on n of at most MONT_ECM_NARROW_LIMBS limbs, stage 1
-// on its Edwards form (mont_ecm_edwards.c).
+// Curve i of z2z8_curves in Edwards form (mont_ecm_edwards.c): the starting
+// point (x : y : z : t) and d, and for its Montgomery form u0 and a24. False,
+// with the gcd in factor, if a value was not invertible mod n.
 //
-bool mont_ecm_edwards_curve(mpz_t factor, const mpz_t n, uint32_t i,
-                            const mont_ecm_plan_t* plan);
+typedef struct {
+    mpz_t x;
+    mpz_t y;
+    mpz_t z;
+    mpz_t t;
+    mpz_t d;
+} mont_ecm_edwards_t;
+
+bool mont_ecm_edwards_setup(mont_ecm_edwards_t* ed, mpz_t u0, mpz_t a24,
+                            mpz_t factor, const mpz_t n, uint32_t i);
 
 int mont_wide_pm1(mpz_t factor, const mpz_t n, uint32_t base,
                   const mont_ecm_plan_t* plan);

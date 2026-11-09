@@ -21,10 +21,10 @@ Each curve reaches the same point as before, and finds the same factors,
 but for an exceptional point of the addition law (d is a square): meeting
 one modulo a prime factor p derails the computation modulo p alone, and in
 every case seen it revealed p: of 270000 curves on numbers with a prime of
-18 to 40 bits, 6 more found it, none fewer. In one thread on an Apple M5 Pro, a curve takes
-0.83 of the time on two limbs and 0.91 on three at B1 = 300, 0.75 on two at
-B1 = 2000, 0.81 on four at B1 = 6400; below 2^64, `split_u64` on numbers
-of two primes of 25 to 32 bits 0.94. On the cofactors of CADO-NFS's
+18 to 40 bits, 6 more found it, none fewer. In one thread on an Apple M5
+Pro, a curve takes 0.76 of the time on two limbs and 0.90 on three at B1 =
+300, 0.68 on two at B1 = 2000, 0.79 on four at B1 = 6400; below 2^64,
+`split_u64` on numbers of two primes of 25 to 32 bits 0.94. On the cofactors of CADO-NFS's
 siever, `tifa_cofactor()` takes 0.94 to 0.96 of the time at c100 to c160
 (two large primes, below 2^64), and 0.97 at c180 (three large primes,
 two limbs, mostly SIQS), with the same relations.
@@ -33,9 +33,13 @@ Against 0.5.1, in one thread (`bench/ab.sh`, both orders): `tifa_factor()`
 0.97 of the time at 70 bits, 0.99 at 100 to 180 bits and on unbalanced
 numbers at 160 bits (1.9% fewer instructions there); the cofactor bench of
 two large primes 0.87 (6% fewer instructions); SIQS 0.984 to 1.001, the
-same instructions within 0.3%. The code of `mont_ecm.c` does not change
-but for the choice of the stage 1: the Edwards one is in
-`mont_ecm_edwards.c`, last in `TIFA_SOURCES`.
+same instructions within 0.3%. For these curves, `run_curve` runs the
+Edwards stage 1 of `mont_ecm_edwards.c` (last in `TIFA_SOURCES`) in place
+of the ladder; its stage 2 stays the same, and inlined. The Edwards code
+adds 45 KB to the library (its text, 654 KB with 0.5.1, is 699 KB on the
+M5): its products are calls, not inlined, and its point operations are
+inlined from three limbs only, which was also the fastest choice on two
+and four limbs.
 
 ## 9 November 2026 &mdash; Cofactorization on a sieve's own cofactors
 

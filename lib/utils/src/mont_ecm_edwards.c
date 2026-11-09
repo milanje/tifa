@@ -19,8 +19,8 @@
 /**
  * \file    mont_ecm_edwards.c
  *
- * \brief ECM curves of z2z8_curves on 1 to 4 limbs, stage 1 on their
- *        Edwards form (see mont_ecm_impl.h), stage 2 as in mont_ecm.c.
+ * \brief Stage 1 of the curves of z2z8_curves on their Edwards form, on 1
+ *        to 4 limbs (see mont_ecm_impl.h); mont_ecm.c runs the rest.
  */
 
 #include "mont_ecm.h"
@@ -52,23 +52,23 @@
 // t = xn.yn, d = dn/dd, and for the Montgomery form, a24 = 1/(1 - d) and
 // u0 = (1 + y0)/(1 - y0), from one inversion.
 //
-static bool z2z8_edwards(mpz_t ex, mpz_t ey, mpz_t ez, mpz_t et, mpz_t d,
-                         mpz_t u0, mpz_t a24, mpz_t factor, const mpz_t n,
-                         const uint32_t i) {
+bool mont_ecm_edwards_setup(mont_ecm_edwards_t* const ed, mpz_t u0,
+                            mpz_t a24, mpz_t factor, const mpz_t n,
+                            const uint32_t i) {
     mpz_t dn, dd, yn, yd, xn, xd, a, y, t;
     mpz_inits(dn, dd, yn, yd, xn, xd, a, y, t, NULL);
     mpz_t* const row[6] = { &dn, &dd, &yn, &yd, &xn, &xd };
     for (int k = 0; k < 6; k++) {
         mpz_import(*row[k], 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][k]);
     }
-    mpz_mul(ex, xn, yd);
-    mpz_mod(ex, ex, n);
-    mpz_mul(ey, yn, xd);
-    mpz_mod(ey, ey, n);
-    mpz_mul(ez, xd, yd);
-    mpz_mod(ez, ez, n);
-    mpz_mul(et, xn, yn);
-    mpz_mod(et, et, n);
+    mpz_mul(ed->x, xn, yd);
+    mpz_mod(ed->x, ed->x, n);
+    mpz_mul(ed->y, yn, xd);
+    mpz_mod(ed->y, ed->y, n);
+    mpz_mul(ed->z, xd, yd);
+    mpz_mod(ed->z, ed->z, n);
+    mpz_mul(ed->t, xn, yn);
+    mpz_mod(ed->t, ed->t, n);
     //
     // With a = dd - dn, y = yd - yn and inv = 1/(a.y.dd): a24 = dd.y.dd.inv,
     // d = dn.a.y.inv, u0 = (yd + yn).a.dd.inv.
@@ -88,12 +88,12 @@ static bool z2z8_edwards(mpz_t ex, mpz_t ey, mpz_t ez, mpz_t et, mpz_t d,
         mpz_mod(a24, a24, n);
         mpz_mul(a24, a24, dd);
         mpz_mod(a24, a24, n);
-        mpz_mul(d, factor, a);
-        mpz_mod(d, d, n);
-        mpz_mul(d, d, y);
-        mpz_mod(d, d, n);
-        mpz_mul(d, d, dn);
-        mpz_mod(d, d, n);
+        mpz_mul(ed->d, factor, a);
+        mpz_mod(ed->d, ed->d, n);
+        mpz_mul(ed->d, ed->d, y);
+        mpz_mod(ed->d, ed->d, n);
+        mpz_mul(ed->d, ed->d, dn);
+        mpz_mod(ed->d, ed->d, n);
         mpz_mul(u0, factor, a);
         mpz_mod(u0, u0, n);
         mpz_mul(u0, u0, dd);
@@ -104,53 +104,6 @@ static bool z2z8_edwards(mpz_t ex, mpz_t ey, mpz_t ez, mpz_t et, mpz_t d,
     }
     mpz_clears(dn, dd, yn, yd, xn, xd, a, y, t, NULL);
     return ok;
-}
-
-#define RUN_EDWARDS(NLIMBS)                                                   \
-    do {                                                                      \
-        FN_(pt_t, NLIMBS) p;                                                  \
-        FN_(ext_t, NLIMBS) st;                                                \
-        uint64_t dm[NLIMBS];                                                  \
-        uint64_t x0m[NLIMBS];                                                 \
-        uint64_t a24m[NLIMBS];                                                \
-        TO_MONT_MPZ(NLIMBS, st.x, ex);                                        \
-        TO_MONT_MPZ(NLIMBS, st.y, ey);                                        \
-        TO_MONT_MPZ(NLIMBS, st.z, ez);                                        \
-        TO_MONT_MPZ(NLIMBS, st.t, et);                                        \
-        TO_MONT_MPZ(NLIMBS, dm, d);                                           \
-        TO_MONT_MPZ(NLIMBS, x0m, u0);                                         \
-        TO_MONT_MPZ(NLIMBS, a24m, a24);                                       \
-        FN_(stage1_edwards, NLIMBS)(&p, &st, dm, plan, &m);                   \
-        AFTER_STAGE1(NLIMBS);                                                 \
-    } while (0)
-
-bool mont_ecm_edwards_curve(mpz_t factor, const mpz_t n, const uint32_t i,
-                            const mont_ecm_plan_t* const plan) {
-    mpz_t ex, ey, ez, et, d, u0, a24;
-    mpz_inits(ex, ey, ez, et, d, u0, a24, NULL);
-    int found = 0;
-    if (z2z8_edwards(ex, ey, ez, et, d, u0, a24, factor, n, i)) {
-        mod_t m;
-        mod_init(&m, n);
-        switch (m.nl) {
-            case 1:
-                RUN_EDWARDS(1);
-                break;
-            case 2:
-                RUN_EDWARDS(2);
-                break;
-            case 3:
-                RUN_EDWARDS(3);
-                break;
-            default:
-                RUN_EDWARDS(4);
-                break;
-        }
-    } else {
-        found = (mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0);
-    }
-    mpz_clears(ex, ey, ez, et, d, u0, a24, NULL);
-    return found > 0;
 }
 
 #endif
