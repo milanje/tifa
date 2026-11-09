@@ -53,6 +53,7 @@ set(TIFA_SOURCES
     utils/src/block_lanczos.c
     algo/src/api.c
     utils/src/primes.c
+    utils/src/ecm_edwards_u64.c
 )
 
 # The baked tuning tables are compiled in only when explicitly enabled; the

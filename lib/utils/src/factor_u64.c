@@ -32,22 +32,7 @@
 
 #include "first_primes.h"
 #include "z2z8_curves.h"
-
-typedef unsigned __int128 u128;
-
-//------------------------------------------------------------------------------
-//                         Montgomery arithmetic mod n
-//------------------------------------------------------------------------------
-
-//
-// Residues are kept in Montgomery form (a.2^64 mod n) and in [0, n). n odd.
-//
-typedef struct {
-    uint64_t n;
-    uint64_t ninv;   // n^-1 mod 2^64
-    uint64_t one;    // 2^64 mod n
-    uint64_t r2;     // 2^128 mod n
-} mont_t;
+#include "factor_u64_internal.h"
 
 static void mont_init(mont_t* const m, const uint64_t n) {
     uint64_t x = (3 * n) ^ 2;
@@ -58,31 +43,6 @@ static void mont_init(mont_t* const m, const uint64_t n) {
     m->ninv = x;
     m->one  = (uint64_t) ((((u128) 1) << 64) % n);
     m->r2   = (uint64_t) (((u128) m->one * m->one) % n);
-}
-
-static inline uint64_t mont_mul(const uint64_t a, const uint64_t b,
-                                const mont_t* const m) {
-    const u128     t  = (u128) a * b;
-    const uint64_t lo = (uint64_t) t;
-    const uint64_t hi = (uint64_t) (t >> 64);
-    const uint64_t q  = lo * m->ninv;
-    const uint64_t qn = (uint64_t) (((u128) q * m->n) >> 64);
-    return (hi < qn) ? (hi - qn + m->n) : (hi - qn);
-}
-
-static inline uint64_t mont_add(const uint64_t a, const uint64_t b,
-                                const mont_t* const m) {
-    const uint64_t s = a + b;
-    return ((s < a) || (s >= m->n)) ? (s - m->n) : s;
-}
-
-static inline uint64_t mont_sub(const uint64_t a, const uint64_t b,
-                                const mont_t* const m) {
-    return (a < b) ? (a - b + m->n) : (a - b);
-}
-
-static inline uint64_t to_mont(const uint64_t a, const mont_t* const m) {
-    return mont_mul(a % m->n, m->r2, m);
 }
 
 //------------------------------------------------------------------------------
@@ -487,10 +447,6 @@ static uint64_t hart_u64(const uint64_t n) {
 //                      ECM with Montgomery curves (x, z)
 //------------------------------------------------------------------------------
 
-typedef struct {
-    uint64_t x;
-    uint64_t z;
-} xz_t;
 
 static inline xz_t xdbl(const xz_t p, const uint64_t a24,
                         const mont_t* const m) {
@@ -567,6 +523,9 @@ typedef struct {
     uint32_t d;
     uint32_t ebits;
     uint64_t e[ECM_MAX_EWORDS];
+    uint32_t w;
+    uint32_t ndigits;
+    int8_t   digits[64 * ECM_MAX_EWORDS + 1];
     uint32_t nbaby;
     uint32_t nslots;
     uint8_t  slot_baby[ECM_MAX_BABY];
@@ -625,6 +584,55 @@ static void build_ecm_plan(ecm_plan_t* const pl, const uint32_t b1,
     }
     pl->ebits = 64 * nw - (uint32_t) __builtin_clzll(pl->e[nw - 1]);
 
+    //
+    // E as signed odd digits below 2^(w-1) in absolute value, each followed
+    // by at least w - 1 zeros, for the Edwards stage 1.
+    //
+    pl->w = (b1 < 100) ? 3 : 4;
+    uint64_t r[ECM_MAX_EWORDS + 1] = { 0 };
+    for (uint32_t i = 0; i < nw; i++) {
+        r[i] = pl->e[i];
+    }
+    int8_t lsb_first[64 * ECM_MAX_EWORDS + 1];
+    uint32_t nd = 0;
+    for (;;) {
+        bool zero = true;
+        for (uint32_t i = 0; i <= nw; i++) {
+            zero = zero && (r[i] == 0);
+        }
+        if (zero) {
+            break;
+        }
+        int dg = 0;
+        if (r[0] & 1) {
+            dg = (int) (r[0] & ((1u << pl->w) - 1));
+            if (dg >= (1 << (pl->w - 1))) {
+                dg -= 1 << pl->w;
+            }
+            //
+            // r -= dg: r becomes a multiple of 2^w.
+            //
+            if (dg > 0) {
+                r[0] -= (uint64_t) dg;
+            } else {
+                uint64_t carry = (uint64_t) -dg;
+                for (uint32_t i = 0; (i <= nw) && (carry != 0); i++) {
+                    r[i] += carry;
+                    carry = (r[i] < carry);
+                }
+            }
+        }
+        lsb_first[nd++] = (int8_t) dg;
+        for (uint32_t i = 0; i < nw; i++) {
+            r[i] = (r[i] >> 1) | (r[i + 1] << 63);
+        }
+        r[nw] >>= 1;
+    }
+    pl->ndigits = nd;
+    for (uint32_t i = 0; i < nd; i++) {
+        pl->digits[i] = lsb_first[nd - 1 - i];
+    }
+
     uint8_t slot_of[ECM_MAX_BABY];
     pl->nbaby  = (d / 2 + 1) / 2;
     pl->nslots = 0;
@@ -669,23 +677,16 @@ static void build_ecm_plans(void) {
     }
 }
 
-//
-// Curves run ECM_LANES at a time: they share E and the stage 2 schedule, so
-// they proceed in lockstep, and their independent multiplications overlap
-// (1.5x to 2x faster than one at a time, even counting the curves run past
-// the one that succeeds).
-//
-#define ECM_LANES 3
 
 
 //
-// a24 and x0 of the curves first, first + 1... of z2z8_curves, with a
-// single inversion. Returns false, with *g = the gcd found, if a value was
-// not invertible.
+// a24 = 1/(1 - d) and the Edwards starting point (x0 : y0 : 1) of the curves
+// first, first + 1... of z2z8_curves, with a single inversion. Returns false,
+// with *g = the gcd found, if a value was not invertible.
 //
 static bool z2z8_setup(const mont_t* const m, const uint64_t r3,
                        const uint32_t first, uint64_t* const a24,
-                       uint64_t* const x0, uint64_t* const g) {
+                       edwards_start_t* const start, uint64_t* const g) {
     const uint64_t n = m->n;
     uint64_t num[2 * ECM_LANES];
     uint64_t den[2 * ECM_LANES];
@@ -697,10 +698,19 @@ static bool z2z8_setup(const mont_t* const m, const uint64_t r3,
         const uint64_t dd = to_mont(row[1] % n, m);
         const uint64_t yn = to_mont(row[2] % n, m);
         const uint64_t yd = to_mont(row[3] % n, m);
+        const uint64_t xn = to_mont(row[4] % n, m);
+        const uint64_t xd = to_mont(row[5] % n, m);
         num[2 * c]     = dd;
         den[2 * c]     = mont_sub(dd, dn, m);
-        num[2 * c + 1] = mont_add(yd, yn, m);
-        den[2 * c + 1] = mont_sub(yd, yn, m);
+        num[2 * c + 1] = dn;
+        den[2 * c + 1] = dd;
+        //
+        // (x0 : y0 : 1) = (xn.yd : yn.xd : xd.yd), t = xn.yn.
+        //
+        start[c].x = mont_mul(xn, yd, m);
+        start[c].y = mont_mul(yn, xd, m);
+        start[c].z = mont_mul(xd, yd, m);
+        start[c].t = mont_mul(xn, yn, m);
     }
     for (int i = 0; i < 2 * ECM_LANES; i++) {
         pre[i] = (i == 0) ? den[0] : mont_mul(pre[i - 1], den[i], m);
@@ -718,7 +728,7 @@ static bool z2z8_setup(const mont_t* const m, const uint64_t r3,
         if (i % 2 == 0) {
             a24[i / 2] = r;
         } else {
-            x0[i / 2] = r;
+            start[i / 2].d = r;
         }
     }
     return true;
@@ -781,30 +791,36 @@ static bool suyama_setup(const mont_t* const m, const uint64_t r3,
 static uint64_t ecm_curves(const mont_t* const m, const uint64_t r3,
                            const uint64_t* const a24,
                            const uint64_t* const x0,
+                           const edwards_start_t* const start,
                            const ecm_plan_t* const pl) {
     const uint64_t n = m->n;
     uint64_t g;
     uint64_t inv;
     //
-    // Stage 1: Montgomery ladder over the bits of E.
+    // Stage 1: on the Edwards form of the curves if given, else Montgomery
+    // ladder over the bits of E.
     //
     xz_t r0[ECM_LANES];
-    xz_t r1[ECM_LANES];
-    for (int c = 0; c < ECM_LANES; c++) {
-        r0[c].x = x0[c];
-        r0[c].z = m->one;
-        r1[c]   = xdbl(r0[c], a24[c], m);
-    }
-    for (int b = (int) pl->ebits - 2; b >= 0; b--) {
-        if ((pl->e[b / 64] >> (b % 64)) & 1) {
-            for (int c = 0; c < ECM_LANES; c++) {
-                r0[c] = xadd_norm(r1[c], r0[c], x0[c], m);
-                r1[c] = xdbl(r1[c], a24[c], m);
-            }
-        } else {
-            for (int c = 0; c < ECM_LANES; c++) {
-                r1[c] = xadd_norm(r1[c], r0[c], x0[c], m);
-                r0[c] = xdbl(r0[c], a24[c], m);
+    if (start != NULL) {
+        edwards_stage1_u64(r0, start, pl->digits, pl->ndigits, pl->w, m);
+    } else {
+        xz_t r1[ECM_LANES];
+        for (int c = 0; c < ECM_LANES; c++) {
+            r0[c].x = x0[c];
+            r0[c].z = m->one;
+            r1[c]   = xdbl(r0[c], a24[c], m);
+        }
+        for (int b = (int) pl->ebits - 2; b >= 0; b--) {
+            if ((pl->e[b / 64] >> (b % 64)) & 1) {
+                for (int c = 0; c < ECM_LANES; c++) {
+                    r0[c] = xadd_norm(r1[c], r0[c], x0[c], m);
+                    r1[c] = xdbl(r1[c], a24[c], m);
+                }
+            } else {
+                for (int c = 0; c < ECM_LANES; c++) {
+                    r1[c] = xadd_norm(r1[c], r0[c], x0[c], m);
+                    r0[c] = xdbl(r0[c], a24[c], m);
+                }
             }
         }
     }
@@ -919,10 +935,11 @@ static uint64_t ecm_u64(const uint64_t n, const uint32_t bits) {
 
     uint64_t a24[ECM_LANES];
     uint64_t x0[ECM_LANES];
+    edwards_start_t start[ECM_LANES];
     uint64_t g = 0;
     for (uint32_t c = 0; c + ECM_LANES <= NZ2Z8_CURVES; c += ECM_LANES) {
-        if (z2z8_setup(&m, r3, c, a24, x0, &g)) {
-            g = ecm_curves(&m, r3, a24, x0, &ecm_plans[i]);
+        if (z2z8_setup(&m, r3, c, a24, start, &g)) {
+            g = ecm_curves(&m, r3, a24, NULL, start, &ecm_plans[i]);
         } else if ((g == 1) || (g == n)) {
             g = 0;
         }
@@ -932,7 +949,7 @@ static uint64_t ecm_u64(const uint64_t n, const uint32_t bits) {
     }
     for (uint64_t sigma = 7; sigma < 7 + 300; sigma += ECM_LANES) {
         if (suyama_setup(&m, r3, sigma, a24, x0, &g)) {
-            g = ecm_curves(&m, r3, a24, x0, &ecm_plans[i]);
+            g = ecm_curves(&m, r3, a24, x0, NULL, &ecm_plans[i]);
         } else if ((g == 1) || (g == n)) {
             g = 0;
         }

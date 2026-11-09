@@ -21,7 +21,7 @@
 Keeps, for each curve, the first point of infinite order with the fewest
 bits in its coordinates; checks that 16 divides the group order modulo 40
 primes; prints the 27 curves with the fewest bits (ties in search order) as
-C rows: d, y0 (numerators and denominators).
+C rows: d, y0, x0 (numerators and denominators).
 
 Usage: python3 table.py < candidates.txt
 """
@@ -74,12 +74,13 @@ for line in sys.stdin:
         continue
     height = max(max(abs(v.numerator), v.denominator) for v in (d, x, y)).bit_length()
     if d not in best or height < best[d][0]:
-        best[d] = (height, y)
+        best[d] = (height, x, y)
 
 primes = [p for p in range(1009, 1700) if all(p % q for q in range(2, 42))][:40]
 curves = sorted(best.items(), key=lambda kv: kv[1][0])[:27]
-for d, (_, y) in curves:
+for d, (_, x, y) in curves:
     for p in primes:
         if d.numerator % p and d.denominator % p and (d.numerator - d.denominator) % p:
             assert order(d, p) % 16 == 0, (d, p)
-    print("    { %dULL, %dULL, %dULL, %dULL }," % (d.numerator, d.denominator, y.numerator, y.denominator))
+    print("    { %dULL, %dULL, %dULL, %dULL, %dULL, %dULL }," % (d.numerator, d.denominator, y.numerator,
+                                                       y.denominator, x.numerator, x.denominator))

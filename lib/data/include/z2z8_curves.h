@@ -27,7 +27,8 @@
  * d = (2.x8^2 - 1)/x8^4, x8 = (k^2 - 2k + 2)/(k^2 - 2) for rational k (d
  * square), on which a search found a point (x0, y0) of infinite order with
  * small coordinates (tools/z2z8 regenerates and checks this table). In
- * Montgomery form: a24 = 1/(1 - d) and starting point u0 = (1 + y0)/(1 - y0).
+ * Montgomery form: a24 = 1/(1 - d) and starting point u0 = (1 + y0)/(1 - y0);
+ * ECM stage 1 can also run on the Edwards form, from (x0, y0).
  */
 
 #if !defined(_TIFA_Z2Z8_CURVES_H_)
@@ -51,9 +52,9 @@ extern "C" {
 
    /**
     * \var z2z8_curves
-    * One curve per row: d (numerator, denominator), y0 (idem).
+    * One curve per row: d (numerator, denominator), y0 (idem), x0 (idem).
     */
-extern const uint64_t z2z8_curves[NZ2Z8_CURVES][4];
+extern const uint64_t z2z8_curves[NZ2Z8_CURVES][6];
 
 #ifdef __cplusplus
 }
