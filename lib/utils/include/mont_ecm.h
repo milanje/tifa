@@ -102,10 +102,10 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, uint32_t sigma,
     * \brief Runs the k-th curve of TIFA's sequence on \c n.
     *
     * The curves with torsion Z/2 x Z/8 of z2z8_curves.h first (orders
-    * divisible by 16), then, for a B1 of at least 1600 on 1 to 4 limbs
-    * (not the long curves), those of Montgomery's family with torsion Z/12
-    * (orders divisible by 12; stage 1 on their Edwards form, as for the
-    * first ones), else Suyama's curves from sigma = 6.
+    * divisible by 16), then, for a B1 of at least 1600, those of
+    * Montgomery's family with torsion Z/12 (orders divisible by 12; stage 1
+    * on their Edwards form, as for the first ones, except for the long
+    * curves on 1 to 4 limbs), else Suyama's curves from sigma = 6.
     *
     * \param[out] factor A proper factor of \c n, if one is found.
     * \param[in]  n The number to factor (see \c mont_ecm_handles).

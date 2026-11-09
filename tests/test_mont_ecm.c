@@ -333,16 +333,16 @@ int main(void) {
         mpz_clears(x0, a24, NULL);
     }
 
-    // Montgomery's Z/12 curves, after the Z/2 x Z/8 ones from B1 = 1600: the
-    // starting point is on its Edwards curve and maps to u0, d.a24 =
-    // a24 - 1, and each curve finds what the reference ladder from (u0, a24)
-    // finds (or more, as above).
+    // Montgomery's Z/12 curves, after the Z/2 x Z/8 ones from B1 = 1600, on
+    // every number of limbs: the starting point is on its Edwards curve and
+    // maps to u0, d.a24 = a24 - 1, and each curve finds what the reference
+    // ladder from (u0, a24) finds (or more, as above).
     {
         mont_ecm_plan_t* const plan4 = alloc_mont_ecm_plan(1600, 0);
         mont_ecm_edwards_t ed;
         mpz_t u0, a24, l, r;
         mpz_inits(ed.x, ed.y, ed.z, ed.t, ed.d, u0, a24, l, r, NULL);
-        for (uint32_t nl = 1; nl <= 4; nl++) {
+        for (uint32_t nl = 1; nl <= MONT_ECM_MAX_LIMBS; nl++) {
             random_prime(p, state, 26);
             do {
                 random_prime(q, state, 64 * nl - 26 - (nl == 1 ? 1 : 5));

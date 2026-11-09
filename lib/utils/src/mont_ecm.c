@@ -261,73 +261,13 @@ static bool suyama_curve(mpz_t x0, mpz_t a24, mpz_t factor, const mpz_t n,
 }
 
 //
-// As suyama_curve, for row i of z2z8_curves: a24 = 1/(1 - d) and
-// x0 = (1 + y0)/(1 - y0), from the inverse of (dd - dn)(yd - yn).
-//
-static bool z2z8_curve(mpz_t x0, mpz_t a24, mpz_t factor, const mpz_t n,
-                       const uint32_t i) {
-    mpz_t dn, dd, yn, yd, t;
-    mpz_inits(dn, dd, yn, yd, t, NULL);
-    mpz_import(dn, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][0]);
-    mpz_import(dd, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][1]);
-    mpz_import(yn, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][2]);
-    mpz_import(yd, 1, 1, sizeof(uint64_t), 0, 0, &z2z8_curves[i][3]);
-
-    mpz_sub(a24, dd, dn);
-    mpz_sub(x0, yd, yn);
-    mpz_mul(t, a24, x0);
-    mpz_mod(t, t, n);
-
-    const bool ok = (mpz_invert(factor, t, n) != 0);
-    if (!ok) {
-        mpz_gcd(factor, t, n);
-    } else {
-        mpz_mul(t, factor, x0);
-        mpz_mul(t, t, dd);
-        mpz_mod(t, t, n);
-        mpz_mul(dd, factor, a24);
-        mpz_add(yd, yd, yn);
-        mpz_mul(dd, dd, yd);
-        mpz_mod(x0, dd, n);
-        mpz_set(a24, t);
-    }
-    mpz_clears(dn, dd, yn, yd, t, NULL);
-    return ok;
-}
-
-//
 // One curve, from its starting point (x0z : 1) and a24 (residues mod n).
 //
-//
-// As RUN_CURVE, stage 1 on the Edwards form of the curve if ed is given.
-//
-#define RUN_CURVE_OR_EDWARDS(NLIMBS)                                          \
-    do {                                                                      \
-        FN_(pt_t, NLIMBS) p;                                                  \
-        uint64_t x0m[NLIMBS];                                                 \
-        uint64_t a24m[NLIMBS];                                                \
-        FN_(mul, NLIMBS)(x0m, x0, m.r2, &m);                                  \
-        FN_(mul, NLIMBS)(a24m, a24, m.r2, &m);                                \
-        if (ed != NULL) {                                                     \
-            FN_(ext_t, NLIMBS) st;                                            \
-            uint64_t dm[NLIMBS];                                              \
-            TO_MONT_MPZ(NLIMBS, st.x, ed->x);                                 \
-            TO_MONT_MPZ(NLIMBS, st.y, ed->y);                                 \
-            TO_MONT_MPZ(NLIMBS, st.z, ed->z);                                 \
-            TO_MONT_MPZ(NLIMBS, st.t, ed->t);                                 \
-            TO_MONT_MPZ(NLIMBS, dm, ed->d);                                   \
-            FN_(stage1_edwards, NLIMBS)(&p, &st, dm, plan, &m);               \
-        } else {                                                              \
-            FN_(stage1, NLIMBS)(&p, x0m, a24m, plan, &m);                     \
-        }                                                                     \
-        AFTER_STAGE1(NLIMBS);                                                 \
-    } while (0)
-
 static bool run_curve(mpz_t factor, const mpz_t n, const mpz_t x0z,
                       const mpz_t a24z, const mont_ecm_edwards_t* const ed,
                       const mont_ecm_plan_t* const plan) {
     if (mpz_size(n) > MONT_ECM_NARROW_LIMBS) {
-        return mont_ecm_wide_run(factor, n, x0z, a24z, plan);
+        return mont_ecm_wide_run(factor, n, x0z, a24z, ed, plan);
     }
     mod_t m;
     mod_init(&m, n);
@@ -371,8 +311,9 @@ static bool setup_and_run(mpz_t factor, const mpz_t n, const uint32_t k,
         // Not in run_curve, which then no longer inlines stage 2 (1% slower
         // on three limbs).
         //
-        found = plan->long_curves ? mont_ecm_wide_run(factor, n, x0, a24, plan)
-                                  : run_curve(factor, n, x0, a24, NULL, plan);
+        found = plan->long_curves
+                    ? mont_ecm_wide_run(factor, n, x0, a24, NULL, plan)
+                    : run_curve(factor, n, x0, a24, NULL, plan);
     } else {
         found = (mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0);
     }
@@ -400,7 +341,9 @@ static bool run_edwards(mpz_t factor, const mpz_t n, const uint32_t i,
     mpz_inits(ed.x, ed.y, ed.z, ed.t, ed.d, x0, a24, NULL);
     bool found;
     if (setup(&ed, x0, a24, factor, n, i)) {
-        found = run_curve(factor, n, x0, a24, &ed, plan);
+        found = plan->long_curves
+                    ? mont_ecm_wide_run(factor, n, x0, a24, &ed, plan)
+                    : run_curve(factor, n, x0, a24, &ed, plan);
     } else {
         found = (mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0);
     }
@@ -413,19 +356,14 @@ bool mont_ecm_nth_curve(mpz_t factor, const mpz_t n, const uint32_t k,
     if (!mont_ecm_handles(n)) {
         return false;
     }
-    const bool edwards = !plan->long_curves
-                         && (mpz_size(n) <= MONT_ECM_NARROW_LIMBS);
     if (k < NZ2Z8_CURVES) {
-        if (edwards) {
-            return run_edwards(factor, n, k, plan, mont_ecm_edwards_setup);
-        }
-        return setup_and_run(factor, n, k, plan, z2z8_curve);
+        return run_edwards(factor, n, k, plan, mont_ecm_edwards_setup);
     }
     //
     // Montgomery's Z/12 curves cost k.P on an auxiliary curve to set up:
     // only on curves long enough for it not to matter.
     //
-    if (edwards && (plan->b1 >= MONT_ECM_Z12_MIN_B1)) {
+    if (plan->b1 >= MONT_ECM_Z12_MIN_B1) {
         return run_edwards(factor, n, 2 + k - NZ2Z8_CURVES, plan,
                            mont_ecm_z12_setup);
     }

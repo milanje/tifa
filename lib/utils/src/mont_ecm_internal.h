@@ -29,6 +29,7 @@
 #include "mont_ecm.h"
 #include "primes.h"
 #include "tifa_alloc.h"
+#include "mont_ecm_edwards.h"
 
 #define MONT_ECM_NARROW_LIMBS 4
 
@@ -164,7 +165,7 @@ static void mod_init(mod_t* const m, const mpz_t n) {
             if (FN_(stage2, NLIMBS)(acc, &p, a24m, plan, &m, factor, n)) {    \
                 found = limbs_gcd(factor, acc, NLIMBS, n);                    \
                 if ((found == -1)                                             \
-                    && FN_(stage2_check, NLIMBS)(acc, &p, a24m, plan, &m,      \
+                    && FN_(stage2_check, NLIMBS)(acc, &p, a24m, plan, &m,     \
                                                  factor, n)) {                \
                     found = limbs_gcd(factor, acc, NLIMBS, n);                \
                 }                                                             \
@@ -172,6 +173,31 @@ static void mod_init(mod_t* const m, const mpz_t n) {
                 found = (mpz_cmp(factor, n) < 0) ? 1 : -1;                    \
             }                                                                 \
         }                                                                     \
+    } while (0)
+
+//
+// As RUN_CURVE, stage 1 on the Edwards form of the curve if ed is given.
+//
+#define RUN_CURVE_OR_EDWARDS(NLIMBS)                                          \
+    do {                                                                      \
+        FN_(pt_t, NLIMBS) p;                                                  \
+        uint64_t x0m[NLIMBS];                                                 \
+        uint64_t a24m[NLIMBS];                                                \
+        FN_(mul, NLIMBS)(x0m, x0, m.r2, &m);                                  \
+        FN_(mul, NLIMBS)(a24m, a24, m.r2, &m);                                \
+        if (ed != NULL) {                                                     \
+            FN_(ext_t, NLIMBS) st;                                            \
+            uint64_t dm[NLIMBS];                                              \
+            TO_MONT_MPZ(NLIMBS, st.x, ed->x);                                 \
+            TO_MONT_MPZ(NLIMBS, st.y, ed->y);                                 \
+            TO_MONT_MPZ(NLIMBS, st.z, ed->z);                                 \
+            TO_MONT_MPZ(NLIMBS, st.t, ed->t);                                 \
+            TO_MONT_MPZ(NLIMBS, dm, ed->d);                                   \
+            FN_(EDW_NAME, NLIMBS)(&p, &st, dm, plan, &m);                     \
+        } else {                                                              \
+            FN_(stage1, NLIMBS)(&p, x0m, a24m, plan, &m);                     \
+        }                                                                     \
+        AFTER_STAGE1(NLIMBS);                                                 \
     } while (0)
 
 //
@@ -228,7 +254,7 @@ static void mod_init(mod_t* const m, const mpz_t n) {
             FN_(lucas_stage2, NLIMBS)(t, q, plan, &m);                        \
             found = limbs_gcd(factor, t, NLIMBS, n);                          \
             if (found == -1) {                                                \
-                FN_(lucas_stage2_check, NLIMBS)(t, q, plan, &m, factor, n);  \
+                FN_(lucas_stage2_check, NLIMBS)(t, q, plan, &m, factor, n);   \
                 found = limbs_gcd(factor, t, NLIMBS, n);                      \
             }                                                                 \
         }                                                                     \
@@ -238,7 +264,7 @@ static void mod_init(mod_t* const m, const mpz_t n) {
 
 #define RUN_PP1(NLIMBS)                                                       \
     do {                                                                      \
-        uint64_t p[NLIMBS], v[NLIMBS], two[NLIMBS], t[NLIMBS];               \
+        uint64_t p[NLIMBS], v[NLIMBS], two[NLIMBS], t[NLIMBS];                \
         TO_MONT_UI(NLIMBS, p, seed);                                          \
         FN_(pp1_stage1, NLIMBS)(v, p, plan, &m);                              \
         FN_(add, NLIMBS)(two, m.one, m.one, &m);                              \
@@ -251,16 +277,15 @@ static void mod_init(mod_t* const m, const mpz_t n) {
             FN_(lucas_stage2, NLIMBS)(t, v, plan, &m);                        \
             found = limbs_gcd(factor, t, NLIMBS, n);                          \
             if (found == -1) {                                                \
-                FN_(lucas_stage2_check, NLIMBS)(t, v, plan, &m, factor, n);  \
+                FN_(lucas_stage2_check, NLIMBS)(t, v, plan, &m, factor, n);   \
                 found = limbs_gcd(factor, t, NLIMBS, n);                      \
             }                                                                 \
         }                                                                     \
     } while (0)
 
 bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0,
-                       const mpz_t a24, const mont_ecm_plan_t* plan);
-
-#include "mont_ecm_edwards.h"
+                       const mpz_t a24, const mont_ecm_edwards_t* ed,
+                       const mont_ecm_plan_t* plan);
 
 int mont_wide_pm1(mpz_t factor, const mpz_t n, uint32_t base,
                   const mont_ecm_plan_t* plan);

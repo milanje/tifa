@@ -3,6 +3,26 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 9 November 2026 &mdash; ECM: Edwards stage 1 on 5 to 8 limbs
+
+The curves of the table and those of the Z/12 family now run their stage 1
+on the Edwards form on moduli of 5 to 8 limbs too (257 to 512 bits), long
+curves included: `mont_ecm_edwards_wide.c` (last in `TIFA_SOURCES`)
+instantiates it for those sizes, with the stop checks of the long curves.
+On 1 to 4 limbs, the long curves of the levels from 90 bits keep the
+ladder, and Suyama's curves keep it everywhere. In one thread on an Apple
+M5 Pro, on numbers with a prime of 35 bits, a curve of the table at B1 =
+3200 takes 0.905 of the time on 5 limbs, 0.84 on 6, 0.865 on 7 and 8. With
+ECM alone, finding a factor of 45 and 55 bits (150 numbers, two seeds)
+takes 0.87 and 0.84 of the time on 5 limbs, 0.89 and 0.80 on 6, 0.82 and
+0.69 on 8; a search that finds nothing up to factors of 70 bits, on a
+product of two primes, 0.88 at 300 bits and 0.84 at 400. Against the
+previous master (`bench/ab.sh`, both orders), SIQS, `tifa_factor()` from 70
+to 180 bits and the cofactor bench do not change (instructions within
+1.2%). The library grows by 46 KB (745 KB of text on the M5); the point
+operations are inlined on three to five limbs only, 3% faster on five, the
+same from six.
+
 ## 9 November 2026 &mdash; ECM: Montgomery's curves with torsion Z/12
 
 `z2z8_curves.h` holds 27 curves, and the search for more finds few: with

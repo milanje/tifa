@@ -261,6 +261,10 @@ static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const x0,
 }
 #endif
 
+#if !defined(EDW_NAME)
+#define EDW_NAME stage1_edwards
+#endif
+
 //
 // A point of an Edwards curve in extended coordinates (x : y : z : t),
 // t = xy/z.
@@ -274,11 +278,11 @@ typedef struct {
 
 #if defined(MONT_ECM_EDWARDS)
 //
-// Inlined into the loop from three limbs only, products never: on the M5,
-// each other choice was 3% to 9% slower on two, three or four limbs, and
-// inlining the products tripled the code.
+// Inlined into the loop on three to five limbs only, products never: on the
+// M5, each other choice was 3% to 9% slower on two to five limbs, or as fast
+// with more code from six; inlining the products tripled the code.
 //
-#if NL >= 3
+#if (NL >= 3) && (NL <= 5)
 #define EDW_OP static inline __attribute__((always_inline))
 #else
 #define EDW_OP static inline
@@ -396,7 +400,7 @@ static void FN(edw_to_tab)(FN(tab_t)* const r, const FN(ext_t)* const p,
 // point P of the curve of parameter d: a left-to-right sliding window of
 // width w over the bits of E, with the odd multiples of P below 2^w.
 //
-void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
+void FN(EDW_NAME)(FN(pt_t)* const p, const FN(ext_t)* const start,
                         const uint64_t* const d,
                         const mont_ecm_plan_t* const plan,
                         const mod_t* const m) {
@@ -447,7 +451,22 @@ void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
         r.y[k] = tab[(v - 1) / 2].y[k];
         r.z[k] = tab[(v - 1) / 2].z[k];
     }
+#if defined(MONT_ECM_STOP_CHECKS)
+    long next_check = i - 4096;
+#endif
     for (i = j - 1; i >= 0; ) {
+#if defined(MONT_ECM_STOP_CHECKS)
+        //
+        // r stays a multiple of the starting point: a factor found is
+        // still one.
+        //
+        if (i <= next_check) {
+            if (tifa_should_stop()) {
+                break;
+            }
+            next_check = i - 4096;
+        }
+#endif
         if (!EBIT(i)) {
             FN(edw_dbl)(&r, &r, m);
             i--;
@@ -475,8 +494,8 @@ void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
 }
 #undef EDW_OP
 #else
-void FN(stage1_edwards)(FN(pt_t)* p, const FN(ext_t)* start, const uint64_t* d,
-                        const mont_ecm_plan_t* plan, const mod_t* m);
+void FN(EDW_NAME)(FN(pt_t)* p, const FN(ext_t)* start, const uint64_t* d,
+                  const mont_ecm_plan_t* plan, const mod_t* m);
 #endif
 
 #if !defined(MONT_ECM_EDWARDS)

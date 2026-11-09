@@ -37,6 +37,7 @@
 // but for the long curves).
 //
 #define MONT_ECM_STOP_CHECKS
+#define EDW_NAME stage1_edwards_long
 
 #define NL 1
 #include "mont_ecm_impl.h"
@@ -68,7 +69,8 @@
 #undef NL
 
 bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0z,
-                       const mpz_t a24z, const mont_ecm_plan_t* const plan) {
+                       const mpz_t a24z, const mont_ecm_edwards_t* const ed,
+                       const mont_ecm_plan_t* const plan) {
     mod_t m;
     mod_init(&m, n);
 
@@ -92,16 +94,16 @@ bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0z,
             RUN_CURVE(4);
             break;
         case 5:
-            RUN_CURVE(5);
+            RUN_CURVE_OR_EDWARDS(5);
             break;
         case 6:
-            RUN_CURVE(6);
+            RUN_CURVE_OR_EDWARDS(6);
             break;
         case 7:
-            RUN_CURVE(7);
+            RUN_CURVE_OR_EDWARDS(7);
             break;
         default:
-            RUN_CURVE(8);
+            RUN_CURVE_OR_EDWARDS(8);
             break;
     }
     return found > 0;
