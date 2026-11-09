@@ -32,6 +32,8 @@ tifa_add_test(test_ecm_edwards)
 target_include_directories(test_ecm_edwards PRIVATE
                            "${PROJECT_SOURCE_DIR}/lib/utils/src")
 tifa_add_test(test_mont_ecm)
+target_include_directories(test_mont_ecm PRIVATE
+                           "${PROJECT_SOURCE_DIR}/lib/utils/src")
 tifa_add_test(test_mont_pm1)
 tifa_add_test(test_primes)
 tifa_add_test(test_cofactor)

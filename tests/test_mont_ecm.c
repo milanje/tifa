@@ -26,6 +26,7 @@
 #include "first_primes.h"
 #include "mont_ecm.h"
 #include "z2z8_curves.h"
+#include "mont_ecm_edwards.h"
 
 #if TIFA_HAVE_MONT_ECM
 
@@ -330,6 +331,66 @@ int main(void) {
             CHECK_EQ_UI(mismatches, 0, msg);
         }
         mpz_clears(x0, a24, NULL);
+    }
+
+    // Montgomery's Z/12 curves, after the Z/2 x Z/8 ones from B1 = 1600: the
+    // starting point is on its Edwards curve and maps to u0, d.a24 =
+    // a24 - 1, and each curve finds what the reference ladder from (u0, a24)
+    // finds (or more, as above).
+    {
+        mont_ecm_plan_t* const plan4 = alloc_mont_ecm_plan(1600, 0);
+        mont_ecm_edwards_t ed;
+        mpz_t u0, a24, l, r;
+        mpz_inits(ed.x, ed.y, ed.z, ed.t, ed.d, u0, a24, l, r, NULL);
+        for (uint32_t nl = 1; nl <= 4; nl++) {
+            random_prime(p, state, 26);
+            do {
+                random_prime(q, state, 64 * nl - 26 - (nl == 1 ? 1 : 5));
+                mpz_mul(n, p, q);
+            } while (mpz_size(n) != nl);
+            uint32_t bad_setup = 0, mismatches = 0, found = 0;
+            for (uint32_t k = NZ2Z8_CURVES; k < NZ2Z8_CURVES + 40; k++) {
+                if (!mont_ecm_z12_setup(&ed, u0, a24, g, n,
+                                        2 + k - NZ2Z8_CURVES)) {
+                    continue;
+                }
+                mpz_mul(l, ed.x, ed.y);
+                mpz_submul(l, ed.z, ed.t);
+                mpz_mul(r, ed.x, ed.x);
+                mpz_addmul(r, ed.y, ed.y);
+                mpz_submul(r, ed.z, ed.z);
+                mpz_mul(g, ed.t, ed.t);
+                mpz_mul(g, g, ed.d);
+                mpz_sub(r, r, g);
+                bad_setup += !mpz_divisible_p(l, n) || !mpz_divisible_p(r, n);
+                mpz_sub(l, ed.z, ed.y);
+                mpz_mul(l, l, u0);
+                mpz_sub(l, l, ed.z);
+                mpz_sub(l, l, ed.y);
+                mpz_mul(r, ed.d, a24);
+                mpz_sub(r, r, a24);
+                mpz_add_ui(r, r, 1);
+                bad_setup += !mpz_divisible_p(l, n) || !mpz_divisible_p(r, n);
+
+                const int mine = mont_ecm_nth_curve(g, n, k, plan4);
+                const int ref  = ref_stage1(gref, n, u0, a24, 1600);
+                mismatches += (ref && !mine)
+                              || (mine && ref && mpz_cmp(g, gref))
+                              || (mine && !mpz_divisible_p(n, g));
+                found += mine;
+            }
+            snprintf(msg, sizeof(msg), "%u limb(s): Z/12 curves set up on "
+                     "their Edwards and Montgomery forms", nl);
+            CHECK_EQ_UI(bad_setup, 0, msg);
+            snprintf(msg, sizeof(msg), "%u limb(s): Z/12 curves find what "
+                     "the reference finds", nl);
+            CHECK_EQ_UI(mismatches, 0, msg);
+            snprintf(msg, sizeof(msg), "%u limb(s): Z/12 curves find some",
+                     nl);
+            CHECK(found > 0, msg);
+        }
+        mpz_clears(ed.x, ed.y, ed.z, ed.t, ed.d, u0, a24, l, r, NULL);
+        free_mont_ecm_plan(plan4);
     }
 
     // A stage 2 reaching past the prime table (segmented sieve): a 36-bit

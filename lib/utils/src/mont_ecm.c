@@ -35,6 +35,8 @@
 #include "tifa_alloc.h"
 
 #define MONT_MOD_LIMBS MONT_ECM_NARROW_LIMBS
+
+#define MONT_ECM_Z12_MIN_B1 1600
 #include "mont_ecm_internal.h"
 
 //------------------------------------------------------------------------------
@@ -387,15 +389,17 @@ bool mont_ecm_curve(mpz_t factor, const mpz_t n, const uint32_t sigma,
 }
 
 //
-// Curve i of z2z8_curves, its stage 1 on its Edwards form.
+// Curve i of a family set up by setup, its stage 1 on its Edwards form.
 //
 static bool run_edwards(mpz_t factor, const mpz_t n, const uint32_t i,
-                        const mont_ecm_plan_t* const plan) {
+                        const mont_ecm_plan_t* const plan,
+                        bool (*setup)(mont_ecm_edwards_t*, mpz_t, mpz_t,
+                                      mpz_t, const mpz_t, uint32_t)) {
     mont_ecm_edwards_t ed;
     mpz_t x0, a24;
     mpz_inits(ed.x, ed.y, ed.z, ed.t, ed.d, x0, a24, NULL);
     bool found;
-    if (mont_ecm_edwards_setup(&ed, x0, a24, factor, n, i)) {
+    if (setup(&ed, x0, a24, factor, n, i)) {
         found = run_curve(factor, n, x0, a24, &ed, plan);
     } else {
         found = (mpz_cmp_ui(factor, 1) > 0) && (mpz_cmp(factor, n) < 0);
@@ -409,11 +413,21 @@ bool mont_ecm_nth_curve(mpz_t factor, const mpz_t n, const uint32_t k,
     if (!mont_ecm_handles(n)) {
         return false;
     }
+    const bool edwards = !plan->long_curves
+                         && (mpz_size(n) <= MONT_ECM_NARROW_LIMBS);
     if (k < NZ2Z8_CURVES) {
-        if (!plan->long_curves && (mpz_size(n) <= MONT_ECM_NARROW_LIMBS)) {
-            return run_edwards(factor, n, k, plan);
+        if (edwards) {
+            return run_edwards(factor, n, k, plan, mont_ecm_edwards_setup);
         }
         return setup_and_run(factor, n, k, plan, z2z8_curve);
+    }
+    //
+    // Montgomery's Z/12 curves cost k.P on an auxiliary curve to set up:
+    // only on curves long enough for it not to matter.
+    //
+    if (edwards && (plan->b1 >= MONT_ECM_Z12_MIN_B1)) {
+        return run_edwards(factor, n, 2 + k - NZ2Z8_CURVES, plan,
+                           mont_ecm_z12_setup);
     }
     return setup_and_run(factor, n, 6 + k - NZ2Z8_CURVES, plan, suyama_curve);
 }

@@ -260,21 +260,7 @@ static void mod_init(mod_t* const m, const mpz_t n) {
 bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0,
                        const mpz_t a24, const mont_ecm_plan_t* plan);
 
-//
-// Curve i of z2z8_curves in Edwards form (mont_ecm_edwards.c): the starting
-// point (x : y : z : t) and d, and for its Montgomery form u0 and a24. False,
-// with the gcd in factor, if a value was not invertible mod n.
-//
-typedef struct {
-    mpz_t x;
-    mpz_t y;
-    mpz_t z;
-    mpz_t t;
-    mpz_t d;
-} mont_ecm_edwards_t;
-
-bool mont_ecm_edwards_setup(mont_ecm_edwards_t* ed, mpz_t u0, mpz_t a24,
-                            mpz_t factor, const mpz_t n, uint32_t i);
+#include "mont_ecm_edwards.h"
 
 int mont_wide_pm1(mpz_t factor, const mpz_t n, uint32_t base,
                   const mont_ecm_plan_t* plan);

@@ -3,6 +3,27 @@
 The changes on master since the last release, newest first. At the next
 release, this file becomes that version's notes. [All releases](../news.md).
 
+## 9 November 2026 &mdash; ECM: Montgomery's curves with torsion Z/12
+
+`z2z8_curves.h` holds 27 curves, and the search for more finds few: with
+seven times as many candidates (`tools/z2z8`), 32. After them, the curves of
+the searches for factors of 45 bits and more were Suyama's, on the ladder.
+From B1 = 1600, on 1 to 4 limbs, they are now those of Montgomery's family
+with torsion Z/12 (his thesis, 6.1, as in CADO-NFS): curve k from k.P on
+v^2 = u^3 - 12u, computed modulo n, whose Montgomery form has (A + 2)/B =
+(4uv/(v^2 + 4u^2))^2, a square, so that its stage 1 runs on an Edwards
+form like the curves of the table. Against Suyama's curves on numbers with
+a factor of 25 to 40 bits, they find 0.96 to 1.09 as many factors per
+curve (±4%), in 0.83 to 0.96 of the time from B1 = 1600; below, on three
+and four limbs, the setup (k.P and two inversions) makes them slower, and
+Suyama's stay. With ECM alone, on numbers of 150 to 160 bits (a 100-bit
+prime times the factor), finding a factor of 50 bits takes 0.84 of the time,
+55 bits 0.81, 60 bits 0.93 (150 to 400 numbers, two seeds each). In one
+thread (`bench/ab.sh`, both orders), `tifa_factor()` takes 0.85 of the time
+on numbers of 160 bits with a factor of 50 bits (a third fewer
+instructions); SIQS, `tifa_factor()` on balanced numbers, whose ECM search
+stays within the table, and the cofactor bench do not change.
+
 ## 9 November 2026 &mdash; ECM: stage 1 on Edwards curves
 
 The curves of `z2z8_curves.h`, with which every ECM search starts, are
@@ -22,9 +43,11 @@ but for an exceptional point of the addition law (d is a square): meeting
 one modulo a prime factor p derails the computation modulo p alone, and in
 every case seen it revealed p: of 270000 curves on numbers with a prime of
 18 to 40 bits, 6 more found it, none fewer. In one thread on an Apple M5
-Pro, a curve takes 0.76 of the time on two limbs and 0.90 on three at B1 =
-300, 0.68 on two at B1 = 2000, 0.79 on four at B1 = 6400; below 2^64,
-`split_u64` on numbers of two primes of 25 to 32 bits 0.94. On the cofactors of CADO-NFS's
+Pro, on numbers without small factors (so that stage 2 runs, as it does in
+most curves of a search), a curve takes 0.88 of the time on two limbs at B1
+= 300 and 0.78 at B1 = 2000, 0.985 on three at B1 = 300, 0.90 on four at
+B1 = 6400; below 2^64, `split_u64` on numbers of two primes of 25 to 32
+bits 0.94. On the cofactors of CADO-NFS's
 siever, `tifa_cofactor()` takes 0.94 to 0.96 of the time at c100 to c160
 (two large primes, below 2^64), and 0.97 at c180 (three large primes,
 two limbs, mostly SIQS), with the same relations.
