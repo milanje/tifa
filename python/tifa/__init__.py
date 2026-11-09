@@ -434,9 +434,9 @@ class Cofactorizer:
     factored by SIQS: once ECM has searched it as long as SIQS would take,
     without finding a factor, it is given up, and the answer is ``None``
     even if it splits into small enough primes. With three large primes and
-    ``max_siqs_bits = 2 * lpb``, this takes 60% to 65% of the time of exact
-    answers and misses 0.25% to 0.30% of the smooth integers. 0, the
-    default, gives exact answers.
+    ``max_siqs_bits = 2 * lpb``, on the cofactors of a number field sieve at
+    c180 (lpb 32), this takes 0.62 of the time of exact answers and misses
+    0.35% of the relations. 0, the default, gives exact answers.
 
     Calls release the GIL, and threads may share a ``Cofactorizer``. In the
     main thread, Ctrl-C interrupts them, as it does ``factor``.

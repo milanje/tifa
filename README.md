@@ -319,9 +319,10 @@ list at 3% more than the time of the C function on 64-bit integers.
 
 Above `max_siqs_bits`, a composite that ECM does not split within the time SIQS
 would take is given up (`COFACTOR_GAVE_UP`). With three large primes and
-`max_siqs_bits = 2 lpb`, that takes 60% to 65% of the time of exact answers and
-misses 0.25% to 0.30% of the smooth cofactors (see
-[readme/releases/0.2.0.md](./readme/releases/0.2.0.md#cofactorization)).
+`max_siqs_bits = 2 lpb`, on the cofactors that CADO-NFS's siever leaves at
+c180 (lpb 32, up to 99 bits), that takes 0.62 of the time of exact answers and
+misses 0.35% of the relations (see
+[readme/releases/unreleased.md](./readme/releases/unreleased.md)).
 
 ## Parameter tuning
 

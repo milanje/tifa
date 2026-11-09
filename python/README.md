@@ -205,9 +205,10 @@ the cost of a Python call for each. `fb_bound` says that the integers have
 no prime factor below it (the factor base bound); `max_large_primes` limits
 the number of prime factors from `fb_bound` on; with `max_siqs_bits`, a
 composite of more bits than that is given up (`None`) once ECM has searched
-it as long as SIQS would take, which saves 35% to 40% of the time and
-misses 0.25% to 0.30% of the smooth integers with three large primes and
-`max_siqs_bits = 2 * lpb`. Calls release the GIL, and threads may share a
+it as long as SIQS would take: with three large primes and
+`max_siqs_bits = 2 * lpb`, on the cofactors of a number field sieve at c180
+(lpb 32), this saves 38% of the time and misses 0.35% of the relations.
+Calls release the GIL, and threads may share a
 `Cofactorizer`; it pickles, for processes. On an Apple M5 Pro, on integers
 of 33 to 64 bits without prime factors below 2^23 (lpb 32, two large
 primes), `many` takes 1.56 us per integer, 5% more than the C function, and

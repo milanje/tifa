@@ -220,19 +220,23 @@ typedef struct {
     double   target_bits;
     double   spent;
     uint32_t next;
+    uint32_t curves;
     bool     whole_first_level;
+    bool     partial_last_level;
 } level_iter_t;
 
 static void init_level_iter(level_iter_t* const it, const mpz_t n,
                             const double min_bits, const double target_bits,
-                            const double budget, const bool whole_first_level) {
+                            const double budget, const bool whole_first_level,
+                            const bool partial_last_level) {
     it->limit       = budget * siqs_cost((double) mpz_sizeinbase(n, 2));
     it->lfac        = limb_factor[mpz_size(n)];
     it->min_bits    = min_bits;
     it->target_bits = target_bits;
     it->spent       = 0;
     it->next        = 0;
-    it->whole_first_level = whole_first_level;
+    it->whole_first_level  = whole_first_level;
+    it->partial_last_level = partial_last_level;
 }
 
 static bool next_level(level_iter_t* const it,
@@ -246,14 +250,24 @@ static bool next_level(level_iter_t* const it,
         if (hi - 5 >= it->target_bits) {
             break;
         }
+        const double curve = levels[i].cost * it->lfac;
         const bool first = it->whole_first_level && (it->spent == 0)
-                           && (levels[i].cost * it->lfac <= it->limit);
-        it->spent += levels[i].ncurves * levels[i].cost * it->lfac;
-        if ((it->spent > it->limit) && !first) {
-            break;
-        }
+                           && (curve <= it->limit);
+        uint32_t curves = levels[i].ncurves;
         it->next = i + 1;
-        *level   = i;
+        if ((it->spent + curves * curve > it->limit) && !first) {
+            if (!it->partial_last_level) {
+                break;
+            }
+            curves = (uint32_t) ((it->limit - it->spent) / curve);
+            if (curves == 0) {
+                break;
+            }
+            it->next = schedule->nlevels;
+        }
+        it->spent += curves * curve;
+        it->curves = curves;
+        *level     = i;
         return true;
     }
     it->next = schedule->nlevels;
@@ -267,7 +281,7 @@ static bool run_levels(mpz_t g, const mpz_t n,
     uint32_t i;
     while (next_level(it, schedule, &i)) {
         const mont_ecm_plan_t* const plan = acquire_plan(schedule, i);
-        for (uint32_t j = 0; j < levels[i].ncurves; j++) {
+        for (uint32_t j = 0; j < it->curves; j++) {
             if (mont_ecm_nth_curve(g, n, k++, plan)) {
                 release_plan(schedule, i);
                 return true;
@@ -285,12 +299,12 @@ static bool run_levels(mpz_t g, const mpz_t n,
 bool ecm_schedule_split(mpz_t g, const mpz_t n,
                         ecm_schedule_t* const schedule,
                         const double min_bits, const double target_bits,
-                        const double budget) {
+                        const double budget, const bool whole_budget) {
     if (mont_pm1(g, n, 2, schedule->pm1_plan) == 1) {
         return true;
     }
     level_iter_t it;
-    init_level_iter(&it, n, min_bits, target_bits, budget, false);
+    init_level_iter(&it, n, min_bits, target_bits, budget, false, whole_budget);
     return run_levels(g, n, schedule, &it);
 }
 //------------------------------------------------------------------------------
@@ -305,7 +319,7 @@ bool ecm_schedule_prepass(mpz_t g, const mpz_t n,
     }
     const double half = (double) mpz_sizeinbase(n, 2) / 2;
     level_iter_t it;
-    init_level_iter(&it, n, 0, MIN(half, max_bits), budget, true);
+    init_level_iter(&it, n, 0, MIN(half, max_bits), budget, true, false);
     if (tifa_threads() > 1) {
         return run_levels_threaded(g, n, schedule, &it);
     }
