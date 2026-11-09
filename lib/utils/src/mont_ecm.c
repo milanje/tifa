@@ -366,6 +366,9 @@ bool mont_ecm_nth_curve(mpz_t factor, const mpz_t n, const uint32_t k,
         return false;
     }
     if (k < NZ2Z8_CURVES) {
+        if (!plan->long_curves && (mpz_size(n) <= MONT_ECM_NARROW_LIMBS)) {
+            return mont_ecm_edwards_curve(factor, n, k, plan);
+        }
         return setup_and_run(factor, n, k, plan, z2z8_curve);
     }
     return setup_and_run(factor, n, 6 + k - NZ2Z8_CURVES, plan, suyama_curve);

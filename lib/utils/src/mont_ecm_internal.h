@@ -143,6 +143,15 @@ static void mod_init(mod_t* const m, const mpz_t n) {
         FN_(mul, NLIMBS)(x0m, x0, m.r2, &m);                                  \
         FN_(mul, NLIMBS)(a24m, a24, m.r2, &m);                                \
         FN_(stage1, NLIMBS)(&p, x0m, a24m, plan, &m);                         \
+        AFTER_STAGE1(NLIMBS);                                                 \
+    } while (0)
+
+//
+// From the point p of stage 1: its gcd, the backtrack from (x0m : 1) if it
+// caught every factor at once, then stage 2.
+//
+#define AFTER_STAGE1(NLIMBS)                                                  \
+    do {                                                                      \
         found = limbs_gcd(factor, p.z, NLIMBS, n);                            \
         if (found == -1) {                                                    \
             found = FN_(stage1_backtrack, NLIMBS)(factor, x0m, a24m, plan,    \
@@ -248,6 +257,13 @@ static void mod_init(mod_t* const m, const mpz_t n) {
 
 bool mont_ecm_wide_run(mpz_t factor, const mpz_t n, const mpz_t x0,
                        const mpz_t a24, const mont_ecm_plan_t* plan);
+
+//
+// Curve i of z2z8_curves on n of at most MONT_ECM_NARROW_LIMBS limbs, stage 1
+// on its Edwards form (mont_ecm_edwards.c).
+//
+bool mont_ecm_edwards_curve(mpz_t factor, const mpz_t n, uint32_t i,
+                            const mont_ecm_plan_t* plan);
 
 int mont_wide_pm1(mpz_t factor, const mpz_t n, uint32_t base,
                   const mont_ecm_plan_t* plan);

@@ -227,6 +227,7 @@ static void FN(ladder)(FN(pt_t)* const r, const FN(pt_t)* const p,
 //                              Stages 1 and 2
 //------------------------------------------------------------------------------
 
+#if !defined(MONT_ECM_EDWARDS)
 //
 // p <- E.(x0 : 1), E the product of the prime powers up to the stage 1
 // bound: a ladder over the bits of E, whose difference stays (x0 : 1).
@@ -258,6 +259,209 @@ static void FN(stage1)(FN(pt_t)* const p, const uint64_t* const x0,
     }
     *p = r0;
 }
+#endif
+
+#if defined(MONT_ECM_EDWARDS)
+//------------------------------------------------------------------------------
+//            Stage 1 on Edwards curves x^2 + y^2 = 1 + d.x^2.y^2
+//------------------------------------------------------------------------------
+//
+// The curves of z2z8_curves are Edwards curves (see ecm_edwards_u64.c for
+// the formulas): a doubling costs 7 products, against 10 for a step of the
+// ladder. Projective (x : y : z) between doublings, extended (x : y : z : t),
+// t = xy/z, before additions.
+//
+
+typedef struct {
+    uint64_t x[NL];
+    uint64_t y[NL];
+    uint64_t z[NL];
+} FN(proj_t);
+
+typedef struct {
+    uint64_t x[NL];
+    uint64_t y[NL];
+    uint64_t z[NL];
+    uint64_t t[NL];
+} FN(ext_t);
+
+//
+// A multiple of the starting point, ready to be added: s = x + y, dt = d.t.
+//
+typedef struct {
+    uint64_t x[NL];
+    uint64_t y[NL];
+    uint64_t s[NL];
+    uint64_t z[NL];
+    uint64_t dt[NL];
+} FN(tab_t);
+
+//
+// r = 2.p. r may alias p.
+//
+static inline __attribute__((always_inline)) void
+FN(edw_dbl)(FN(proj_t)* const r, const FN(proj_t)* const p,
+            const mod_t* const m) {
+    uint64_t xy[NL], b[NL], c[NL], d[NL], h[NL], e[NL], j[NL], t[NL];
+    FN(add)(xy, p->x, p->y, m);
+    FN(mul_inline)(b, xy, xy, m);
+    FN(mul_inline)(c, p->x, p->x, m);
+    FN(mul_inline)(d, p->y, p->y, m);
+    FN(mul_inline)(h, p->z, p->z, m);
+    FN(add)(e, c, d, m);
+    FN(add)(t, h, h, m);
+    FN(sub)(j, e, t, m);
+    FN(sub)(t, b, e, m);
+    FN(sub)(b, c, d, m);
+    FN(mul_inline)(r->x, t, j, m);
+    FN(mul_inline)(r->y, e, b, m);
+    FN(mul_inline)(r->z, e, j, m);
+}
+
+static inline __attribute__((always_inline)) void
+FN(edw_dbl_ext)(FN(ext_t)* const r, const FN(proj_t)* const p,
+                const mod_t* const m) {
+    uint64_t xy[NL], a[NL], b[NL], zz[NL], s[NL], e[NL], f[NL], g[NL], h[NL];
+    FN(add)(xy, p->x, p->y, m);
+    FN(mul_inline)(a, p->x, p->x, m);
+    FN(mul_inline)(b, p->y, p->y, m);
+    FN(mul_inline)(zz, p->z, p->z, m);
+    FN(mul_inline)(s, xy, xy, m);
+    FN(add)(g, a, b, m);
+    FN(sub)(e, s, g, m);
+    FN(add)(zz, zz, zz, m);
+    FN(sub)(f, g, zz, m);
+    FN(sub)(h, a, b, m);
+    FN(mul_inline)(r->x, e, f, m);
+    FN(mul_inline)(r->y, g, h, m);
+    FN(mul_inline)(r->t, e, h, m);
+    FN(mul_inline)(r->z, f, g, m);
+}
+
+//
+// p + q: A = x1.x2, B = y1.y2, C = t1.d.t2, D = z1.z2,
+// E = (x1 + y1)(x2 + y2) - A - B, F = D - C, G = D + C, H = B - A, and
+// (x3 : y3 : z3 : t3) = (EF : GH : FG : EH); t3 only for an extended r.
+//
+static inline __attribute__((always_inline)) void
+FN(edw_add)(FN(proj_t)* const r, uint64_t* const t3, const FN(ext_t)* const p,
+            const FN(tab_t)* const q, const mod_t* const m) {
+    uint64_t a[NL], b[NL], s[NL], c[NL], d[NL], e[NL], f[NL], g[NL], h[NL];
+    FN(mul_inline)(a, p->x, q->x, m);
+    FN(mul_inline)(b, p->y, q->y, m);
+    FN(add)(e, p->x, p->y, m);
+    FN(mul_inline)(s, e, q->s, m);
+    FN(mul_inline)(c, p->t, q->dt, m);
+    FN(mul_inline)(d, p->z, q->z, m);
+    FN(add)(h, a, b, m);
+    FN(sub)(e, s, h, m);
+    FN(sub)(f, d, c, m);
+    FN(add)(g, d, c, m);
+    FN(sub)(h, b, a, m);
+    FN(mul_inline)(r->x, e, f, m);
+    FN(mul_inline)(r->y, g, h, m);
+    FN(mul_inline)(r->z, f, g, m);
+    if (t3 != NULL) {
+        FN(mul_inline)(t3, e, h, m);
+    }
+}
+
+static void FN(edw_to_tab)(FN(tab_t)* const r, const FN(ext_t)* const p,
+                           const uint64_t* const d, const mod_t* const m) {
+    for (int j = 0; j < NL; j++) {
+        r->x[j] = p->x[j];
+        r->y[j] = p->y[j];
+        r->z[j] = p->z[j];
+    }
+    FN(add)(r->s, p->x, p->y, m);
+    FN(mul)(r->dt, p->t, d, m);
+}
+
+#define EDW_MAX_W 8
+
+//
+// p <- E.P, as Montgomery (X : Z), u = (1 + y)/(1 - y), for the starting
+// point P of the curve of parameter d: a left-to-right sliding window of
+// width w over the bits of E, with the odd multiples of P below 2^w.
+//
+static void FN(stage1_edwards)(FN(pt_t)* const p, const FN(ext_t)* const start,
+                               const uint64_t* const d,
+                               const mont_ecm_plan_t* const plan,
+                               const mod_t* const m) {
+    //
+    // The width that minimizes 2^(w-1) table points + bits/(w+1) additions.
+    //
+    const size_t bits = plan->ebits;
+    uint32_t w = 2;
+    while ((w < EDW_MAX_W)
+           && (bits > ((size_t) 1 << (w - 1)) * (w + 1) * (w + 2))) {
+        w++;
+    }
+    FN(tab_t) tab[1 << (EDW_MAX_W - 1)];
+    FN(edw_to_tab)(&tab[0], start, d, m);
+    FN(proj_t) r;
+    for (int k = 0; k < NL; k++) {
+        r.x[k] = start->x[k];
+        r.y[k] = start->y[k];
+        r.z[k] = start->z[k];
+    }
+    FN(ext_t) q;
+    FN(tab_t) t2;
+    FN(edw_dbl_ext)(&q, &r, m);
+    FN(edw_to_tab)(&t2, &q, d, m);
+    q = *start;
+    for (uint32_t k = 1; k < (1u << (w - 1)); k++) {
+        FN(proj_t) qp;
+        FN(edw_add)(&qp, q.t, &q, &t2, m);
+        for (int l = 0; l < NL; l++) {
+            q.x[l] = qp.x[l];
+            q.y[l] = qp.y[l];
+            q.z[l] = qp.z[l];
+        }
+        FN(edw_to_tab)(&tab[k], &q, d, m);
+    }
+#define EBIT(i) ((plan->e[(i) / 64] >> ((i) % 64)) & 1)
+    long i = (long) bits - 1;
+    long j = (i - (long) w + 1 > 0) ? i - (long) w + 1 : 0;
+    while (!EBIT(j)) {
+        j++;
+    }
+    uint32_t v = 0;
+    for (long k = i; k >= j; k--) {
+        v = 2 * v + (uint32_t) EBIT(k);
+    }
+    for (int k = 0; k < NL; k++) {
+        r.x[k] = tab[(v - 1) / 2].x[k];
+        r.y[k] = tab[(v - 1) / 2].y[k];
+        r.z[k] = tab[(v - 1) / 2].z[k];
+    }
+    for (i = j - 1; i >= 0; ) {
+        if (!EBIT(i)) {
+            FN(edw_dbl)(&r, &r, m);
+            i--;
+            continue;
+        }
+        j = (i - (long) w + 1 > 0) ? i - (long) w + 1 : 0;
+        while (!EBIT(j)) {
+            j++;
+        }
+        v = 0;
+        for (long k = i; k >= j; k--) {
+            v = 2 * v + (uint32_t) EBIT(k);
+        }
+        for (long k = i; k > j; k--) {
+            FN(edw_dbl)(&r, &r, m);
+        }
+        FN(ext_t) e;
+        FN(edw_dbl_ext)(&e, &r, m);
+        FN(edw_add)(&r, NULL, &e, &tab[(v - 1) / 2], m);
+        i = j - 1;
+    }
+#undef EBIT
+    FN(add)(p->x, r.z, r.y, m);
+    FN(sub)(p->z, r.z, r.y, m);
+}
+#endif
 
 //
 // Stage 1 again from (x0 : 1), one prime at a time, with a gcd after each:

@@ -288,8 +288,10 @@ int main(void) {
         CHECK(found2 > found1 * 40 / 120, msg);
     }
 
-    // The curve sequence of mont_ecm_nth_curve: the Z/2 x Z/8 curves match
-    // the reference in stage 1, then come Suyama's curves.
+    // The curve sequence of mont_ecm_nth_curve: the Z/2 x Z/8 curves find
+    // what the reference finds in stage 1 (on their Edwards form up to four
+    // limbs, they may find a little more: an exceptional point of the
+    // addition law modulo p tends to reveal p), then come Suyama's curves.
     {
         mpz_t x0, a24;
         mpz_inits(x0, a24, NULL);
@@ -305,7 +307,9 @@ int main(void) {
                 const int mine = mont_ecm_nth_curve(g, n, k, plan1);
                 const int ref  = z2z8_ref(x0, a24, n, k)
                                  && ref_stage1(gref, n, x0, a24, 300);
-                mismatches += (mine != ref) || (mine && mpz_cmp(g, gref));
+                mismatches += (ref && !mine)
+                              || (mine && ref && mpz_cmp(g, gref))
+                              || (mine && !mpz_divisible_p(n, g));
                 found += mine;
             }
             snprintf(msg, sizeof(msg), "%u limb(s): Z/2xZ/8 curves match "
