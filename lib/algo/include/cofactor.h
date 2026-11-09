@@ -86,9 +86,11 @@ struct struct_cofactor_params_t {
     uint32_t lpb;
         /**
          * The numbers to cofactor have no prime factor below this bound (the
-         * factor base bound of a sieve). Below 1000 (0 if nothing is known),
-         * the primes below 1000 are divided out first. A wrong bound gives
-         * unspecified results.
+         * factor base bound of a sieve): their parts below its square are
+         * taken as prime without a test. Below 1000 (0 if nothing is known),
+         * the primes below 1000 are divided out first. A bound below the true
+         * one is safe; one above it gives wrong answers, such as a composite
+         * taken for a prime factor.
          */
     uint64_t fb_bound;
         /**

@@ -82,7 +82,9 @@ struct struct_cfrac_params_t {
        /**
         * Number of prime numbers composing the factor base on which to factor
         * the residues, from 2 to a quarter of the tabulated primes (see
-        * \c NFIRST_PRIMES).
+        * \c NFIRST_PRIMES). With very few, the residues that factor become
+        * rare and the time grows exponentially with \c n: two primes take a
+        * second at 60 bits, where the default base takes a millisecond.
         */
     uint32_t nprimes_in_base;
        /**

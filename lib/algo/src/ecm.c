@@ -267,7 +267,7 @@ static const mont_ecm_plan_t* shared_plan(const uint32_t b1,
         if ((ecm_levels[i].b1 == b1) && (ECM_B2_RATIO * b1 == b2)) {
             pthread_mutex_lock(&shared_plans_lock);
             if (shared_plans[i] == NULL) {
-                shared_plans[i] = alloc_mont_ecm_plan(b1, b2);
+                shared_plans[i] = alloc_mont_ecm_plan_or_stop(b1, b2);
             }
             const mont_ecm_plan_t* const plan = shared_plans[i];
             pthread_mutex_unlock(&shared_plans_lock);
@@ -447,7 +447,10 @@ static void set_stage1_bound(ecm_context_t* const context,
     if (params->b2 <= params->b1) {
         params->b2 = 0;
     }
-    prime_powers_product(context->k, params->b1);
+    //
+    // Stopped, k is left unspecified: no curve runs before the next check.
+    //
+    prime_powers_product(context->k, params->b1, true);
 }
 #if TIFA_HAVE_MONT_ECM
 //------------------------------------------------------------------------------
@@ -462,8 +465,12 @@ static ecode_t mont_curve(factoring_machine_t* const machine) {
         context->own_plan = NULL;
         context->mplan    = shared_plan(params->b1, params->b2);
         if (context->mplan == NULL) {
-            context->own_plan = alloc_mont_ecm_plan(params->b1, params->b2);
+            context->own_plan = alloc_mont_ecm_plan_or_stop(params->b1,
+                                                            params->b2);
             context->mplan    = context->own_plan;
+        }
+        if (context->mplan == NULL) {
+            return NO_FACTOR_FOUND;
         }
         context->mplan_b1 = params->b1;
         context->mplan_b2 = params->b2;
@@ -760,8 +767,9 @@ static ecode_t perform_ecm(factoring_machine_t* const machine) {
             //
             continue;
         }
-        if (!context->precomputations_done) {
-            perform_precomputations(context);
+        if (   !context->precomputations_done
+            && (perform_precomputations(context) != SUCCESS)) {
+            continue;
         }
         //
         // Perform second phase of ECM...
@@ -1284,20 +1292,6 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     PRINT_PERFORMING_P2_PRECOMP;
     START_TIMER;
 
-#if PHASE_2_GLOBALS
-    mpz_init(context->tmp_phase2_1);
-    mpz_init(context->tmp_phase2_2);
-    mpz_init(context->tmp_phase2_3);
-    mpz_init(context->tmp_phase2_4);
-    mpz_init(context->tmp_phase2_5);
-    mpz_init(context->tmp_phase2_6);
-    mpz_init(context->tmp_phase2_7);
-    mpz_init(context->tmp_phase2_8);
-    mpz_init(context->tmp_phase2_9);
-    mpz_init(context->tmp_phase2_10);
-    mpz_init(context->tmp_phase2_11);
-#endif
-
     context->B2 = context->params->b2;
     context->B1 = context->params->b1;
     //
@@ -1319,17 +1313,13 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     // _NOTE_: More space than strictly required is allocated in order to keep
     //         a simple implementation without translating indices.
     //
-    context->SX        = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
-    context->SZ        = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
-    context->Js        = tifa_malloc((DO2 + 1) * sizeof(unsigned int));
-    context->njs       = 0;
+    context->Js  = tifa_malloc((DO2 + 1) * sizeof(unsigned int));
+    context->njs = 0;
 
     uint8_t slot[GMP_STAGE2_D / 2 + 1];
     for (unsigned long int j = 1; j <= DO2; j++) {
         slot[j] = UINT8_MAX;
         if (gcd_ulint(j, D) == 1) {
-            mpz_init(context->SX[j]);
-            mpz_init(context->SZ[j]);
             slot[j] = (uint8_t) context->njs;
             context->Js[context->njs] = j;
             context->njs++;
@@ -1350,7 +1340,18 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     prime_iter_t it;
     prime_iter_init(&it, (uint32_t) (m_min * D - DO2),
                     (uint32_t) (m_max * D + DO2));
+    uint32_t nprimes = 0;
     for (uint32_t q = prime_iter_next(&it); ; q = prime_iter_next(&it)) {
+        if (((++nprimes & 0xffff) == 0) && tifa_should_stop()) {
+            prime_iter_clear(&it);
+            free(needed);
+            free(pairs);
+            free(offsets);
+            free(context->Js);
+            STOP_TIMER;
+            PRINT_TIMING;
+            return GIVING_UP;
+        }
         const uint32_t qrow = (q == 0) ? nrows
                             : (uint32_t) ((q + DO2) / D - m_min);
         while (row < qrow) {
@@ -1376,6 +1377,27 @@ static ecode_t perform_precomputations(ecm_context_t* const context) {
     free(needed);
     context->offsets = offsets;
     context->pairs   = tifa_realloc(pairs, npairs + 1);
+
+#if PHASE_2_GLOBALS
+    mpz_init(context->tmp_phase2_1);
+    mpz_init(context->tmp_phase2_2);
+    mpz_init(context->tmp_phase2_3);
+    mpz_init(context->tmp_phase2_4);
+    mpz_init(context->tmp_phase2_5);
+    mpz_init(context->tmp_phase2_6);
+    mpz_init(context->tmp_phase2_7);
+    mpz_init(context->tmp_phase2_8);
+    mpz_init(context->tmp_phase2_9);
+    mpz_init(context->tmp_phase2_10);
+    mpz_init(context->tmp_phase2_11);
+#endif
+
+    context->SX = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
+    context->SZ = tifa_malloc((DO2 + 1) * sizeof(mpz_t));
+    for (unsigned int ij = 0; ij < context->njs; ij++) {
+        mpz_init(context->SX[context->Js[ij]]);
+        mpz_init(context->SZ[context->Js[ij]]);
+    }
     context->precomputations_done = true;
 
     STOP_TIMER;

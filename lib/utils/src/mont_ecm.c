@@ -33,6 +33,7 @@
 #include "first_primes.h"
 #include "z2z8_curves.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 #define MONT_MOD_LIMBS MONT_ECM_NARROW_LIMBS
 
@@ -102,7 +103,7 @@ static void add_stage2_prime(stage2_builder_t* const sb, const uint32_t q) {
     sb->needed[plan->jslot[j]] = 1;
 }
 
-static void build_stage2(mont_ecm_plan_t* const plan) {
+static bool build_stage2(mont_ecm_plan_t* const plan, const bool stoppable) {
     const uint32_t d    = plan->d;
     const uint32_t half = d / 2;
 
@@ -139,7 +140,15 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
 
     prime_iter_t it;
     prime_iter_init(&it, plan->b1 + 1, plan->b2);
+    uint32_t nprimes = 0;
     for (uint32_t q; (q = prime_iter_next(&it)) != 0; ) {
+        if (   stoppable && ((++nprimes & 0xffff) == 0)
+            && tifa_should_stop()) {
+            prime_iter_clear(&it);
+            free(sb.pairs);
+            free(sb.needed);
+            return false;
+        }
         add_stage2_prime(&sb, q);
     }
     prime_iter_clear(&it);
@@ -150,9 +159,11 @@ static void build_stage2(mont_ecm_plan_t* const plan) {
     }
     plan->pairs = tifa_realloc(sb.pairs, (sb.npairs + 1) * sizeof(uint16_t));
     free(sb.needed);
+    return true;
 }
 
-mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
+static mont_ecm_plan_t* build_plan(uint32_t b1, uint32_t b2,
+                                   const bool stoppable) {
     mont_ecm_plan_t* const plan = tifa_calloc(1, sizeof(mont_ecm_plan_t));
 
     //
@@ -179,16 +190,30 @@ mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2) {
 
     mpz_t e;
     mpz_init(e);
-    prime_powers_product(e, b1);
+    if (!prime_powers_product(e, b1, stoppable)) {
+        mpz_clear(e);
+        free_mont_ecm_plan(plan);
+        return NULL;
+    }
     plan->ebits = mpz_sizeinbase(e, 2);
     plan->e     = tifa_malloc((plan->ebits / 64 + 1) * sizeof(uint64_t));
     mpz_export(plan->e, &plan->ne, -1, sizeof(uint64_t), 0, 0, e);
     mpz_clear(e);
 
-    if (d != 0) {
-        build_stage2(plan);
+    if ((d != 0) && !build_stage2(plan, stoppable)) {
+        free_mont_ecm_plan(plan);
+        return NULL;
     }
     return plan;
+}
+
+mont_ecm_plan_t* alloc_mont_ecm_plan(const uint32_t b1, const uint32_t b2) {
+    return build_plan(b1, b2, false);
+}
+
+mont_ecm_plan_t* alloc_mont_ecm_plan_or_stop(const uint32_t b1,
+                                             const uint32_t b2) {
+    return build_plan(b1, b2, true);
 }
 
 void free_mont_ecm_plan(mont_ecm_plan_t* const plan) {

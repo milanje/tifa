@@ -17,7 +17,7 @@
 // Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA.
 
 
-// The time limit and the interrupt check of the options: SIQS and ECM stop
+// The time limit and the interrupt check of the options: the algorithms stop
 // soon after them, which hold for the call alone.
 
 #if !defined(_POSIX_C_SOURCE)
@@ -29,6 +29,12 @@
 
 #include "tifa_test.h"
 #include "ecm.h"
+#include "rho.h"
+#include "squfof.h"
+#include "fermat.h"
+#include "p_minus_1.h"
+#include "p_plus_1.h"
+#include "first_primes.h"
 #include "mont_ecm.h"
 #include "tifa_factor.h"
 #include "batch_gcd.h"
@@ -64,6 +70,73 @@ static double factor_limited(const mpz_t n, tifa_factor_hint_t hint,
     *complete = (e == COMPLETE_FACTORIZATION_FOUND);
     free_mpz_array(f);
     free_uint32_array(m);
+    return elapsed;
+}
+
+//
+// Runs that would take seconds to hours without the limit.
+//
+static ecode_t run_rho(mpz_array_t* f, const mpz_t n,
+                       const tifa_options_t* options, rho_method_t method) {
+    rho_params_t params;
+    set_rho_params_to_default(n, &params);
+    params.max_niters = 1U << 30;
+    params.method     = method;
+    return rho(f, NULL, n, &params, SINGLE_RUN, options);
+}
+
+static ecode_t run_rho_brent(mpz_array_t* f, const mpz_t n,
+                             const tifa_options_t* options) {
+    return run_rho(f, n, options, BRENT_CYCLE_FINDING);
+}
+
+static ecode_t run_rho_floyd(mpz_array_t* f, const mpz_t n,
+                             const tifa_options_t* options) {
+    return run_rho(f, n, options, FLOYD_CYCLE_FINDING);
+}
+
+static ecode_t run_squfof(mpz_array_t* f, const mpz_t n,
+                          const tifa_options_t* options) {
+    squfof_params_t params;
+    set_squfof_params_to_default(&params);
+    return squfof(f, NULL, n, &params, FIND_SOME_FACTORS, options);
+}
+
+static ecode_t run_fermat(mpz_array_t* f, const mpz_t n,
+                          const tifa_options_t* options) {
+    fermat_params_t params;
+    set_fermat_params_to_default(&params);
+    return fermat(f, NULL, n, &params, FIND_SOME_FACTORS, options);
+}
+
+static ecode_t run_p_minus_1(mpz_array_t* f, const mpz_t n,
+                             const tifa_options_t* options) {
+    p_minus_1_params_t params = { LARGEST_PRIME, LARGEST_PRIME, 2 };
+    return p_minus_1(f, NULL, n, &params, SINGLE_RUN, options);
+}
+
+static ecode_t run_p_plus_1(mpz_array_t* f, const mpz_t n,
+                            const tifa_options_t* options) {
+    p_plus_1_params_t params = { LARGEST_PRIME, LARGEST_PRIME, 0 };
+    return p_plus_1(f, NULL, n, &params, SINGLE_RUN, options);
+}
+
+static ecode_t run_ecm_stage2_tables(mpz_array_t* f, const mpz_t n,
+                                     const tifa_options_t* options) {
+    ecm_params_t params = { 1000, 1U << 28, 1, 1 };
+    return ecm(f, NULL, n, &params, SINGLE_RUN, options);
+}
+
+typedef ecode_t (*limited_run_t)(mpz_array_t*, const mpz_t,
+                                 const tifa_options_t*);
+
+static double time_limited(limited_run_t run, const mpz_t n) {
+    const tifa_options_t limit = { .time_limit = 0.05 };
+    mpz_array_t* f = alloc_mpz_array(4);
+    const double start = now();
+    run(f, n, &limit);
+    const double elapsed = now() - start;
+    free_mpz_array(f);
     return elapsed;
 }
 
@@ -284,6 +357,43 @@ int main(void) {
     free_mont_ecm_plan(long_plan);
 #endif
     free_mpz_array(found);
+
+    random_prime(p, 61, rng);
+    random_prime(q, 61, rng);
+    mpz_mul(n, p, q);
+    CHECK(time_limited(run_squfof, n) < 0.2, "SQUFOF stops soon after the limit");
+    CHECK(time_limited(run_fermat, n) < 0.2, "Fermat stops soon after the limit");
+    random_prime(p, 200, rng);
+    random_prime(q, 200, rng);
+    mpz_mul(n, p, q);
+    CHECK(time_limited(run_rho_brent, n) < 0.2,
+          "rho (Brent) stops soon after the limit");
+    CHECK(time_limited(run_rho_floyd, n) < 0.2,
+          "rho (Floyd) stops soon after the limit");
+    random_prime(p, 1000, rng);
+    random_prime(q, 1000, rng);
+    mpz_mul(n, p, q);
+    CHECK(time_limited(run_p_minus_1, n) < 0.2,
+          "p - 1 in GMP arithmetic stops soon after the limit");
+    CHECK(time_limited(run_p_plus_1, n) < 0.2,
+          "p + 1 in GMP arithmetic stops soon after the limit");
+    random_prime(p, 300, rng);
+    random_prime(q, 300, rng);
+    mpz_mul(n, p, q);
+    CHECK(time_limited(run_ecm_stage2_tables, n) < 0.2,
+          "the GMP stage 2 tables stop soon after the limit");
+#if TIFA_HAVE_MONT_ECM
+    // The largest plans take 0.4 s.
+    const tifa_options_t passed_limit = { .time_limit = 1e-9 };
+    tifa_call_begin(&call, &passed_limit);
+    start = now();
+    mont_ecm_plan_t* const stopped_plan
+        = alloc_mont_ecm_plan_or_stop(1U << 24, 1U << 28);
+    elapsed = now() - start;
+    tifa_call_end(&call);
+    CHECK((stopped_plan == NULL) && (elapsed < 0.1),
+          "a plan is not built past the limit");
+#endif
 
     // Another thread asks SIQS to stop, through a flag.
     random_prime(p, 100, rng);

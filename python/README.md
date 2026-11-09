@@ -202,7 +202,8 @@ None
 
 `cofactorize.many(numbers)` returns the answers for a whole list, without
 the cost of a Python call for each. `fb_bound` says that the integers have
-no prime factor below it (the factor base bound); `max_large_primes` limits
+no prime factor below it (the factor base bound; one above the true bound
+gives wrong answers, one below is safe); `max_large_primes` limits
 the number of prime factors from `fb_bound` on; with `max_siqs_bits`, a
 composite of more bits than that is given up (`None`) once ECM has searched
 it as long as SIQS would take: with three large primes and

@@ -72,8 +72,11 @@ void prime_iter_clear(prime_iter_t* it);
    /**
     * \brief Sets \c e to the product of the largest powers of the primes up
     * to \c b that do not exceed \c b.
+    *
+    * \return false, with \c e unspecified, if \c stoppable and the calling
+    *         thread's call should stop (see stopping.h) before the end.
     */
-void prime_powers_product(mpz_t e, uint32_t b);
+bool prime_powers_product(mpz_t e, uint32_t b, bool stoppable);
 
 #ifdef __cplusplus
 }

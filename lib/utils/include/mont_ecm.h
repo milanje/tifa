@@ -75,6 +75,13 @@ typedef struct struct_mont_ecm_plan_t mont_ecm_plan_t;
 mont_ecm_plan_t* alloc_mont_ecm_plan(uint32_t b1, uint32_t b2);
 
    /**
+    * \brief As \c alloc_mont_ecm_plan, but returns NULL if the calling
+    * thread's call should stop (see stopping.h) before the plan is built:
+    * up to 0.4 s for the largest bounds.
+    */
+mont_ecm_plan_t* alloc_mont_ecm_plan_or_stop(uint32_t b1, uint32_t b2);
+
+   /**
     * \brief Frees a plan allocated by \c alloc_mont_ecm_plan.
     */
 void free_mont_ecm_plan(mont_ecm_plan_t* plan);

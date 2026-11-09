@@ -43,6 +43,7 @@
 
 #include "messages.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 //
 // Maximum number of times the smoothness bounds are grown (after the whole
@@ -555,6 +556,11 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
 
     uint32_t ip = 0;
     while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
+        if (((ip & 63) == 63) && tifa_should_stop()) {
+            STOP_TIMER;
+            PRINT_TIMING;
+            return NO_FACTOR_FOUND;
+        }
         unsigned long pr = first_primes[ip];
         unsigned long pe = pr;
         //
@@ -705,9 +711,13 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
             //
             // Giant walk: accumulate H = prod (R_m - SV[j]) over the prime
             // (m, j) slots, advancing R by the three-term Lucas recurrence
-            // W_{(m+1)D} = W_{mD}*W_D - W_{(m-1)D}.
+            // W_{(m+1)D} = W_{mD}*W_D - W_{(m-1)D}. Stopped early, the gcd of
+            // the terms so far still holds.
             //
             for (unsigned long im = 0; im < nrows; im++) {
+                if (((im & 255) == 255) && tifa_should_stop()) {
+                    break;
+                }
                 unsigned char* row = &mask[im * (PP1_DO2 + 1)];
                 for (unsigned int ij = 0; ij < njs; ij++) {
                     if (row[Js[ij]]) {
@@ -745,6 +755,9 @@ static ecode_t perform_p_plus_1(factoring_machine_t* const machine) {
                 }
                 bool done = false;
                 for (unsigned long im = 0; (im < nrows) && !done; im++) {
+                    if (((im & 255) == 255) && tifa_should_stop()) {
+                        break;
+                    }
                     unsigned char* row = &mask[im * (PP1_DO2 + 1)];
                     for (unsigned int ij = 0; ij < njs; ij++) {
                         if (row[Js[ij]]) {

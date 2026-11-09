@@ -47,6 +47,7 @@
 #include "macros.h"
 #include "linked_list.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 #define FERMAT_DEBUG 1
 #if FERMAT_DEBUG
@@ -514,6 +515,9 @@ static ecode_t perform_fermat_simple(factoring_machine_t* const machine) {
 
     while (ip <  NFIRST_PRIMES) {
 
+        if (((ntested_primes & 255) == 255) && tifa_should_stop()) {
+            goto clean_and_return;
+        }
         p = first_primes[ip];
         ip++;
         ntested_primes++;
@@ -794,6 +798,9 @@ static ecode_t perform_fermat_mpz(factoring_machine_t* const machine) {
     //
     for (unsigned long int ip = ntested_primes; ip <= MAX_NPRIMES; ip++) {
 
+        if (((ip & 255) == 255) && tifa_should_stop()) {
+            goto clean_and_return;
+        }
         START_NAMED_TIMER(nextprime);
 
         mpz_nextprime(pz, pz);

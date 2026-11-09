@@ -163,8 +163,8 @@ static const mont_ecm_plan_t* acquire_plan(ecm_schedule_t* const schedule,
         // wait, each time the last search using the plan has freed it.
         //
         pthread_mutex_unlock(&schedule->lock);
-        mont_ecm_plan_t* const built = alloc_mont_ecm_plan(levels[i].b1,
-                                                           50 * levels[i].b1);
+        mont_ecm_plan_t* const built
+            = alloc_mont_ecm_plan_or_stop(levels[i].b1, 50 * levels[i].b1);
         pthread_mutex_lock(&schedule->lock);
         if (schedule->plans[i] == NULL) {
             schedule->plans[i] = built;
@@ -173,13 +173,13 @@ static const mont_ecm_plan_t* acquire_plan(ecm_schedule_t* const schedule,
         }
     }
     if (schedule->plans[i] == NULL) {
-        schedule->plans[i] = alloc_mont_ecm_plan(levels[i].b1,
-                                                 50 * levels[i].b1);
-    }
-    if (levels[i].fbits > KEEP_FBITS) {
-        schedule->users[i]++;
+        schedule->plans[i] = alloc_mont_ecm_plan_or_stop(levels[i].b1,
+                                                         50 * levels[i].b1);
     }
     const mont_ecm_plan_t* const plan = schedule->plans[i];
+    if ((plan != NULL) && (levels[i].fbits > KEEP_FBITS)) {
+        schedule->users[i]++;
+    }
     pthread_mutex_unlock(&schedule->lock);
     return plan;
 }
@@ -281,6 +281,9 @@ static bool run_levels(mpz_t g, const mpz_t n,
     uint32_t i;
     while (next_level(it, schedule, &i)) {
         const mont_ecm_plan_t* const plan = acquire_plan(schedule, i);
+        if (plan == NULL) {
+            return false;
+        }
         for (uint32_t j = 0; j < it->curves; j++) {
             if (mont_ecm_nth_curve(g, n, k++, plan)) {
                 release_plan(schedule, i);
@@ -404,7 +407,9 @@ static void* run_prepass_curves(void* const arg) {
             r++;
         }
         const mont_ecm_plan_t* const plan = prepass_plan(p, r);
-        if (mont_ecm_nth_curve(g, p->n, k, plan)) {
+        if (plan == NULL) {
+            __atomic_store_n(&p->done, true, __ATOMIC_RELAXED);
+        } else if (mont_ecm_nth_curve(g, p->n, k, plan)) {
             pthread_mutex_lock(&p->lock);
             if (!p->found) {
                 p->found = true;

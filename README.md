@@ -301,6 +301,7 @@ completely. The bounds go into a strategy built once, which threads may share:
 cofactor_params_t params = {
     .lpb              = 31,         // accept prime factors below 2^31
     .fb_bound         = 1UL << 22,  // the cofactors have no smaller factor
+                                    // (trusted: a lower bound is safe)
     .max_large_primes = 3,
     .max_siqs_bits    = 62,         // above 2 lpb bits, ECM only: give up
                                     // rather than run SIQS (0: always exact)

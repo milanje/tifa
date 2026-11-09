@@ -27,6 +27,7 @@
 #include "primes.h"
 #include "first_primes.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 //
 // Odd numbers per segment of the sieve beyond the table.
@@ -122,18 +123,27 @@ void prime_iter_clear(prime_iter_t* const it) {
 //
 // e <- scalars[lo] * ... * scalars[hi - 1], as a balanced product tree.
 //
-static void product_of_scalars(mpz_t e, const uint64_t* const scalars,
-                               const uint32_t lo, const uint32_t hi) {
+static bool product_of_scalars(mpz_t e, const uint64_t* const scalars,
+                               const uint32_t lo, const uint32_t hi,
+                               const bool stoppable) {
     if (hi - lo == 1) {
         mpz_import(e, 1, -1, sizeof(uint64_t), 0, 0, &scalars[lo]);
-        return;
+        return true;
+    }
+    if (stoppable && (hi - lo >= 256) && tifa_should_stop()) {
+        return false;
     }
     mpz_t right;
     mpz_init(right);
-    product_of_scalars(e, scalars, lo, lo + (hi - lo) / 2);
-    product_of_scalars(right, scalars, lo + (hi - lo) / 2, hi);
-    mpz_mul(e, e, right);
+    const bool done
+        =    product_of_scalars(e, scalars, lo, lo + (hi - lo) / 2, stoppable)
+          && product_of_scalars(right, scalars, lo + (hi - lo) / 2, hi,
+                                stoppable);
+    if (done) {
+        mpz_mul(e, e, right);
+    }
     mpz_clear(right);
+    return done;
 }
 
 typedef struct {
@@ -150,12 +160,19 @@ static void push_u64(u64_vec_t* const v, const uint64_t x) {
     v->data[v->length++] = x;
 }
 
-void prime_powers_product(mpz_t e, const uint32_t b) {
+bool prime_powers_product(mpz_t e, const uint32_t b, const bool stoppable) {
     u64_vec_t scalars = { NULL, 0, 0 };
     uint64_t  k = 1;
+    uint32_t  nprimes = 0;
     prime_iter_t it;
     prime_iter_init(&it, 2, b);
     for (uint64_t p; (p = prime_iter_next(&it)) != 0; ) {
+        if (   stoppable && ((++nprimes & 0xffff) == 0)
+            && tifa_should_stop()) {
+            prime_iter_clear(&it);
+            free(scalars.data);
+            return false;
+        }
         uint64_t q = p;
         while (q <= b / p) {
             q *= p;
@@ -168,6 +185,8 @@ void prime_powers_product(mpz_t e, const uint32_t b) {
     }
     prime_iter_clear(&it);
     push_u64(&scalars, k);
-    product_of_scalars(e, scalars.data, 0, scalars.length);
+    const bool done = product_of_scalars(e, scalars.data, 0, scalars.length,
+                                         stoppable);
     free(scalars.data);
+    return done;
 }

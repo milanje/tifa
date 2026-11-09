@@ -42,6 +42,7 @@
 
 #include "messages.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 //
 // Maximum number of times the context is updated (i.e. B1 is grown and the
@@ -422,6 +423,11 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
 
     uint32_t ip = 0;
     while ((ip < NFIRST_PRIMES) && (first_primes[ip] <= params->b1)) {
+        if (((ip & 63) == 63) && tifa_should_stop()) {
+            STOP_TIMER;
+            PRINT_TIMING;
+            return NO_FACTOR_FOUND;
+        }
         unsigned long pr = first_primes[ip];
         unsigned long pe = pr;
         //
@@ -584,7 +590,7 @@ static ecode_t perform_p_minus_1(factoring_machine_t* const machine) {
                     }
                     break;
                 }
-                if (!more) {
+                if (!more || tifa_should_stop()) {
                     break;
                 }
                 //

@@ -35,6 +35,7 @@
 #include "tifa_factor.h"
 #include "tuning.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 #define RHO_DEBUG 0
 #if RHO_DEBUG
@@ -64,6 +65,11 @@
 #define DEFAULT_ACC_NITERS 100
 #define DEFAULT_MAX_NITERS 100000
 #define DEFAULT_RHO_METHOD 1
+//
+// Number of iterations between two checks of the time limit and the
+// interrupt.
+//
+#define NITERS_STOP_CHECK 4096
 
 //
 // An ad-hoc structure holding the data variables used by the Pollard's rho
@@ -343,14 +349,32 @@ static ecode_t perform_rho_brent(factoring_machine_t* const machine) {
     mpz_set_ui(g, 1);
     mpz_init_set_ui(q, 1);
 
-    while ((mpz_cmp_ui(g, 1) == 0) && (i < imax)) {
+    uint32_t next_check = NITERS_STOP_CHECK;
+    bool stopped = false;
+
+    while ((mpz_cmp_ui(g, 1) == 0) && (i < imax) && !stopped) {
         mpz_set(x, y);
         for (uint32_t j = 0; j < r; j++) {
             iteration_function(context, y, y);
+            if (((j & (NITERS_STOP_CHECK - 1)) == NITERS_STOP_CHECK - 1)
+                && tifa_should_stop()) {
+                stopped = true;
+                break;
+            }
+        }
+        if (stopped) {
+            break;
         }
         i += r;
         k = 0;
         do {
+            if (i >= next_check) {
+                if (tifa_should_stop()) {
+                    stopped = true;
+                    break;
+                }
+                next_check = i + NITERS_STOP_CHECK;
+            }
             mpz_set(ys, y);
             uint32_t mmin = MIN(m, r - k);
             for (uint32_t j = 0; j < mmin; j++) {
@@ -373,6 +397,9 @@ static ecode_t perform_rho_brent(factoring_machine_t* const machine) {
 
     if (mpz_cmp(g, n) == 0) {
         while (i < imax) {
+            if (((i & (NITERS_STOP_CHECK - 1)) == 0) && tifa_should_stop()) {
+                break;
+            }
             iteration_function(context, ys, ys);
             i++;
             mpz_sub(diff, x, ys);
@@ -425,8 +452,16 @@ static ecode_t perform_rho_floyd(factoring_machine_t* const machine) {
 
     ecode_t ecode = NO_FACTOR_FOUND;
 
+    uint64_t next_check = NITERS_STOP_CHECK;
+
     if (jmax > 1) {
         while (i <= imax) {
+            if (i >= next_check) {
+                if (tifa_should_stop()) {
+                    goto RETURN;
+                }
+                next_check = i + NITERS_STOP_CHECK;
+            }
             mpz_set_ui(prod, 1);
             for (uint32_t j = 0; j < jmax; j++) {
                 iteration_function(context, xi, xi);
@@ -468,6 +503,12 @@ static ecode_t perform_rho_floyd(factoring_machine_t* const machine) {
     }
 
     while (i <= imax + 3 * jmax) {
+        if (i >= next_check) {
+            if (tifa_should_stop()) {
+                break;
+            }
+            next_check = i + NITERS_STOP_CHECK;
+        }
         //
         // Perform a gcd computation at each iteration.
         //

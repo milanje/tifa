@@ -63,6 +63,7 @@
 #include "impl.h"
 #include "tifa_factor.h"
 #include "tifa_alloc.h"
+#include "stopping.h"
 
 #define SQUFOF_DEBUG 0
 #if SQUFOF_DEBUG
@@ -110,6 +111,11 @@
 // Number of forward steps between two checks of the abort bounds (even).
 //
 #define NSTEPS_ROUND 32
+//
+// Number of forward steps between two checks of the time limit and the
+// interrupt.
+//
+#define NSTEPS_STOP_CHECK (1UL << 14)
 //
 // The loops over the racers must be unrolled for the racers' forms to stay
 // in registers, and the rare queue and square checks kept out of them.
@@ -769,7 +775,7 @@ static int race(squfof_context_t* const context) {
     //
     // Gower and Wagstaff's step 2 for all the racers at once, until one of
     // them finds a proper square form. Returns its index, or -1 once they
-    // have all stopped.
+    // have all stopped or the call should stop.
     //
     squfof_racer_t* const racers = context->racers;
 
@@ -799,7 +805,15 @@ static int race(squfof_context_t* const context) {
         }
         nsteps++;
     }
+    unsigned long int next_check = nsteps + NSTEPS_STOP_CHECK;
+
     while (winner < 0) {
+        if (nsteps >= next_check) {
+            if (tifa_should_stop()) {
+                break;
+            }
+            next_check = nsteps + NSTEPS_STOP_CHECK;
+        }
         bool running = false;
         for (uint32_t j = 0; j < NRACERS; j++) {
             squfof_racer_t* const racer = &racers[j];

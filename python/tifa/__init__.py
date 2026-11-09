@@ -426,9 +426,10 @@ class Cofactorizer:
     leaves).
 
     ``fb_bound`` says that the integers have no prime factor below it (the
-    factor base bound of the sieve); below 1000 (0 if nothing is known), the
-    primes below 1000 are divided out first. A wrong bound gives wrong
-    answers.
+    factor base bound of the sieve): their parts below its square are taken
+    as prime without a test. Below 1000 (0 if nothing is known), the primes
+    below 1000 are divided out first. A bound below the true one is safe; one
+    above it gives wrong answers, such as a composite taken for a prime.
 
     With ``max_siqs_bits``, a composite of more bits than that is never
     factored by SIQS: once ECM has searched it as long as SIQS would take,

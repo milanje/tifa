@@ -98,7 +98,7 @@ int main(void) {
             }
             mpz_mul_ui(ref, ref, qe);
         }
-        prime_powers_product(e, b);
+        prime_powers_product(e, b, false);
         snprintf(msg, sizeof(msg), "prime powers up to %u", b);
         CHECK(mpz_cmp(e, ref) == 0, msg);
     }
