@@ -244,7 +244,7 @@ static void* split_level_90(void* arg) {
     tifa_call_begin(&call, &limit);
     mpz_t g;
     mpz_init(g);
-    ecm_schedule_split(g, s->n, s->schedule, 85, 90, INFINITY);
+    ecm_schedule_split(g, s->n, s->schedule, 85, 90, INFINITY, false);
     mpz_clear(g);
     tifa_call_end(&call);
     return NULL;

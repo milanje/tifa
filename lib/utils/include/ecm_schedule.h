@@ -73,7 +73,8 @@ void free_ecm_schedule(ecm_schedule_t* schedule);
     * skipping the levels below \c min_bits (\c n has no prime factor below
     * 2^min_bits) and stopping after the one that holds \c target_bits, or
     * before the curves' estimated time exceeds \c budget times that of SIQS
-    * on \c n.
+    * on \c n. With \c whole_budget, the level that would exceed the budget
+    * runs as many of its curves as fit instead of none.
     *
     * \param[out] g A proper factor of \c n, if one is found.
     * \param[in]  n The odd composite to search (see \c mont_ecm_handles).
@@ -81,7 +82,7 @@ void free_ecm_schedule(ecm_schedule_t* schedule);
     */
 bool ecm_schedule_split(mpz_t g, const mpz_t n,
                         ecm_schedule_t* schedule, double min_bits,
-                        double target_bits, double budget);
+                        double target_bits, double budget, bool whole_budget);
 
    /**
     * \brief Searches \c n for a factor of at most half its size, and of at

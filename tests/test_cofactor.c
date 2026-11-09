@@ -195,6 +195,17 @@ int main(void) {
     CHECK(run(n, s3, 31, &ok) == COFACTOR_NOT_SMOOTH, "3LP p40 q40 exact");
     CHECK(run(n, s3g, 31, &ok) != COFACTOR_SMOOTH, "3LP p40 q40 give-up");
 
+    // A cofactor of CADO-NFS's siever at c180, three primes of 27 and 28
+    // bits: without SIQS, its first ECM level outlasted the budget, and it
+    // was given up without a curve.
+    cofactor_params_t sieve = { .lpb = 32, .fb_bound = 91296860,
+                                .max_large_primes = 3, .max_siqs_bits = 64 };
+    cofactor_strategy_t* ss = alloc_cofactor_strategy(&sieve);
+    mpz_set_str(n, "4152717800938998359702993", 10);
+    CHECK(run(n, ss, 32, &ok) == COFACTOR_SMOOTH && ok,
+          "c180 sieve cofactor, give-up mode");
+    free_cofactor_strategy(ss);
+
     // ---- No factor base bound: small primes are divided out first.
     cofactor_params_t none = { .lpb = 32 };
     cofactor_strategy_t* s0 = alloc_cofactor_strategy(&none);

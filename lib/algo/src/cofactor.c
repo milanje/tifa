@@ -320,13 +320,15 @@ static cofactor_status_t split(cofactor_run_t* const run, const mpz_t c,
         //
         // If c splits as allowed, its smallest prime factor has at most
         // target bits. ECM may take as long as SIQS would: past that, SIQS
-        // is cheaper, or c is given up.
+        // is cheaper, or c is given up. Without SIQS, all of that time, the
+        // last level cut to fit: a smooth c given up is a relation lost.
         //
         const double target = fmin((double) s->lpb,
                                    (double) bits
                                    / min_nprimes(run, c, true));
         cofactor_status_t status = COFACTOR_GAVE_UP;
-        if (ecm_schedule_split(g, c, s->schedule, s->bound_bits, target, 1)) {
+        if (ecm_schedule_split(g, c, s->schedule, s->bound_bits, target, 1,
+                               no_siqs)) {
             status = add_split(run, c, g, e);
         } else if (!no_siqs) {
             status = split_by_siqs(run, c, e);
